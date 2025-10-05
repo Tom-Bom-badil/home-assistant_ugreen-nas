@@ -22,7 +22,7 @@
 
 
 from dataclasses import dataclass
-from typing import List, Iterable, Optional
+from typing import List, Iterable
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.const import (
     PERCENTAGE, REVOLUTIONS_PER_MINUTE, UnitOfDataRate, UnitOfTemperature,

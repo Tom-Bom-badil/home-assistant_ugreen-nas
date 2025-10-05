@@ -1,15 +1,13 @@
-import logging, asyncio, base64, time, contextlib, aiohttp, async_timeout, ssl
+import logging, asyncio, base64, time, contextlib, aiohttp, async_timeout
 
 from typing import List, Any
 from uuid import uuid4
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
+from aiohttp import WSMsgType, ClientError, ClientResponseError
 
 from homeassistant.helpers.entity import EntityDescription
-from homeassistant.const import (
-    PERCENTAGE, REVOLUTIONS_PER_MINUTE, UnitOfDataRate, UnitOfTemperature,
-    UnitOfInformation, UnitOfTime, UnitOfFrequency
-)
+from homeassistant.const import UnitOfInformation
 
 from .utils import make_entities, apply_templates
 from .entities import (
@@ -39,7 +37,6 @@ _LOGGER = logging.getLogger(__name__)
 class UgreenApiClient:
 
     ### Initialization
-    
     def __init__(
         self,
         ugreen_nas_host: str,
@@ -74,8 +71,14 @@ class UgreenApiClient:
         # Disable SSL certificate checking
         self._ssl = (False if self.scheme == "https" else None)
 
+        # web socket items to prevent API going asleep ('keep_alive')
+        self._ws_task: asyncio.Task | None = None
+        self._ws_stop = asyncio.Event()
+        self._ws: aiohttp.ClientWebSocketResponse | None = None
+        self._ws_connected: bool = False
 
-    ### "The API" - public entrypoints (e.g. used by __init__.py)
+
+    ### "The API" - public entrypoints (e.g. used by __init__.py) ##############
 
     async def authenticate(self, session) -> bool:
         """Call once during setup; afterwards rely on on-demand login in _request()"""
@@ -114,11 +117,6 @@ class UgreenApiClient:
     def get_dynamic_entity_counts(self) -> dict:
         """Return above counted number of dynamic entities on request."""
         return self._dynamic_entity_counts or {}
-
-
-    def ws_keepalive(self, session: aiohttp.ClientSession, *, lang: str = "de-DE"):
-        """Return coroutine that keeps the desktop websocket alive (public wrapper)."""
-        return self._ws_keepalive(session, lang=lang)
 
 
     ### Internally used functions ##############################################
@@ -280,54 +278,123 @@ class UgreenApiClient:
             return self._dynamic_entity_counts
 
 
-    def _ws_keepalive(self, session: aiohttp.ClientSession, *, lang: str = "de-DE"):
-        """Return an update coroutine that keeps the desktop websocket alive."""
-        ws: aiohttp.ClientWebSocketResponse | None = None
-        subscribed = False
+    async def start_ws_keepalive_task(self, session: aiohttp.ClientSession, *, lang: str = "de-DE", heartbeat: int = 15) -> None:
+        """Add a permanent web socket - without, some entities stop updating after several minutes (UGOS bug???)"""
 
-        def _url() -> str:
-            ws_scheme = "wss" if self.scheme == "https" else "ws"
-            return (
-                f"{ws_scheme}://{self.host}:{self.port}/ugreen/v1/desktop/ws"
-                f"?client_id={uuid4()}-WEB&lang={lang}&token={self.token}"
-            )
+        if self._ws_task and not self._ws_task.done():
+            return
+        self._ws_stop.clear()
+        self._ws_task = asyncio.create_task(self._ws_keepalive_loop(session, lang=lang, heartbeat=heartbeat), name="ugreen-ws-keepalive")
 
-        async def _update() -> dict:
-            nonlocal ws, subscribed
-            if not self.token:
-                if ws and not ws.closed:
-                    with contextlib.suppress(Exception):
-                        await ws.close()
-                ws, subscribed = None, False
-                return {"connected": False, "reason": "no_token"}
+    async def stop_ws_keepalive_task(self) -> None:
+        """Stop the background keep-alive task and close the websocket."""
+        self._ws_stop.set()
+        task = self._ws_task
+        self._ws_task = None
+        if task:
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+        if self._ws and not self._ws.closed:
+            with contextlib.suppress(Exception):
+                await self._ws.close()
+        self._ws = None
+        self._ws_connected = False
 
+    async def _ws_keepalive_loop(self, session: aiohttp.ClientSession, *, lang: str, heartbeat: int) -> None:
+        """Container-like endless WS loop: subscribe, ping periodically, continuously receive, backoff reconnect, re-auth on 401/403."""
+        def _url(token: str) -> str:
+            scheme = "wss" if self.scheme == "https" else "ws"
+            return (f"{scheme}://{self.host}:{self.port}/ugreen/v1/desktop/ws"
+                    f"?client_id={uuid4()}-WEB&lang={lang}&token={token}")
+
+        def _headers() -> dict:
+            return {
+                "Origin": f"{self.scheme}://{self.host}:{self.port}",
+                "Pragma": "no-cache",
+                "Cache-Control": "no-cache",
+            }
+
+        backoff = [1, 2, 5, 10, 15, 30, 60]
+        while not self._ws_stop.is_set():
             try:
-                if ws is None or ws.closed:
-                    headers = {
-                        "Origin": f"{self.scheme}://{self.host}:{self.port}",
-                        "Pragma": "no-cache",
-                        "Cache-Control": "no-cache",
-                    }
-                    ws = await session.ws_connect(_url(), headers=headers, heartbeat=None, ssl=self._ssl)
-                    subscribed = False
+                # Ensure we have a token (login on demand)
+                if not self.token:
+                    await self._login(session)
+                    if not self.token:
+                        await asyncio.sleep(15)
+                        continue
 
-                if not subscribed:
-                    await ws.send_json({"op": "subscribe", "topics": ["cpu_temp"], "ts": int(time.time() * 1000)})
-                    subscribed = True
+                # Connect (with one-shot re-auth on 401/403)
+                try:
+                    self._ws = await session.ws_connect(_url(self.token), headers=_headers(), heartbeat=None, ssl=self._ssl)
+                except ClientResponseError as cre:
+                    if cre.status in (401, 403):
+                        _LOGGER.debug("WS connect %s — re-auth once", cre.status)
+                        with contextlib.suppress(Exception):
+                            await self._login(session)
+                        self._ws = await session.ws_connect(_url(self.token), headers=_headers(), heartbeat=None, ssl=self._ssl)
+                    else:
+                        raise
 
+                ws = self._ws
+                self._ws_connected = True
+                _LOGGER.debug("WS connected (background task).")
+
+                # Subscribe once to create minimal server-side activity
                 with contextlib.suppress(Exception):
-                    await ws.ping()
+                    await ws.send_json({"op": "subscribe", "topics": ["cpu_usage", "cpu_temp"], "ts": int(time.time() * 1000)})
+                    _LOGGER.debug("WS subscribed to cpu_usage + cpu_temp.")
 
-                return {"connected": True}
+                # Reset backoff after successful connect
+                backoff = [1, 2, 5, 10, 15, 30, 60]
+                last_ping = 0.0
 
+                # Continuous loop: ping cadence + continuous receive (like container)
+                while not self._ws_stop.is_set():
+                    now = time.time()
+                    if now - last_ping >= heartbeat:
+                        with contextlib.suppress(Exception):
+                            await ws.ping()
+                            _LOGGER.debug("WS ping()")
+                        last_ping = now
+
+                    # Continuous receive to keep buffers empty & detect closure
+                    try:
+                        # msg = await ws.receive(timeout=heartbeat + 5)
+                        msg = await asyncio.wait_for(ws.receive(), timeout=heartbeat + 5)
+                    except asyncio.TimeoutError:
+                        # no message in interval → continue (we still ping)
+                        continue
+
+                    if msg.type in (WSMsgType.CLOSE, WSMsgType.CLOSED, WSMsgType.CLOSING, WSMsgType.ERROR):
+                        _LOGGER.warning("WS closed or error frame — reconnecting.")
+                        raise RuntimeError(f"ws closed: {msg.type}")
+
+                # graceful stop requested
+                break
+
+            except asyncio.CancelledError:
+                break
             except Exception as e:
-                if ws:
+                self._ws_connected = False
+                # Close current WS if any
+                if self._ws and not self._ws.closed:
                     with contextlib.suppress(Exception):
-                        await ws.close()
-                ws, subscribed = None, False
-                return {"connected": False, "reason": str(e)}
+                        await self._ws.close()
+                self._ws = None
+                # Exponential backoff (container style)
+                delay = backoff[0]
+                backoff = backoff[1:] or [60]
+                _LOGGER.error("WS loop error: %s — reconnect in %ds", e, delay)
+                await asyncio.sleep(delay)
 
-        return _update
+        # Cleanup
+        self._ws_connected = False
+        if self._ws and not self._ws.closed:
+            with contextlib.suppress(Exception):
+                await self._ws.close()
+        self._ws = None
+        _LOGGER.debug("WS keep-alive task stopped.")
 
 
     def _config_definitions(self) -> list[dict]:

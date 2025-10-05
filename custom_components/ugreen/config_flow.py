@@ -29,7 +29,7 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            _LOGGER.info("[UGREEN NAS] Received user input: %s", user_input)
+            _LOGGER.debug("[UGREEN NAS] Received user input: %s", user_input)
 
             try:
                 api = UgreenApiClient(
@@ -83,7 +83,7 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
-            _LOGGER.info("[UGREEN NAS] Options updated: %s", user_input)
+            _LOGGER.debug("[UGREEN NAS] Options updated: %s", user_input)
             return self.async_create_entry(title="", data=user_input)
 
         current = self._entry.options
