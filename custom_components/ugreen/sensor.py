@@ -1,4 +1,5 @@
 import logging
+
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
@@ -30,23 +31,29 @@ async def async_setup_entry(
 
     # Configuration sensors (60s)
     config_sensors = [
-        UgreenNasSensor(entry.entry_id, config_coordinator, entity, nas_model)
+        UgreenNasSensor(hass, entry.entry_id, config_coordinator, entity, nas_model)
         for entity in config_entities
     ]
 
     # State sensors (5s)
     state_sensors = [
-        UgreenNasSensor(entry.entry_id, state_coordinator, entity, nas_model)
+        UgreenNasSensor(hass, entry.entry_id, state_coordinator, entity, nas_model)
         for entity in state_entities
     ]
 
     async_add_entities(config_sensors + state_sensors)
 
-class UgreenNasSensor(CoordinatorEntity, SensorEntity):
-    """Representation of a UGREEN NAS sensor."""
 
-    def __init__(self, entry_id: str, coordinator: DataUpdateCoordinator, endpoint: UgreenEntity, nas_model: 'str | None' = None) -> None:
+class UgreenNasSensor(CoordinatorEntity, SensorEntity):
+    """Representation of the UgreenNasSensor class."""
+
+    def __init__(self, hass: HomeAssistant, entry_id: str,
+                coordinator: DataUpdateCoordinator,
+                endpoint: UgreenEntity,
+                nas_model: str | None = None) -> None:
         super().__init__(coordinator)
+
+        self.hass = hass
         self._entry_id = entry_id
         self._endpoint = endpoint
         self._key = endpoint.description.key
@@ -55,13 +62,19 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = f"{entry_id}_{endpoint.description.key}"
         self._attr_icon = endpoint.description.icon
 
-        base_device_info = build_device_info(self._key, nas_model)
+        base_device_info = build_device_info(hass, self._entry_id, self._key, nas_model)
 
         if "disk" in self._key and "brand" in self._key:
-            base_device_info["manufacturer"] = str(self.coordinator.data.get(self._key))
+            try:
+                base_device_info.manufacturer = str(self.coordinator.data.get(self._key))
+            except Exception:
+                pass
 
         if "disk" in self._key and "model" in self._key:
-            base_device_info["model"] = str(self.coordinator.data.get(self._key))
+            try:
+                base_device_info.model = str(self.coordinator.data.get(self._key))
+            except Exception:
+                pass
 
         self._attr_device_info = base_device_info
 
