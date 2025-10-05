@@ -26,7 +26,7 @@ async def async_setup_entry(
     nas_model = hass.data[DOMAIN][entry.entry_id].get("nas_model")
 
     button_entities = [
-        UgreenNasButton(entry.entry_id, coordinator, entity, api, nas_model)
+        UgreenNasButton(hass, entry.entry_id, coordinator, entity, api, nas_model)
         for entity in entities
     ]
 
@@ -34,14 +34,14 @@ async def async_setup_entry(
 
 
 class UgreenNasButton(CoordinatorEntity, ButtonEntity):
-    """Representation of a UGREEN NAS button."""
 
-    def __init__(self, entry_id: str, coordinator: DataUpdateCoordinator,
-        endpoint: UgreenEntity,
-        api: UgreenApiClient,
-        nas_model: 'str | None' = None
-    )-> None:
+    def __init__(self, hass: HomeAssistant, entry_id: str,
+                coordinator: DataUpdateCoordinator,
+                endpoint: UgreenEntity,
+                api: UgreenApiClient,
+                nas_model: str | None = None) -> None:
         super().__init__(coordinator)
+        self.hass = hass
         self._entry_id = entry_id
         self._endpoint = endpoint
         self._key = endpoint.description.key
@@ -52,7 +52,9 @@ class UgreenNasButton(CoordinatorEntity, ButtonEntity):
         self._attr_icon = endpoint.description.icon
         self._attr_native_unit_of_measurement = endpoint.description.unit_of_measurement
 
-        self._attr_device_info = build_device_info(self._key, nas_model)
+        self._attr_device_info = build_device_info(
+            hass, self._entry_id, self._key, nas_model
+        )
 
     async def async_press(self) -> None:
         """Perform the button action."""
