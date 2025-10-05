@@ -10,7 +10,19 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.device_registry import async_get as async_get_device_registry
 
-from .const import DOMAIN, PLATFORMS
+from .const import (
+    DOMAIN,
+    PLATFORMS,
+    CONF_UGREEN_HOST,
+    CONF_UGREEN_PORT,
+    CONF_USERNAME,
+    CONF_PASSWORD,
+    CONF_USE_HTTPS,
+    CONF_STATE_INTERVAL,
+    DEFAULT_SCAN_INTERVAL_STATE,
+    MANUFACTURER,
+)
+
 from .utils import get_entity_data_from_api
 
 from .api import UgreenApiClient
@@ -20,9 +32,7 @@ from .entities import (
     ALL_NAS_COMMON_BUTTON_ENTITIES
 )
 
-
 _LOGGER = logging.getLogger(__name__)
-
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Setup and start the integration."""
@@ -32,14 +42,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.debug("[UGREEN NAS] Setting up config entry: %s", entry.entry_id)
     hass.data.setdefault(DOMAIN, {})
     session = async_get_clientsession(hass)
-    def _cfg(entry: ConfigEntry, key: str, default: Any | None = None):
-        return entry.options.get(key, entry.data.get(key, default))
+
+    # Read configuration from entry (options override data)
     api = UgreenApiClient(
-        ugreen_nas_host=_cfg(entry, "ugreen_host"),
-        ugreen_nas_port=int(_cfg(entry, "ugreen_port")),
-        username=_cfg(entry, "username"),
-        password=_cfg(entry, "password"),
-        use_https=bool(_cfg(entry, "use_https", False)),
+        ugreen_nas_host=entry.options.get(CONF_UGREEN_HOST, entry.data.get(CONF_UGREEN_HOST)),
+        ugreen_nas_port=int(entry.options.get(CONF_UGREEN_PORT, entry.data.get(CONF_UGREEN_PORT))),
+        username=entry.options.get(CONF_USERNAME, entry.data.get(CONF_USERNAME)),
+        password=entry.options.get(CONF_PASSWORD, entry.data.get(CONF_PASSWORD)),
+        use_https=bool(entry.options.get(CONF_USE_HTTPS, entry.data.get(CONF_USE_HTTPS, False))),
     )
     # keepalive_websocket = api.ws_keepalive(session, lang="de-DE")
 
@@ -99,12 +109,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as err:
             raise UpdateFailed(f"[UGREEN NAS] State entities update error: {err}") from err
     #   Create the coordinator
-    state_coordinator = DataUpdateCoordinator( # data polling every 5s
+    state_coordinator = DataUpdateCoordinator(
         hass,
         _LOGGER,
         name="ugreen_state",
         update_method=update_state_data,
-        update_interval=timedelta(seconds=entry.options.get("state_interval", 5)),
+        update_interval=timedelta(
+            seconds=entry.options.get(CONF_STATE_INTERVAL, entry.data.get(CONF_STATE_INTERVAL, DEFAULT_SCAN_INTERVAL_STATE))
+        ),
     )
 
 
@@ -147,14 +159,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     volume_meta: dict[tuple[int, int], tuple[str, str | None]] = {}
 
     for p_idx, pool in enumerate(pools, start=1):
-        # Pools: manufacturer fixed, model = RAID level
+        # Pools: use UGREEN as manufacturer, RAID level as model
         raid = (pool or {}).get("level") or None
-        pool_meta[p_idx] = ("Linux mdadm", raid)
+        pool_meta[p_idx] = (MANUFACTURER, raid)
 
-        # Volumes: manufacturer fixed, model = filesystem
+        # Volumes: use UGREEN as manufacturer, filesystem as model
         for v_idx, vol in enumerate((pool or {}).get("volumes") or [], start=1):
             fs = (vol or {}).get("filesystem") or None
-            volume_meta[(p_idx, v_idx)] = ("Linux mdadm", fs)
+            volume_meta[(p_idx, v_idx)] = (MANUFACTURER, fs)
 
         # Disks: brand + model from global disk list via dev_name
         for d_idx, pd in enumerate((pool or {}).get("disks") or [], start=1):

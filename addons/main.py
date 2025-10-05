@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import JSONResponse
 from token_refresher import TokenRefresher
@@ -13,13 +14,12 @@ app.state.ugreen_username = None  # Central in-memory states
 app.state.ugreen_password = None  # (read by other components)
 app.state.ugreen_token = None
 
-
 # Passive endpoint for HA: remotely update username / password / token.
 @app.get("/credentials")
 async def set_credentials(
-    username: str = Query(None),
-    password: str = Query(None),
-    token: str = Query(None),
+    username: Optional[str] = Query(None, description="UGREEN NAS username"),
+    password: Optional[str] = Query(None, description="UGREEN NAS password"),
+    token: Optional[str] = Query(None, description="API token"),
 ):
     if username is not None:
         app.state.ugreen_username = username
@@ -44,8 +44,8 @@ async def set_credentials(
 # Active endpoint for HA: fetch a fresh token, store it & return it.
 @app.get("/token")
 async def get_token(
-    username: str = Query(None),
-    password: str = Query(None),
+    username: Optional[str] = Query(None, description="UGREEN NAS username"),
+    password: Optional[str] = Query(None, description="UGREEN NAS password"),
 ):
 
     # INFO shows username only; DEBUG also includes password

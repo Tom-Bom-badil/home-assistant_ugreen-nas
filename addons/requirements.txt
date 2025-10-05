@@ -1,5 +1,12 @@
-fastapi
-uvicorn
-playwright
-aiohttp
-PyYAML
+# Web framework
+fastapi>=0.118.0,<1.0.0
+uvicorn[standard]>=0.37.0,<1.0.0
+
+# Browser automation
+playwright>=1.55.0,<2.0.0
+
+# HTTP client
+aiohttp>=3.12.15,<4.0.0
+
+# Configuration
+PyYAML>=6.0.3,<7.0.0

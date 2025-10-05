@@ -1,0 +1,13 @@
+---
+build_from:
+  amd64: ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.20
+  aarch64: ghcr.io/home-assistant/aarch64-base-python:3.12-alpine3.20
+
+labels:
+  org.opencontainers.image.title: "UGREEN API Token Proxy"
+  org.opencontainers.image.description: "Provides authentication token management for the UGREEN NAS Home Assistant integration"
+  org.opencontainers.image.source: "https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas"
+  org.opencontainers.image.licenses: "MIT"
+
+args:
+  ADDON_VERSION: "1.0.0"

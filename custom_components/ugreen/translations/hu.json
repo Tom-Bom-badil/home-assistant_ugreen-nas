@@ -5,30 +5,54 @@
         "title": "UGREEN NAS beállítása",
         "description": "Adja meg az UGREEN NAS kapcsolati adatait.",
         "data": {
-          "ugreen_host": "Gép",
+          "ugreen_host": "IP-cím vagy hoszt név",
           "ugreen_port": "Port",
           "username": "Felhasználónév",
           "password": "Jelszó",
-          "use_https": "HTTPS alkalmazása"
+          "use_https": "HTTPS használata"
+        },
+        "data_description": {
+          "ugreen_host": "Az UGREEN NAS IP-címe vagy hoszt neve (pl. 192.168.1.100)",
+          "ugreen_port": "A kapcsolat portja (alapértelmezett: 9999 HTTP-hez, 9443 HTTPS-hez)",
+          "username": "Az UGREEN NAS felhasználóneve",
+          "password": "Az UGREEN NAS jelszava",
+          "use_https": "HTTPS engedélyezése biztonságos kapcsolathoz"
         }
+      },
+      "zeroconf": {
+        "title": "UGREEN NAS észlelve",
+        "description": "Egy UGREEN NAS automatikusan észlelve lett a hálózaton. Adja meg a hitelesítő adatait a hozzáadásához."
       }
     },
     "error": {
-      "cannot_connect": "Nem lehet csatlakozni. Ellenőrizze a gazdagépet és a portokat.",
-      "invalid_auth": "Érvénytelen hitelesítés.",
+      "cannot_connect": "A kapcsolat sikertelen. Ellenőrizze az IP-címet, portot és hálózati kapcsolatot.",
+      "invalid_auth": "Érvénytelen hitelesítő adatok. Ellenőrizze a felhasználónevet és a jelszót.",
       "unknown": "Ismeretlen hiba történt."
+    },
+    "abort": {
+      "already_configured": "Ez az UGREEN NAS már be van állítva."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "UGREEN NAS beállítások",
+        "description": "Az UGREEN NAS beállításainak módosítása. Az integráció a mentés után újratöltődik.",
         "data": {
-          "ugreen_host": "Gép",
+          "device_name": "Eszköz neve",
+          "ugreen_host": "IP-cím vagy hoszt név",
           "ugreen_port": "Port",
           "username": "Felhasználónév",
           "password": "Jelszó",
-          "use_https": "HTTPS alkalmazása"
+          "use_https": "HTTPS használata"
+        },
+        "data_description": {
+          "device_name": "Az eszköz nevének módosítása, ahogy a Home Assistant-ban megjelenik",
+          "ugreen_host": "Az UGREEN NAS IP-címe vagy hoszt neve",
+          "ugreen_port": "A kapcsolat portja (alapértelmezett: 9999 HTTP-hez, 9443 HTTPS-hez)",
+          "username": "Az UGREEN NAS felhasználóneve",
+          "password": "Az UGREEN NAS jelszava",
+          "use_https": "HTTPS engedélyezése biztonságos kapcsolathoz"
         }
       }
     }

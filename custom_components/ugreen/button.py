@@ -23,10 +23,8 @@ async def async_setup_entry(
     entities: list[UgreenEntity] = hass.data[DOMAIN][entry.entry_id]["button_entities"]
     api = hass.data[DOMAIN][entry.entry_id]["api"]
 
-    nas_model = hass.data[DOMAIN][entry.entry_id].get("nas_model")
-
     button_entities = [
-        UgreenNasButton(hass, entry.entry_id, coordinator, entity, api, nas_model)
+        UgreenNasButton(hass, entry.entry_id, coordinator, entity, api)
         for entity in entities
     ]
 
@@ -38,8 +36,7 @@ class UgreenNasButton(CoordinatorEntity, ButtonEntity):
     def __init__(self, hass: HomeAssistant, entry_id: str,
                 coordinator: DataUpdateCoordinator,
                 endpoint: UgreenEntity,
-                api: UgreenApiClient,
-                nas_model: str | None = None) -> None:
+                api: UgreenApiClient) -> None:
         super().__init__(coordinator)
         self.hass = hass
         self._entry_id = entry_id
@@ -53,7 +50,7 @@ class UgreenNasButton(CoordinatorEntity, ButtonEntity):
         self._attr_native_unit_of_measurement = endpoint.description.unit_of_measurement
 
         self._attr_device_info = build_device_info(
-            hass, self._entry_id, self._key, nas_model
+            hass, self._entry_id, self._key
         )
 
     async def async_press(self) -> None:

@@ -15,14 +15,13 @@ def resolve_host():
     except socket.gaierror:
         return os.getenv("UGREEN_NAS_API_IP", "127.0.0.1")
 
-
 class TokenRefresher:
     def __init__(self, username: str, password: str):
 
         # Validate inputs early
-        if not isinstance(username, str) or not username.strip():
+        if not username.strip():
             raise ValueError("TokenRefresher: username must be a non-empty string")
-        if not isinstance(password, str) or not password.strip():
+        if not password.strip():
             raise ValueError("TokenRefresher: password must be a non-empty string")
 
         # Store credentials
