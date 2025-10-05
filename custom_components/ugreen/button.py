@@ -23,11 +23,8 @@ async def async_setup_entry(
     entities: list[UgreenEntity] = hass.data[DOMAIN][entry.entry_id]["button_entities"]
     api = hass.data[DOMAIN][entry.entry_id]["api"]
 
-    nas_model = hass.data[DOMAIN][entry.entry_id].get("nas_model")
-    nas_name = hass.data[DOMAIN][entry.entry_id].get("nas_name")
-
     button_entities = [
-        UgreenNasButton(entry.entry_id, coordinator, entity, api, nas_model, nas_name)
+        UgreenNasButton(hass, entry.entry_id, coordinator, entity, api)
         for entity in entities
     ]
 
@@ -37,25 +34,25 @@ async def async_setup_entry(
 class UgreenNasButton(CoordinatorEntity, ButtonEntity):
     """Representation of a UGREEN NAS button."""
 
-    def __init__(self, entry_id: str, coordinator: DataUpdateCoordinator,
-        endpoint: UgreenEntity,
-        api: UgreenApiClient,
-        nas_model: 'str | None' = None,
-        nas_name: 'str | None' = None
-    )-> None:
+    def __init__(self, hass: HomeAssistant, entry_id: str,
+                coordinator: DataUpdateCoordinator,
+                endpoint: UgreenEntity,
+                api: UgreenApiClient) -> None:
         super().__init__(coordinator)
+        self.hass = hass
         self._entry_id = entry_id
         self._endpoint = endpoint
         self._key = endpoint.description.key
         self._api = api
 
-        device_name = nas_name or "UGREEN NAS"
-        self._attr_name = f"{device_name} {endpoint.description.name}"
+        self._attr_name = f"UGREEN NAS {endpoint.description.name}"
         self._attr_unique_id = f"{entry_id}_{endpoint.description.key}"
         self._attr_icon = endpoint.description.icon
         self._attr_native_unit_of_measurement = endpoint.description.unit_of_measurement
 
-        self._attr_device_info = build_device_info(self._key, nas_model, nas_name)
+        self._attr_device_info = build_device_info(
+            hass, self._entry_id, self._key
+        )
 
     async def async_press(self) -> None:
         """Perform the button action."""

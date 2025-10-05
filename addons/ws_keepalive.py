@@ -6,14 +6,15 @@ import time
 import aiohttp
 import logging
 from uuid import uuid4
-from typing import Optional
+from typing import Optional, Any, Dict
 from aiohttp import WSMsgType
 from token_refresher import resolve_host
-
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+    
 _LOGGER = logging.getLogger("uvicorn.error")  # Use Uvicorn's logger
 
-
-def init_ws_keepalive(app) -> None:
+def init_ws_keepalive(app: FastAPI) -> None:
 
     # configuration through env
     SCHEME = os.environ.get("UGREEN_NAS_API_SCHEME", "http").lower()
@@ -25,7 +26,7 @@ def init_ws_keepalive(app) -> None:
     HEARTBEAT = int(os.environ.get("UGREEN_WS_HEARTBEAT", "25"))  # keep wss:// alive every 25s
 
     # internal state
-    state = {
+    state: Dict[str, Any] = {
         "host": resolve_host(),
         "token": None,
         "task": None,
@@ -170,26 +171,26 @@ def init_ws_keepalive(app) -> None:
                 _LOGGER.debug("Closed aiohttp session.")
         state["session"] = None
 
-    # ---------- FastAPI Lifecycle Hooks ----------
-
-    @app.on_event("startup")
-    async def _startup_ws_sidecar():
-        # Start ws keepalive loop at application startup
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # Startup: Start ws keepalive loop at application startup
         if state["task"] is None or state["task"].done():
             state["stop"].clear()
             state["task"] = asyncio.create_task(_ws_loop(), name="ugreen-ws-sidecar")
             _LOGGER.debug("Started WebSocket keep-alive task.")
+        try:
+            yield
+        finally:
+            # Shutdown: Stop ws keepalive loop at application shutdown
+            state["stop"].set()
+            if state["task"]:
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(state["task"], timeout=5)
+                _LOGGER.info("Stopped WebSocket keep-alive task.")
+            if state["session"]:
+                with contextlib.suppress(Exception):
+                    await state["session"].close()
+                    _LOGGER.debug("Closed aiohttp keep-alive session.")
+            state["session"] = None
 
-    @app.on_event("shutdown")
-    async def _shutdown_ws_sidecar():
-        # Stop ws keepalive loop at application shutdown
-        state["stop"].set()
-        if state["task"]:
-            with contextlib.suppress(Exception):
-                await asyncio.wait_for(state["task"], timeout=5)
-            _LOGGER.info("Stopped WebSocket keep-alive task.")
-        if state["session"]:
-            with contextlib.suppress(Exception):
-                await state["session"].close()
-                _LOGGER.debug("Closed aiohttp keep-alive session.")
-        state["session"] = None
+    app.router.lifespan_context = lifespan

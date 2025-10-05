@@ -17,12 +17,14 @@
   <img src="https://github.com/user-attachments/assets/2f3053ac-35a0-42af-af59-087d0ec2134a" alt="System View" width="600"/>
 </p>
 
+The integration has two parts: A Token Server running as a Docker container. It retrieves and renews access authorization tokens. And a Home-Assistant custom integration. It uses the tokens to read data from the NAS by utilizing an UGOS-builtin API, and updates your HA sensors.
+
 ---
 
 ## ⚙️ Setup Instructions
 
 👉 [**Click here**](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/wiki/03-%E2%80%90-Installation) for the step-by-step installation guide on the project Wiki.
-> ⏱️ Total setup time: *~10 minutes*
+> ⏱️ Total setup time: *~10..15 minutes*
 
 ---
 

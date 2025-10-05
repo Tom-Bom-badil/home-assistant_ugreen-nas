@@ -295,7 +295,7 @@ def apply_templates(templates: Iterable[UgreenEntity], **fmt: Any) -> List[Ugree
             path=t.path.format(**fmt),
             request_method=t.request_method,
             decimal_places=t.decimal_places,
-            nas_part_category=(t.nas_part_category or "").format(**fmt) if isinstance(t.nas_part_category, str) else t.nas_part_category,
+            nas_part_category=(t.nas_part_category or "").format(**fmt),
         ))
     return out
 

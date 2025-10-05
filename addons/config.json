@@ -1,17 +1,28 @@
 {
-  "name": "Ugreen API Token Proxy",
-  "version": "latest",
+  "name": "UGREEN API Token Proxy",
+  "version": "1.0.0",
   "slug": "ugreen_api_token_proxy",
-  "description": "Runs the Ugreen API Token Proxy container that provides authentication for the UGREEN NAS Home Assistant integration.",
+  "description": "Provides authentication token management for the UGREEN NAS Home Assistant integration",
+  "url": "https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas",
   "webui": "http://[HOST]:[PORT:4115]",
   "panel_icon": "mdi:nas",
   "arch": [
     "amd64",
     "aarch64"
   ],
-  "host_network": true,
+  "startup": "application",
+  "boot": "auto",
+  "host_network": false,
   "hassio_api": true,
-  "image": "ghcr.io/tom-bom-badil/ugreen-api-token",
+  "hassio_role": "default",
+  "auth_api": false,
+  "ingress": false,
+  "ports": {
+    "4115/tcp": 4115
+  },
+  "ports_description": {
+    "4115/tcp": "Web UI and API endpoint"
+  },
   "map": [
     "config:rw",
     "share:rw"
@@ -25,11 +36,11 @@
     "TZ": "Europe/Berlin"
   },
   "schema": {
-    "UGREEN_NAS_API_SCHEME": "str",
+    "UGREEN_NAS_API_SCHEME": "list(http|https)",
     "UGREEN_NAS_API_IP": "str",
-    "UGREEN_NAS_API_PORT": "str",
-    "UGREEN_NAS_API_VERIFY_SSL": "str",
-    "LOG_LEVEL": "str",
+    "UGREEN_NAS_API_PORT": "port",
+    "UGREEN_NAS_API_VERIFY_SSL": "bool",
+    "LOG_LEVEL": "list(debug|info|warning|error)",
     "TZ": "str"
   }
 }

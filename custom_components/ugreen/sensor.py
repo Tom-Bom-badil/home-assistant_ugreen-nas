@@ -26,67 +26,54 @@ async def async_setup_entry(
     config_entities = hass.data[DOMAIN][entry.entry_id]["config_entities"]
     state_coordinator = hass.data[DOMAIN][entry.entry_id]["state_coordinator"]
     state_entities = hass.data[DOMAIN][entry.entry_id]["state_entities"]
-    nas_model = hass.data[DOMAIN][entry.entry_id].get("nas_model")
-    nas_name = hass.data[DOMAIN][entry.entry_id].get("nas_name")
 
     # Configuration sensors (60s)
     config_sensors = [
-        UgreenNasSensor(entry.entry_id, config_coordinator, entity, nas_model, nas_name)
+        UgreenNasSensor(hass, entry.entry_id, config_coordinator, entity)
         for entity in config_entities
     ]
 
     # State sensors (5s)
     state_sensors = [
-        UgreenNasSensor(entry.entry_id, state_coordinator, entity, nas_model, nas_name)
+        UgreenNasSensor(hass, entry.entry_id, state_coordinator, entity)
         for entity in state_entities
     ]
 
     async_add_entities(config_sensors + state_sensors)
 
-class UgreenNasSensor(CoordinatorEntity, SensorEntity):
-    """Representation of a UGREEN NAS sensor."""
 
-    def __init__(self, entry_id: str, coordinator: DataUpdateCoordinator, endpoint: UgreenEntity, nas_model: 'str | None' = None, nas_name: 'str | None' = None) -> None:
+class UgreenNasSensor(CoordinatorEntity, SensorEntity):
+    """Representation of the UgreenNasSensor class."""
+
+    def __init__(self, hass: HomeAssistant, entry_id: str,
+                coordinator: DataUpdateCoordinator,
+                endpoint: UgreenEntity) -> None:
         super().__init__(coordinator)
+
+        self.hass = hass
         self._entry_id = entry_id
         self._endpoint = endpoint
         self._key = endpoint.description.key
 
-        device_name = nas_name or "UGREEN NAS"
-        self._attr_name = f"{device_name} {endpoint.description.name}"
+        self._attr_name = f"UGREEN NAS {endpoint.description.name}"
         self._attr_unique_id = f"{entry_id}_{endpoint.description.key}"
         self._attr_icon = endpoint.description.icon
 
-        # Extract brand and serial for disk devices
-        brand = None
-        serial = None
-        model = nas_model
+        base_device_info = build_device_info(hass, self._entry_id, self._key)
 
-        if "disk" in self._key and "_pool" in self._key:
-            # Extract base key (e.g., "disk0_pool0" from "disk0_pool0_temperature")
-            key_parts = self._key.split('_')
-            base_key = f"{key_parts[0]}_{key_parts[1]}"
+        if "disk" in self._key and "brand" in self._key:
+            try:
+                base_device_info["manufacturer"] = str(self.coordinator.data.get(self._key))
+            except Exception:
+                pass
 
-            # Get brand and serial from coordinator data
-            brand_key = f"{base_key}_brand"
-            serial_key = f"{base_key}_serial"
-            model_key = f"{base_key}_model"
+        if "disk" in self._key and "model" in self._key:
+            try:
+                base_device_info["model"] = str(self.coordinator.data.get(self._key))
+            except Exception:
+                pass
 
-            brand = self.coordinator.data.get(brand_key)
-            serial = self.coordinator.data.get(serial_key)
-            disk_model = self.coordinator.data.get(model_key)
-
-            # Use disk model if available, otherwise nas_model
-            if disk_model:
-                model = str(disk_model)
-
-        self._attr_device_info = build_device_info(
-            self._key,
-            model=model,
-            nas_name=nas_name,
-            brand=str(brand) if brand else None,
-            serial=str(serial) if serial else None
-        )
+        self._attr_device_info = base_device_info
 
     @property
     def native_value(self) -> StateType | date | datetime | Decimal:
@@ -95,8 +82,8 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
         return format_sensor_value(raw, self._endpoint)
 
     @property
-    def extra_state_attributes(self):
-        base_attrs = super().extra_state_attributes or {}
+    def extra_state_attributes(self) -> dict[str, object]:
+        base_attrs = dict(super().extra_state_attributes or {})
         base_attrs.update({
             "nas_device_type": "UGREEN NAS",
             "nas_part_category": self._endpoint.nas_part_category,

@@ -4,7 +4,6 @@ import voluptuous as vol
 from typing import Any
 from homeassistant import config_entries
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
-from homeassistant.const import CONF_HOST, CONF_PORT
 from .const import (
     DOMAIN,
     CONF_DEVICE_NAME,
