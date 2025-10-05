@@ -1,4 +1,4 @@
-import logging
+import logging, contextlib
 
 from datetime import timedelta
 from typing import Any
@@ -8,7 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from homeassistant.helpers.device_registry import async_get as async_get_device_registry, CONNECTION_NETWORK_MAC
+from homeassistant.helpers.device_registry import async_get as async_get_device_registry
 
 from .const import DOMAIN, PLATFORMS
 from .utils import get_entity_data_from_api
@@ -41,7 +41,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         password=_cfg(entry, "password"),
         use_https=bool(_cfg(entry, "use_https", False)),
     )
-    keepalive_websocket = api.ws_keepalive(session, lang="de-DE")
+    # keepalive_websocket = api.ws_keepalive(session, lang="de-DE")
 
 
     ### Initial authentication
@@ -63,7 +63,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     config_entities_grouped_by_endpoint = defaultdict(list)
     for entity in config_entities:
         config_entities_grouped_by_endpoint[entity.endpoint].append(entity)
-    #   Create the update funktion for the corresponding coordinator
+    #   Create the update function for the corresponding coordinator
     async def update_configuration_data() -> dict[str, Any]:
         try:
             _LOGGER.debug("[UGREEN NAS] Updating configuration data...")
@@ -90,7 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     for entity in state_entities: # reduce number of API calls
         state_entities_grouped_by_endpoint[entity.endpoint].append(entity)
     _LOGGER.debug("[UGREEN NAS] List of state entities prepared.")
-    #   Create the update funktion for the corresponding coordinator
+    #   Create the update function for the corresponding coordinator
     async def update_state_data() -> dict[str, Any]: # update for coordinator
         try:
             _LOGGER.debug("[UGREEN NAS] Updating state data...")
@@ -108,16 +108,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
 
-    ### Create the websocket coordinator to keep API alive if no UGreen App / Web GUI is active
-    ws_coordinator = DataUpdateCoordinator( # data polling every 25s
-        hass,
-        _LOGGER,
-        name="ugreen_ws",
-        update_method=keepalive_websocket,
-        update_interval=timedelta(seconds=25),
-    )
-
-
     ### Hand over all runtime objects to HA's data container
     hass.data[DOMAIN][entry.entry_id] = {
         "config_coordinator": config_coordinator,
@@ -126,57 +116,104 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "state_coordinator": state_coordinator,
         "state_entities": state_entities,
         "state_entities_grouped_by_endpoint": state_entities_grouped_by_endpoint,
-        "ws_coordinator": ws_coordinator,
         "button_entities": ALL_NAS_COMMON_BUTTON_ENTITIES,
         "dynamic_entity_counts": dynamic_entity_counts,
         "api": api,
     }
 
 
-    ### Initial entities refresh
+    ### Initial entities refresh and start of keep-alive websocket
     await config_coordinator.async_config_entry_first_refresh()
     await state_coordinator.async_config_entry_first_refresh()
-    await ws_coordinator.async_config_entry_first_refresh()
+    await api.start_ws_keepalive_task(session, lang="de-DE", heartbeat=15)
 
 
-    ### Device registration in HA - identify through serial # and MAC addresses (fallback)
+    ### Build lightweight meta caches for Device Registry (disks/pools/volumes)
+    pools_resp = await api.get(session, "/ugreen/v1/storage/pool/list")
+    disks_resp = await api.get(session, "/ugreen/v2/storage/disk/list")
+
+    pools = ((pools_resp or {}).get("data", {}) or {}).get("result", []) or []
+    disks = ((disks_resp or {}).get("data", {}) or {}).get("result", []) or []
+
+    # Map global disk list by dev_name for quick lookup
+    dev_by_name = {}
+    for d in disks:
+        name = (d or {}).get("dev_name") or (d or {}).get("name")
+        if name:
+            dev_by_name[name] = d or {}
+
+    disk_meta: dict[tuple[int, int], tuple[str | None, str | None]] = {}
+    pool_meta: dict[int, tuple[str, str | None]] = {}
+    volume_meta: dict[tuple[int, int], tuple[str, str | None]] = {}
+
+    for p_idx, pool in enumerate(pools, start=1):
+        # Pools: manufacturer fixed, model = RAID level
+        raid = (pool or {}).get("level") or None
+        pool_meta[p_idx] = ("Linux mdadm", raid)
+
+        # Volumes: manufacturer fixed, model = filesystem
+        for v_idx, vol in enumerate((pool or {}).get("volumes") or [], start=1):
+            fs = (vol or {}).get("filesystem") or None
+            volume_meta[(p_idx, v_idx)] = ("Linux mdadm", fs)
+
+        # Disks: brand + model from global disk list via dev_name
+        for d_idx, pd in enumerate((pool or {}).get("disks") or [], start=1):
+            dev_name = (pd or {}).get("dev_name") or (pd or {}).get("name")
+            info = dev_by_name.get(dev_name, {})
+            brand = (info.get("brand") or info.get("manufacturer") or "").strip() or None
+            model = (info.get("model") or info.get("name") or "").strip() or None
+            disk_meta[(p_idx, d_idx)] = (brand, model)
+
+    # Persist for device_info.py
+    hass.data.setdefault(DOMAIN, {}).setdefault(entry.entry_id, {}).update({
+        "disk_meta":   disk_meta,
+        "pool_meta":   pool_meta,
+        "volume_meta": volume_meta,
+    })
+
+
+    ### Device registration
+    sys_info = await api.get(session, "/ugreen/v1/sysinfo/machine/common")
+    common  = (sys_info or {}).get("data", {}).get("common", {})
+    model   = common.get("model", "Unknown")
+    version = common.get("system_version", "Unknown")
+    name    = common.get("nas_name", "UGREEN NAS")
+    serial  = (common.get("serial") or "").strip()
+    brand = "UGREEN"
+    model_display = f"{brand} {model}" if model and not model.upper().startswith(brand) else (model or brand)
+
+    hass.data.setdefault(DOMAIN, {}).setdefault(entry.entry_id, {})["root_device_name"] = name
+    device = None
+
     try:
+        # Device registration (root)
         dev_reg = async_get_device_registry(hass)
-        sys_info = await api.get(session, "/ugreen/v1/sysinfo/machine/common")
-        common  = (sys_info or {}).get("data", {}).get("common", {})
-        model   = common.get("model", "Unknown")
-        version = common.get("system_version", "Unknown")
-        name    = common.get("nas_name", "UGREEN NAS")
-        serial  = (common.get("serial") or "").strip()
-        macs    = common.get("mac") or []
 
-        # Unique device identifiers - serial# (main identifier, if available)
-        identifiers = {(DOMAIN, f"entry:{entry.entry_id}")} 
+        # Unique identifiers within the integration
+        identifiers = {(DOMAIN, f"entry:{entry.entry_id}")}
         if serial:
             identifiers.add((DOMAIN, f"serial:{serial}"))
 
-        # Unique device identifiers - MAC's (lowercase; fallback if no serial# )
-        connections = {(CONNECTION_NETWORK_MAC, m.lower()) for m in macs if isinstance(m, str) and m}
-        dev_reg.async_get_or_create(
+        # Create or get root device
+        device = dev_reg.async_get_or_create(
             config_entry_id=entry.entry_id,
             identifiers=identifiers,
-            connections=connections,
-            manufacturer="UGREEN",
             name=name,
-            model=model,
+            manufacturer=brand,
+            model=model_display,
             sw_version=version,
             serial_number=serial or None,
         )
-        _LOGGER.debug("[UGREEN NAS] Device registered: Model=%s, Version=%s", model, version)
 
-        # Make 'model' available for sensor.py and button.py for displaying on child devices
-        hass.data[DOMAIN][entry.entry_id]["nas_model"] = model
+        # Enforce NAS DNS name as device name (only if not user-overridden)
+        if device and not device.name_by_user and device.name != name:
+            dev_reg.async_update_device(device.id, name=name)
 
     except Exception as e:
         _LOGGER.warning("[UGREEN NAS] Device registration failed: %s", e)
 
-    
-    ### Finalize it - forward the setups to platforms
+
+    ### Finalize init: Forward the setups to platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _LOGGER.debug("[UGREEN NAS] Forwarded entry setups to platforms - setup complete.")
 
@@ -193,6 +230,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coord = data.get(key)
         if coord:
             coord.update_interval = None
+
+    ### Stop the websocket for API keep-alive
+    api: UgreenApiClient | None = data.get("api")
+    if api:
+        with contextlib.suppress(Exception):
+            await api.stop_ws_keepalive_task()
 
     ### Unload platforms / entities and clean up data container
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
