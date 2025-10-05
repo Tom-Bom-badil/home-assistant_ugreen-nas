@@ -60,7 +60,7 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            _LOGGER.info("[UGREEN NAS] Received user input: %s", user_input)
+            _LOGGER.debug("[UGREEN NAS] Received user input: %s", user_input)
 
             try:
                 api = UgreenApiClient(

@@ -22,6 +22,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL_STATE,
     MANUFACTURER,
 )
+
 from .utils import get_entity_data_from_api
 
 from .api import UgreenApiClient

@@ -2,7 +2,7 @@ import logging
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-from .const import DOMAIN, STORAGE_TECHNOLOGY
+from .const import DOMAIN, STORAGE_TECHNOLOGY, MANUFACTURER
 
 from typing import Any, Dict, Tuple, Optional
 
@@ -10,9 +10,6 @@ _LOGGER = logging.getLogger(__name__)
 
 def build_device_info(hass: HomeAssistant, entry_id: str, key: str) -> DeviceInfo:
     """Build DeviceInfo anchored to the config entry root device."""
-
-    _LOGGER.warning("[UGREEN NAS] Key '%s'", key)
-    
     root_id = f"entry:{entry_id}"
     ctx: Dict[str, Any] = hass.data.get(DOMAIN, {}).get(entry_id, {})  # cached meta from __init__.py
     root_name: str = ctx.get("root_device_name") or "UGREEN NAS"
@@ -35,7 +32,7 @@ def build_device_info(hass: HomeAssistant, entry_id: str, key: str) -> DeviceInf
         return DeviceInfo(
             identifiers={(DOMAIN, f"ugreen_nas_disk_{p}_{d}")},
             name=f"{root_name} (Pool {p} | Disk {d})",
-            manufacturer=brand,
+            manufacturer=brand or MANUFACTURER,
             model=model_disp,
             via_device=(DOMAIN, f"ugreen_nas_pool_{p}"),
         )
@@ -79,4 +76,4 @@ def build_device_info(hass: HomeAssistant, entry_id: str, key: str) -> DeviceInf
         )
 
     # Root device (details set in __init__.py)
-    return DeviceInfo(identifiers={(DOMAIN, root_id)}, name=f"{root_name}")
+    return DeviceInfo(identifiers={(DOMAIN, root_id)})

@@ -1,4 +1,5 @@
 import logging
+
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator

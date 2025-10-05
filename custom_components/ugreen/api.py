@@ -4,7 +4,7 @@ from typing import List, Any
 from uuid import uuid4
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
-from aiohttp import WSMsgType, ClientResponseError
+from aiohttp import WSMsgType, ClientError, ClientResponseError
 
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.const import UnitOfInformation

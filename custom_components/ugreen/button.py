@@ -32,7 +32,6 @@ async def async_setup_entry(
 
 
 class UgreenNasButton(CoordinatorEntity, ButtonEntity):
-    """Representation of a UGREEN NAS button."""
 
     def __init__(self, hass: HomeAssistant, entry_id: str,
                 coordinator: DataUpdateCoordinator,
