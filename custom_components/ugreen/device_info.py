@@ -10,11 +10,15 @@ def build_device_info(hass: HomeAssistant, entry_id: str, key: str, model: str |
     ctx = hass.data.get(DOMAIN, {}).get(entry_id, {})  # cached meta from __init__.py
     root_name = ctx.get("root_device_name") or "UGREEN NAS"
 
-    # Disks
+    # Disks (keys like "disk2_pool1_*" or compact "disk_pool")
     if key.startswith("disk") and "_pool" in key:
-        part0, part1, *_ = key.split("_", 2)  # "disk2", "pool1", ...
-        d = int(part0[4:])
-        p = int(part1[4:])
+        part0, part1, *_ = key.split("_", 2)
+        # Be tolerant: default to 1 if no numeric suffix is present
+        d_tail = part0[4:] if len(part0) > 4 else ""
+        p_tail = part1[4:] if len(part1) > 4 else ""
+        d = int(d_tail) if d_tail.isdigit() else 1
+        p = int(p_tail) if p_tail.isdigit() else 1
+
         brand, model_raw = (ctx.get("disk_meta") or {}).get((p, d), (None, None))
 
         if brand and model_raw and not model_raw.lower().startswith(brand.lower()):
@@ -30,10 +34,15 @@ def build_device_info(hass: HomeAssistant, entry_id: str, key: str, model: str |
             via_device=(DOMAIN, f"ugreen_nas_pool_{p}"),
         )
 
-    # volumes
+    # Volumes (keys like "volume1_pool1_*" or compact "volume_pool")
     if key.startswith("volume") and "_pool" in key:
         part0, part1, *_ = key.split("_", 2)
-        v = int(part0[6:]); p = int(part1[4:])
+        # Be tolerant: default to 1 if no numeric suffix is present
+        v_tail = part0[6:] if len(part0) > 6 else ""
+        p_tail = part1[4:] if len(part1) > 4 else ""
+        v = int(v_tail) if v_tail.isdigit() else 1
+        p = int(p_tail) if p_tail.isdigit() else 1
+
         mfg, fs = (ctx.get("volume_meta") or {}).get((p, v), ("Linux mdadm", None))
         mfg = mfg or "Linux mdadm"
 
@@ -50,10 +59,13 @@ def build_device_info(hass: HomeAssistant, entry_id: str, key: str, model: str |
             via_device=(DOMAIN, f"ugreen_nas_pool_{p}"),
         )
 
-    # pools
+    # Pools (keys like "pool1_*" or compact "pool_*")
     if key.startswith("pool"):
         part0, *_ = key.split("_", 1)
-        p = int(part0[4:])
+        # Be tolerant: default to 1 if no numeric suffix is present
+        p_tail = part0[4:] if len(part0) > 4 else ""
+        p = int(p_tail) if p_tail.isdigit() else 1
+
         mfg, raid = (ctx.get("pool_meta") or {}).get(p, ("Linux mdadm", None))
         mfg = mfg or "Linux mdadm"
         raid_up = (raid or "").upper()
