@@ -1,28 +1,25 @@
-import logging
-
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-from .const import DOMAIN, STORAGE_TECHNOLOGY, MANUFACTURER
+from .const import DOMAIN
 
-from typing import Any, Dict, Tuple, Optional
 
-_LOGGER = logging.getLogger(__name__)
-
-def build_device_info(hass: HomeAssistant, entry_id: str, key: str) -> DeviceInfo:
+def build_device_info(hass: HomeAssistant, entry_id: str, key: str, model: str | None = None) -> DeviceInfo:
     """Build DeviceInfo anchored to the config entry root device."""
-    root_id = f"entry:{entry_id}"
-    ctx: Dict[str, Any] = hass.data.get(DOMAIN, {}).get(entry_id, {})  # cached meta from __init__.py
-    root_name: str = ctx.get("root_device_name") or "UGREEN NAS"
 
-    # Disks
+    root_id = f"entry:{entry_id}"
+    ctx = hass.data.get(DOMAIN, {}).get(entry_id, {})  # cached meta from __init__.py
+    root_name = ctx.get("root_device_name") or "UGREEN NAS"
+
+    # Disks (keys like "disk2_pool1_*" or compact "disk_pool")
     if key.startswith("disk") and "_pool" in key:
         part0, part1, *_ = key.split("_", 2)
-        d = int(part0[4:])
-        p = int(part1[4:])
-        disk_meta: Dict[Tuple[int, int], Tuple[Optional[str], Optional[str]]] = ctx.get("disk_meta") or {}
-        brand: Optional[str]
-        model_raw: Optional[str]
-        brand, model_raw = disk_meta.get((p, d), ("Unknown", None))
+        # Be tolerant: default to 1 if no numeric suffix is present
+        d_tail = part0[4:] if len(part0) > 4 else ""
+        p_tail = part1[4:] if len(part1) > 4 else ""
+        d = int(d_tail) if d_tail.isdigit() else 1
+        p = int(p_tail) if p_tail.isdigit() else 1
+
+        brand, model_raw = (ctx.get("disk_meta") or {}).get((p, d), (None, None))
 
         if brand and model_raw and not model_raw.lower().startswith(brand.lower()):
             model_disp = f"{brand} {model_raw}"
@@ -32,19 +29,22 @@ def build_device_info(hass: HomeAssistant, entry_id: str, key: str) -> DeviceInf
         return DeviceInfo(
             identifiers={(DOMAIN, f"ugreen_nas_disk_{p}_{d}")},
             name=f"{root_name} (Pool {p} | Disk {d})",
-            manufacturer=brand or MANUFACTURER,
+            manufacturer=brand or "UGREEN",
             model=model_disp,
             via_device=(DOMAIN, f"ugreen_nas_pool_{p}"),
         )
 
-    # volumes
+    # Volumes (keys like "volume1_pool1_*" or compact "volume_pool")
     if key.startswith("volume") and "_pool" in key:
         part0, part1, *_ = key.split("_", 2)
-        v = int(part0[6:]); p = int(part1[4:])
-        volume_meta: Dict[Tuple[int, int], Tuple[Optional[str], Optional[str]]] = ctx.get("volume_meta") or {}
-        mfg_raw, fs_raw = volume_meta.get((p, v), (STORAGE_TECHNOLOGY, None))
-        mfg: str = str(mfg_raw) if mfg_raw is not None else STORAGE_TECHNOLOGY
-        fs: Optional[str] = str(fs_raw) if fs_raw is not None else None
+        # Be tolerant: default to 1 if no numeric suffix is present
+        v_tail = part0[6:] if len(part0) > 6 else ""
+        p_tail = part1[4:] if len(part1) > 4 else ""
+        v = int(v_tail) if v_tail.isdigit() else 1
+        p = int(p_tail) if p_tail.isdigit() else 1
+
+        mfg, fs = (ctx.get("volume_meta") or {}).get((p, v), ("Linux mdadm", None))
+        mfg = mfg or "Linux mdadm"
 
         if fs:
             model_disp = fs if fs.lower().startswith(mfg.lower()) else f"{mfg} {fs}"
@@ -59,19 +59,27 @@ def build_device_info(hass: HomeAssistant, entry_id: str, key: str) -> DeviceInf
             via_device=(DOMAIN, f"ugreen_nas_pool_{p}"),
         )
 
-    # pools
+    # Pools (keys like "pool1_*" or compact "pool_*")
     if key.startswith("pool"):
-        pool_index: str = key.split('_')[0][4:]
-        meta: Dict[str, Any] = (ctx.get("pool_meta") or {}).get(pool_index, {})
-        mfg: str = meta.get("mfg", "Linux mdadm")
-        raid: Optional[str] = meta.get("raid")
-        raid_name: str = raid.upper() if raid else ""
-        model: str = raid_name if raid_name.lower().startswith(mfg.lower()) else f"{mfg} {raid_name}" if raid_name else mfg
+        part0, *_ = key.split("_", 1)
+        # Be tolerant: default to 1 if no numeric suffix is present
+        p_tail = part0[4:] if len(part0) > 4 else ""
+        p = int(p_tail) if p_tail.isdigit() else 1
+
+        mfg, raid = (ctx.get("pool_meta") or {}).get(p, ("Linux mdadm", None))
+        mfg = mfg or "Linux mdadm"
+        raid_up = (raid or "").upper()
+
+        if raid_up:
+            model_disp = raid_up if raid_up.lower().startswith(mfg.lower()) else f"{mfg} {raid_up}"
+        else:
+            model_disp = mfg
+
         return DeviceInfo(
-            identifiers={(DOMAIN, f"ugreen_nas_pool_{pool_index}")},
-            name=f"{root_name} (Pool {pool_index})",
+            identifiers={(DOMAIN, f"ugreen_nas_pool_{p}")},
+            name=f"{root_name} (Pool {p})",
             manufacturer=mfg,
-            model=f"{model} pool",
+            model=f"{model_disp} pool",
             via_device=(DOMAIN, root_id),
         )
 

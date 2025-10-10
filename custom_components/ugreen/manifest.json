@@ -9,11 +9,6 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/issues",
   "requirements": [],
-  "version": "v2025.10.3",
-  "zeroconf": [
-    {
-      "type": "_device-info._tcp.local.",
-      "name": "*"
-    }
-  ]
+  "version": "v2025.11.1",
+  "zeroconf": [{ "type": "_device-info._tcp.local." }]
 }

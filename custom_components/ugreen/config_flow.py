@@ -32,7 +32,7 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, discovery_info: ZeroconfServiceInfo
     ) -> config_entries.ConfigFlowResult:
         """Handle zeroconf discovery."""
-        _LOGGER.info("[UGREEN NAS] Discovered device via zeroconf: %s", discovery_info)
+        _LOGGER.debug("[UGREEN NAS] Discovered device via zeroconf: %s", discovery_info)
 
         host = discovery_info.host
         port = discovery_info.port or 9999

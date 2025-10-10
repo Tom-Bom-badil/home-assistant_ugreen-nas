@@ -167,8 +167,8 @@ def format_sensor_value(raw: Any, endpoint: UgreenEntity) -> Any:
 
         if "fan" in endpoint.description.key and "status" in endpoint.description.key:
             return format_status_code(raw, {
-                0: "ERROR!",
-                1: "Normal",
+                0: "Off",
+                1: "On",
             })
 
         if "disk" in endpoint.description.key and not "interface" in endpoint.description.key and "type" in endpoint.description.key:
