@@ -13,6 +13,8 @@
 #       ├─ RAM
 #       ├─ UPS
 #       ├─ FANS
+#       |  ├─ CHASSIS (=DEVICE)
+#       |  └─ CPU
 #       └─ STORAGE
 #          ├─ POOLS
 #          ├─ VOLUMES
@@ -74,6 +76,39 @@ ALL_NAS_COMMON_CONFIG_ENTITIES: List[UgreenEntity] = [  # -- common config entit
         ),
         endpoint="/ugreen/v1/desktop/components/data?id=desktop.component.SystemStatus",
         path="data.dev_name",
+        nas_part_category="Device",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="ugos_version",
+            name="NAS UGOS Version",
+            icon="mdi:information-outline",
+            unit_of_measurement=None,
+        ),
+        endpoint="/ugreen/v1/sysinfo/machine/common",
+        path="data.common.system_version",
+        nas_part_category="Device",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="model",
+            name="NAS Model",
+            icon="mdi:nas",
+            unit_of_measurement=None,
+        ),
+        endpoint="/ugreen/v1/sysinfo/machine/common",
+        path="data.common.model",
+        nas_part_category="Device",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="serial",
+            name="NAS Serial",
+            icon="mdi:barcode",
+            unit_of_measurement=None,
+        ),
+        endpoint="/ugreen/v1/sysinfo/machine/common",
+        path="data.common.serial",
         nas_part_category="Device",
     ),
 
@@ -1111,6 +1146,17 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [ # -- disks --
         ),
         endpoint="{endpoint}",
         path="data.result[{series_index}].type",
+        nas_part_category="Disks",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_model",
+            name="{prefix_name} Model",
+            icon="mdi:harddisk",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{series_index}].model",
         nas_part_category="Disks",
     ),
     UgreenEntity(
