@@ -17,7 +17,7 @@
   <img src="https://github.com/user-attachments/assets/2f3053ac-35a0-42af-af59-087d0ec2134a" alt="System View" width="600"/>
 </p>
 
-The integration has two parts: A Token Server running as a Docker container. It retrieves and renews access authorization tokens. And a Home-Assistant custom integration. It uses the tokens to read data from the NAS by utilizing an UGOS-builtin API, and updates your HA sensors.
+The integration reads data by utilizing an UGOS-builtin API (the same as used by the UGOS Web GUI and the UGOS Mobile App), and updates your HA sensors continuously.
 
 ---
 
