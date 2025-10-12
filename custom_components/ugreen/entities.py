@@ -525,7 +525,7 @@ ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
             name="Shutdown",
             icon="mdi:power",
         ),
-        endpoint="/ugreen/v1/desktop/shutdown",
+        endpoint="/ugreen/v1/desktop/poweroff",
         path="",
         request_method="POST",
         nas_part_category="",
