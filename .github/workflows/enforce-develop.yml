@@ -1,0 +1,17 @@
+# .github/workflows/enforce-develop.yml
+name: Enforce develop → main only
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block PRs to :main unless head is our local :develop
+        if: ${{ github.event.pull_request.base.ref == 'main' && (github.event.pull_request.head.ref != 'develop' || github.event.pull_request.head.repo.full_name != github.repository) }}
+        run: |
+          echo "❌ PRs to :main can only be created from our local :develop branch."
+          echo "👉 Please re-create the PR towards the :develop branch."
+          exit 1

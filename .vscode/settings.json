@@ -1,0 +1,9 @@
+{
+    // PR-Extension auf "origin" ausrichten
+    "githubPullRequests.remotes": ["origin"],
+    // Beim ersten Push direkt PR anbieten
+    "githubPullRequests.createOnPublishBranch": "ask",
+    // Git-Qualität
+    "git.pullRebase": true,
+    "git.confirmSync": false
+}
