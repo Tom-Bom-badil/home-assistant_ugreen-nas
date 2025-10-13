@@ -13,22 +13,23 @@
 #       ├─ RAM
 #       ├─ UPS
 #       ├─ FANS
+#       │  ├─ DEVICE
+#       │  └─ CPU
 #       └─ STORAGE
-#          ├─ POOLS
-#          ├─ VOLUMES
-#          └─ DISKS
+#          └─ POOLS
+#             ├─ VOLUMES
+#             └─ DISKS
 #
-# Note: All NAS_SPECIFIC items are split further into CONFIG (60s) and STATUS (5s).
+# Note: All NAS_SPECIFIC items are further split into CONFIG (60s) and STATUS (5s).
 
 
 from dataclasses import dataclass
-from typing import List, Iterable
+from typing import List
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.const import (
     PERCENTAGE, REVOLUTIONS_PER_MINUTE, UnitOfDataRate, UnitOfTemperature,
     UnitOfInformation, UnitOfTime, UnitOfFrequency
 )
-
 
 @dataclass
 class UgreenEntity:
@@ -46,17 +47,6 @@ ALL_NAS_COMMON_CONFIG_ENTITIES: List[UgreenEntity] = [  # -- common config entit
     ### Device Info
     UgreenEntity(
         description=EntityDescription(
-            key="model",
-            name="NAS Model",
-            icon="mdi:account",
-            unit_of_measurement=None,
-        ),
-        endpoint="/ugreen/v1/sysinfo/machine/common",
-        path="data.common.model",
-        nas_part_category="Device",
-    ),
-    UgreenEntity(
-        description=EntityDescription(
             key="type",
             name="NAS Type",
             icon="mdi:nas",
@@ -64,17 +54,6 @@ ALL_NAS_COMMON_CONFIG_ENTITIES: List[UgreenEntity] = [  # -- common config entit
         ),
         endpoint="/ugreen/v1/desktop/components/data?id=desktop.component.SystemStatus",
         path="data.type",
-        nas_part_category="Device",
-    ),
-    UgreenEntity(
-        description=EntityDescription(
-            key="serial",
-            name="NAS Serial",
-            icon="mdi:focus-field",
-            unit_of_measurement=None,
-        ),
-        endpoint="/ugreen/v1/sysinfo/machine/common",
-        path="data.common.serial",
         nas_part_category="Device",
     ),
     UgreenEntity(
@@ -101,13 +80,35 @@ ALL_NAS_COMMON_CONFIG_ENTITIES: List[UgreenEntity] = [  # -- common config entit
     ),
     UgreenEntity(
         description=EntityDescription(
-            key="version",
+            key="ugos_version",
             name="NAS UGOS Version",
-            icon="mdi:numeric",
+            icon="mdi:information-outline",
             unit_of_measurement=None,
         ),
         endpoint="/ugreen/v1/sysinfo/machine/common",
         path="data.common.system_version",
+        nas_part_category="Device",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="model",
+            name="NAS Model",
+            icon="mdi:nas",
+            unit_of_measurement=None,
+        ),
+        endpoint="/ugreen/v1/sysinfo/machine/common",
+        path="data.common.model",
+        nas_part_category="Device",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="serial",
+            name="NAS Serial",
+            icon="mdi:barcode",
+            unit_of_measurement=None,
+        ),
+        endpoint="/ugreen/v1/sysinfo/machine/common",
+        path="data.common.serial",
         nas_part_category="Device",
     ),
 
@@ -524,7 +525,7 @@ ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
             name="Shutdown",
             icon="mdi:power",
         ),
-        endpoint="/ugreen/v1/desktop/shutdown",
+        endpoint="/ugreen/v1/desktop/poweroff",
         path="",
         request_method="POST",
         nas_part_category="",
@@ -1149,6 +1150,17 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [ # -- disks --
     ),
     UgreenEntity(
         description=EntityDescription(
+            key="{prefix_key}_model",
+            name="{prefix_name} Model",
+            icon="mdi:harddisk",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{series_index}].model",
+        nas_part_category="Disks",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
             key="{prefix_key}_interface_type",
             name="{prefix_name} Interface Type",
             icon="mdi:usb-port",
@@ -1167,17 +1179,6 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [ # -- disks --
         ),
         endpoint="{endpoint}",
         path="data.result[{series_index}].label",
-        nas_part_category="Disks",
-    ),
-    UgreenEntity(
-        description=EntityDescription(
-            key="{prefix_key}_model",
-            name="{prefix_name} Model",
-            icon="mdi:harddisk",
-            unit_of_measurement=None,
-        ),
-        endpoint="{endpoint}",
-        path="data.result[{series_index}].model",
         nas_part_category="Disks",
     ),
     UgreenEntity(
@@ -1289,11 +1290,10 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [ # -- disks --
         endpoint="{endpoint}",
         path="data.result[{series_index}].brand",
         nas_part_category="Disks",
-    ),
+    )
 ]
 
 NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [
-
     UgreenEntity(
         description=EntityDescription(
             key="{prefix_key}_temperature",
