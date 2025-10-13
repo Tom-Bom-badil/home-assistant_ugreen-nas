@@ -27,17 +27,16 @@ async def async_setup_entry(
     config_entities = hass.data[DOMAIN][entry.entry_id]["config_entities"]
     state_coordinator = hass.data[DOMAIN][entry.entry_id]["state_coordinator"]
     state_entities = hass.data[DOMAIN][entry.entry_id]["state_entities"]
-    nas_model = hass.data[DOMAIN][entry.entry_id].get("nas_model")
 
     # Configuration sensors (60s)
     config_sensors = [
-        UgreenNasSensor(hass, entry.entry_id, config_coordinator, entity, nas_model)
+        UgreenNasSensor(hass, entry.entry_id, config_coordinator, entity)
         for entity in config_entities
     ]
 
     # State sensors (5s)
     state_sensors = [
-        UgreenNasSensor(hass, entry.entry_id, state_coordinator, entity, nas_model)
+        UgreenNasSensor(hass, entry.entry_id, state_coordinator, entity)
         for entity in state_entities
     ]
 
@@ -49,8 +48,7 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, hass: HomeAssistant, entry_id: str,
                 coordinator: DataUpdateCoordinator,
-                endpoint: UgreenEntity,
-                nas_model: str | None = None) -> None:
+                endpoint: UgreenEntity) -> None:
         super().__init__(coordinator)
 
         self.hass = hass
@@ -62,17 +60,17 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = f"{entry_id}_{endpoint.description.key}"
         self._attr_icon = endpoint.description.icon
 
-        base_device_info = build_device_info(hass, self._entry_id, self._key, nas_model)
+        base_device_info = build_device_info(hass, self._entry_id, self._key)
 
         if "disk" in self._key and "brand" in self._key:
             try:
-                base_device_info.manufacturer = str(self.coordinator.data.get(self._key))
+                base_device_info["manufacturer"] = str(self.coordinator.data.get(self._key))
             except Exception:
                 pass
 
         if "disk" in self._key and "model" in self._key:
             try:
-                base_device_info.model = str(self.coordinator.data.get(self._key))
+                base_device_info["model"] = str(self.coordinator.data.get(self._key))
             except Exception:
                 pass
 
@@ -85,11 +83,10 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
         return format_sensor_value(raw, self._endpoint)
 
     @property
-    def extra_state_attributes(self):
-        base_attrs = super().extra_state_attributes or {}
+    def extra_state_attributes(self) -> dict[str, object]:
+        base_attrs = dict(super().extra_state_attributes or {})
         base_attrs.update({
-            "nas_device_type": "UGreen NAS",
-            "nas_device_id": "",
+            "nas_device_type": "UGREEN NAS",
             "nas_part_category": self._endpoint.nas_part_category,
         })
         return base_attrs
