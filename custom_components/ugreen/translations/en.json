@@ -2,33 +2,57 @@
   "config": {
     "step": {
       "user": {
-        "title": "Configure UGREEN NAS",
+        "title": "Set up UGREEN NAS",
         "description": "Enter your UGREEN NAS connection details.",
         "data": {
-          "ugreen_host": "Host",
+          "ugreen_host": "IP Address or Hostname",
           "ugreen_port": "Port",
           "username": "Username",
           "password": "Password",
           "use_https": "Use HTTPS"
+        },
+        "data_description": {
+          "ugreen_host": "The IP address or hostname of your UGREEN NAS (e.g. 192.168.1.100)",
+          "ugreen_port": "The port for the connection (default: 9999 for HTTP, 9443 for HTTPS)",
+          "username": "Your UGREEN NAS username",
+          "password": "Your UGREEN NAS password",
+          "use_https": "Enable HTTPS for a secure connection"
         }
+      },
+      "zeroconf": {
+        "title": "UGREEN NAS Discovered",
+        "description": "A UGREEN NAS was automatically discovered on your network. Enter your credentials to add it."
       }
     },
     "error": {
-      "cannot_connect": "Unable to connect. Check host and ports.",
-      "invalid_auth": "Invalid authentication.",
-      "unknown": "Unknown error occurred."
+      "cannot_connect": "Connection failed. Check IP address, port and network connection.",
+      "invalid_auth": "Invalid credentials. Please check username and password.",
+      "unknown": "An unknown error occurred."
+    },
+    "abort": {
+      "already_configured": "This UGREEN NAS is already configured."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "UGREEN NAS Options",
+        "title": "UGREEN NAS Settings",
+        "description": "Change the settings for your UGREEN NAS. The integration will reload after saving.",
         "data": {
-          "ugreen_host": "Host",
+          "device_name": "Device Name",
+          "ugreen_host": "IP Address or Hostname",
           "ugreen_port": "Port",
           "username": "Username",
           "password": "Password",
           "use_https": "Use HTTPS"
+        },
+        "data_description": {
+          "device_name": "Change the name of the device as shown in Home Assistant",
+          "ugreen_host": "The IP address or hostname of your UGREEN NAS",
+          "ugreen_port": "The port for the connection (default: 9999 for HTTP, 9443 for HTTPS)",
+          "username": "Your UGREEN NAS username",
+          "password": "Your UGREEN NAS password",
+          "use_https": "Enable HTTPS for a secure connection"
         }
       }
     }

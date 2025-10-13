@@ -24,15 +24,12 @@ from .entities import (
     NAS_SPECIFIC_STATUS_TEMPLATES_FANS_CHASSIS,
     NAS_SPECIFIC_STATUS_TEMPLATES_FAN_CPU,
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_POOL,
-    NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_POOL,
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_VOLUME,
-    NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_VOLUME,
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK,
     NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK
 )
 
 _LOGGER = logging.getLogger(__name__)
-
 
 class UgreenApiClient:
 
@@ -72,7 +69,7 @@ class UgreenApiClient:
         self._ssl = (False if self.scheme == "https" else None)
 
         # web socket items to prevent API going asleep ('keep_alive')
-        self._ws_task: asyncio.Task | None = None
+        self._ws_task: asyncio.Task[Any] | None = None
         self._ws_stop = asyncio.Event()
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._ws_connected: bool = False
@@ -80,7 +77,7 @@ class UgreenApiClient:
 
     ### "The API" - public entrypoints (e.g. used by __init__.py) ##############
 
-    async def authenticate(self, session) -> bool:
+    async def authenticate(self, session: aiohttp.ClientSession) -> bool:
         """Call once during setup; afterwards rely on on-demand login in _request()"""
         if self._authed:
             return True
@@ -89,32 +86,32 @@ class UgreenApiClient:
         return ok
 
 
-    async def get(self, session, endpoint: str) -> dict[str, Any]:
+    async def get(self, session: aiohttp.ClientSession, endpoint: str) -> dict[str, Any]:
         """HTTP GET wrapper, uses _request."""
         return await self._request(session, "GET", endpoint)
 
 
-    async def post(self, session, endpoint: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def post(self, session: aiohttp.ClientSession, endpoint: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         """HTTP POST wrapper, uses _request."""
         return await self._request(session, "POST", endpoint, payload)
 
 
-    async def DISCOVER_NAS_SPECIFIC_CONFIG_ENTITIES(self, session) -> list[UgreenEntity]:
+    async def DISCOVER_NAS_SPECIFIC_CONFIG_ENTITIES(self, session: aiohttp.ClientSession) -> list[UgreenEntity]:
         """Build NAS-specific config entities (volumes, disks, raid levels etc) - 60s read."""
         return await self._build_from_registry(session, self._config_definitions(), for_status=False)
 
 
-    async def DISCOVER_NAS_SPECIFIC_STATE_ENTITIES(self, session) -> list[UgreenEntity]:
+    async def DISCOVER_NAS_SPECIFIC_STATE_ENTITIES(self, session: aiohttp.ClientSession) -> list[UgreenEntity]:
         """Build NAS-specific status entities (disk temperatures, fan speeds etc) - 5s read."""
         return await self._build_from_registry(session, self._status_definitions(), for_status=True)
 
 
-    async def count_dynamic_entities(self, session: aiohttp.ClientSession) -> dict:
+    async def count_dynamic_entities(self, session: aiohttp.ClientSession) -> dict[str, Any]:
         """Return counted numbers of dynamic, NAS-specific entities."""
         return await self._count_dynamic_entities(session)
 
 
-    def get_dynamic_entity_counts(self) -> dict:
+    def get_dynamic_entity_counts(self) -> dict[str, Any]:
         """Return above counted number of dynamic entities on request."""
         return self._dynamic_entity_counts or {}
 
@@ -122,7 +119,7 @@ class UgreenApiClient:
     ### Internally used functions ##############################################
 
 
-    async def _login(self, session) -> bool:
+    async def _login(self, session: aiohttp.ClientSession) -> bool:
         """Fetch RSA pubkey from header, encrypt password, request token"""
         async with self._login_lock:
             try:
@@ -169,6 +166,7 @@ class UgreenApiClient:
                     return False
 
                 token = (data.get("data") or {}).get("token")
+                
                 if not token:
                     _LOGGER.error("[UGREEN] login ok but token missing")
                     return False
@@ -183,7 +181,7 @@ class UgreenApiClient:
                 return False
 
 
-    async def _request(self, session, method: str, endpoint: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def _request(self, session: aiohttp.ClientSession, method: str, endpoint: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         """Single request helper with 1024-refresh; keeps noise low"""
         payload = payload or {}
 
@@ -215,7 +213,7 @@ class UgreenApiClient:
             return {}
 
 
-    async def _count_dynamic_entities(self, session: aiohttp.ClientSession) -> dict:
+    async def _count_dynamic_entities(self, session: aiohttp.ClientSession) -> dict[str, Any]:
         """Counts number of dynamic entities for central accessibility"""
         if self._dynamic_entity_counts is not None:
             return self._dynamic_entity_counts
@@ -307,7 +305,7 @@ class UgreenApiClient:
             return (f"{scheme}://{self.host}:{self.port}/ugreen/v1/desktop/ws"
                     f"?client_id={uuid4()}-WEB&lang={lang}&token={token}")
 
-        def _headers() -> dict:
+        def _headers() -> dict[str, str]:
             return {
                 "Origin": f"{self.scheme}://{self.host}:{self.port}",
                 "Pragma": "no-cache",
@@ -397,7 +395,7 @@ class UgreenApiClient:
         _LOGGER.debug("WS keep-alive task stopped.")
 
 
-    def _config_definitions(self) -> list[dict]:
+    def _config_definitions(self) -> list[dict[str, Any]]:
         """Registry for dynamic CONFIG entities."""
         return [
             # List-driven sections (fetch + list_path)
@@ -464,7 +462,7 @@ class UgreenApiClient:
         ]
 
 
-    def _status_definitions(self) -> list[dict]:
+    def _status_definitions(self) -> list[dict[str, Any]]:
         """Registry for dynamic STATUS entities."""
         return [
             dict(
@@ -545,10 +543,10 @@ class UgreenApiClient:
         ]
 
 
-    async def _build_from_registry(self, session, registry: list[dict], *, for_status: bool) -> list[UgreenEntity]:
+    async def _build_from_registry(self, session: aiohttp.ClientSession, registry: list[dict[str, Any]], *, for_status: bool) -> list[UgreenEntity]:
         """Single loop over registry entries; supports list/count/custom + post hooks."""
         out: list[UgreenEntity] = []
-        counts: dict | None = None
+        counts: dict[str, Any] | None = None
 
         for d in registry:
             kind = d.get("kind", "count")
