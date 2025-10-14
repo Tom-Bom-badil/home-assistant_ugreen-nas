@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Any, Optional, Union, Iterable, List, Awaitable, Callable, Mapping
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
@@ -278,9 +279,27 @@ async def get_entity_data_from_api(
     return data
 
 
+_INDEX_EXPR_RE = re.compile(r"\[(\d+)\s*([+-])\s*(\d+)\]")
+def _simplify_index_expr(s: str) -> str:
+    """Resolve simple integer +/- expressions *inside brackets* of a JSONPath-like string.
+    Example: 'disk[{series_index}-1]' -> starts with 'disk[0]' if '{series_index}' starts with 1.
+    This is needed for a very few endpoints only. +/- with integers are supported."""
+    if not s:
+        return s
+    def repl(m: re.Match) -> str:
+        a = int(m.group(1))
+        op = m.group(2)
+        b = int(m.group(3))
+        val = a + b if op == "+" else a - b
+        val = max(val, 0) # prevent '-1' (Python would interpret this as 'last element')
+        return f"[{val}]"
+    return _INDEX_EXPR_RE.sub(repl, s)
+
+
 def apply_templates(templates: Iterable[UgreenEntity], **fmt: Any) -> List[UgreenEntity]:
     """Create UgreenEntity objects by filling placeholders in templates.
-    Supported placeholders: {prefix_key}, {prefix_name}, {i}, {endpoint}, {category}, {series_index}"""
+    Supported placeholders: {prefix_key}, {prefix_name}, {i}, {endpoint}, {category}, {series_index}
+    Also supported: Simple arithmetics with +/-: {series_index}-1, {series_index}+1"""
     out: List[UgreenEntity] = []
     for t in templates:
         desc = EntityDescription(
@@ -289,10 +308,13 @@ def apply_templates(templates: Iterable[UgreenEntity], **fmt: Any) -> List[Ugree
             icon=t.description.icon,
             unit_of_measurement=t.description.unit_of_measurement,
         )
+        filled_endpoint = t.endpoint.format(**fmt)
+        filled_path = t.path.format(**fmt)
+        filled_path = _simplify_index_expr(filled_path)
         out.append(UgreenEntity(
             description=desc,
-            endpoint=t.endpoint.format(**fmt),
-            path=t.path.format(**fmt),
+            endpoint=filled_endpoint,
+            path=filled_path,
             request_method=t.request_method,
             decimal_places=t.decimal_places,
             nas_part_category=(t.nas_part_category or "").format(**fmt),
