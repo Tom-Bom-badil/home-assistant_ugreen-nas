@@ -1354,4 +1354,15 @@ NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [
         decimal_places=0,
         nas_part_category="Status",
     ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_sleep_state",
+            name="{prefix_name} Sleep State",
+            icon="mdi:sleep",
+            unit_of_measurement=None,
+        ),
+        endpoint="/ugreen/v1/desktop/components/data?id=desktop.component.TemperatureMonitoring",
+        path="data.disk_list[{series_index}-1].is_sleep",
+        nas_part_category="Status",
+    ),
 ]
