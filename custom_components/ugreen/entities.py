@@ -1260,17 +1260,6 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [ # -- disks --
     ),
     UgreenEntity(
         description=EntityDescription(
-            key="{prefix_key}_temperature",
-            name="{prefix_name} Temperature",
-            icon="mdi:thermometer",
-            unit_of_measurement=UnitOfTemperature.CELSIUS,
-        ),
-        endpoint="{endpoint}",
-        path="data.result[{series_index}].temperature",
-        nas_part_category="Disks",
-    ),
-    UgreenEntity(
-        description=EntityDescription(
             key="{prefix_key}_power_on_hours",
             name="{prefix_name} Power-On Hours",
             icon="mdi:clock-outline",
