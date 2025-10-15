@@ -508,18 +508,6 @@ class UgreenApiClient:
                 category="Status",
             ),
             dict(
-                key="STORAGE_DISK",
-                kind="count",
-                templates=NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK,
-                endpoint="/ugreen/v1/taskmgr/stat/get_all",
-                count=lambda c: int(c.get("num_disks", 0)),
-                prefix_key_base="disk",
-                prefix_name_base="Disk",
-                category="Status",
-                index_start=1,
-                single_compact=False,
-            ),
-            dict(
                 key="FAN_CPU",
                 kind="count",
                 templates=NAS_SPECIFIC_STATUS_TEMPLATES_FAN_CPU,
@@ -539,6 +527,11 @@ class UgreenApiClient:
                 prefix_name_base="Device Fan",
                 category="Status",
                 single_compact=True, 
+            ),
+            dict(
+                key="STORAGE_DISK",
+                kind="custom",
+                builder="_get_dynamic_status_entities_storage_disks",
             ),
         ]
 
@@ -682,27 +675,52 @@ class UgreenApiClient:
         return entities
 
 
+    async def _get_dynamic_status_entities_storage_disks(self, session: aiohttp.ClientSession) -> list[UgreenEntity]:
+        """Create STORAGE disk status entities (templated) - pool-aware keys so they attach to the disk device."""
+        endpoint_stat  = "/ugreen/v1/taskmgr/stat/get_all"
+        endpoint_pools = "/ugreen/v1/storage/pool/list"
+        endpoint_disks = "/ugreen/v2/storage/disk/list"
+
+        # Pools (for pool↔disk relation)
+        pools_resp = await self.get(session, endpoint_pools)
+        pools = ((pools_resp or {}).get("data", {}) or {}).get("result", []) or []
+        if not pools:
+            _LOGGER.debug("[UGREEN NAS] No pools in %s response", endpoint_pools)
+            return []
+
+        # Global disk list to map dev_name -> global index (matches series order)
+        disk_resp = await self.get(session, endpoint_disks)
+        disk_list = ((disk_resp or {}).get("data", {}) or {}).get("result", []) or []
+        dev_index: dict[str, int] = {}
+        for idx, d in enumerate(disk_list):
+            name = (d or {}).get("dev_name") or (d or {}).get("name")
+            if isinstance(name, str) and name:
+                dev_index[name] = idx  # 0-based
+
+        entities: list[UgreenEntity] = []
+        # Iterate pools and their member disks to get (p_i, d_i) for the key and global_idx for series_index
+        for p_i, pool in enumerate(pools, start=1):
+            for d_i, d in enumerate((pool or {}).get("disks") or [], start=1):
+                dev_name = (d or {}).get("dev_name") or (d or {}).get("name")
+                if dev_name not in dev_index:
+                    _LOGGER.debug("[UGREEN NAS] dev_name '%s' not found in global disk list", dev_name)
+                    continue
+                global_idx = dev_index[dev_name]
+
+                entities.extend(apply_templates(
+                    NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK,
+                    series_index=global_idx + 1,
+                    series_index_base0=global_idx,
+                    prefix_key=f"disk{d_i}_pool{p_i}",
+                    prefix_name=f"(Pool {p_i} | Disk {d_i})",
+                    endpoint=endpoint_stat,
+                    category="Disks",
+                ))
+        return entities
 
 
-### preserved for future programming ###
 
-# obsolete
-    # async def get_dynamic_status_entities_storage(self, session) -> List[UgreenEntity]:
-    #     """Create STORAGE status entities (templated)."""
-    #     counts = await self.count_dynamic_entities(session) or {}
-    #     return await make_entities(
-    #         fetch=None,
-    #         templates=NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK,
-    #         endpoint="/ugreen/v1/taskmgr/stat/get_all",
-    #         count=counts.get("num_disks", 0),
-    #         prefix_key_base="disk",
-    #         prefix_name_base="Disk",
-    #         category="Status",
-    #         index_start=0,
-    #         single_compact=False,
-    #     )
-
-# undecided
+# undecided - any use for this?
     # async def get_dynamic_status_entities_storage_pool(self, session) -> list[UgreenEntity]:
     #     """Create STORAGE POOL status entities (templated) – currently none."""
     #     return []
