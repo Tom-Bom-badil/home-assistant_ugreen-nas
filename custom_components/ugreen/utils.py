@@ -156,8 +156,9 @@ def format_sensor_value(raw: Any, endpoint: UgreenEntity) -> Any:
             })
 
         if "disk" in endpoint.description.key and "status" in endpoint.description.key:
+        # From Web GUI: "0":"Normal","1":"Warnung","2":"Gefährlich","3":"Schwerwiegend"
             return format_status_code(raw, {
-                1: "Normal",
+                1: "Normal",         # Note: Normal operation is always returning "1" here???!!!
             })
             
 
@@ -173,15 +174,26 @@ def format_sensor_value(raw: Any, endpoint: UgreenEntity) -> Any:
             })
 
         if "disk" in endpoint.description.key and not "interface" in endpoint.description.key and "type" in endpoint.description.key:
+        # From Web GUI: "0":"Intern HDD","1":"Intern SSD","2":"M2-Festplatte","3":"Extern HDD","4":"Extern SSD","5":"Extern USB","6":"Unbekannt"
             return format_status_code(raw, {
                 0: "HDD",
                 1: "SSD",
                 2: "M.2",
+                3: "HDD (ext)",
+                4: "SSD (ext)",
+                5: "USB",
+                6: "???",
             })
             
         if "volume" in endpoint.description.key and "health" in endpoint.description.key:
+        # From Web GUI: "0":"Nicht unterstützt","1":"Normal","2":"Warnung","3":"Gefährlich","4":"Fehler","5":"Gesperrt"
             return format_status_code(raw, {
-                0: "Normal",
+                0: "Normal",         # Note: Normal operation is always returning "0" here???!!!
+                # 1: "Normal",
+                # 2: "Warning",
+                # 3: "Danger",
+                # 4: "Error",
+                # 5: "Locked",
             })
             
         if "USB_device_type" in endpoint.description.key:
