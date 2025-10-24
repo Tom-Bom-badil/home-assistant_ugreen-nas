@@ -11,6 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import StateType
+from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
@@ -19,48 +20,13 @@ from homeassistant.helpers.update_coordinator import (
 from .const import DOMAIN
 from .device_info import build_device_info
 from .entities import UgreenEntity
-from .utils import determine_unit, format_sensor_value
+from .utils import determine_unit, format_sensor_value, strip_parent_prefix
 
 _LOGGER = logging.getLogger(__name__)
 
-# --------------------------------------------------------------------------------------
-# Local helpers for Summary Entities
-# --------------------------------------------------------------------------------------
-
-_PREFIX_VENDOR_RX = re.compile(r"^UGREEN\s+NAS\s*", re.IGNORECASE)
-_PREFIX_PAREN_RX = re.compile(r"^.*?\([^)]*\)\s*")
-
-def _strip_paren_prefix(s: str | None) -> str:
-    """
-    Make metric labels compact:
-    - drop leading 'UGREEN NAS ' if present
-    - drop the first '(...) ' segment anywhere near the beginning
-    Example: 'UGREEN NAS (Pool 1 | Volume 1) Label' -> 'Label'
-             'UGREEN NAS (Pool 1) Level'            -> 'Level'
-    """
-    txt = (s or "")
-    txt = _PREFIX_VENDOR_RX.sub("", txt)
-    txt = _PREFIX_PAREN_RX.sub("", txt)
-    return txt.strip()
-
-
-def _flatten_states_as_attrs(hass: HomeAssistant, items: List[Tuple[str, str]]) -> dict[str, str]:
-    """Build flat attribute dict {clean_label: 'value [unit]'} from HA states."""
-    out: dict[str, str] = {}
-    for hint, ent_id in items:
-        st: State | None = hass.states.get(ent_id)
-        if not st:
-            continue
-        label = st.attributes.get("friendly_name") or hint or ent_id
-        label = _strip_paren_prefix(str(label))
-        unit = st.attributes.get("unit_of_measurement")
-        val = st.state if unit is None else f"{st.state} {unit}"
-        out[label] = val
-    return out
-
 
 # --------------------------------------------------------------------------------------
-# Setup: regular sensors + dynamic root summary entities
+# Setup: regular sensors + root summary sensors
 # --------------------------------------------------------------------------------------
 
 async def async_setup_entry(
@@ -101,7 +67,7 @@ async def async_setup_entry(
     async_add_entities(config_sensors + state_sensors)
 
     # --------------------------------------------------------------------------
-    # Dynamic: create one summary entity per Pool / Volume / Disk under NAS root
+    # One summary entity per Pool / Volume / Disk under NAS root
     # --------------------------------------------------------------------------
     data_ctx = hass.data[DOMAIN][entry.entry_id]
     status_coord: DataUpdateCoordinator = data_ctx["state_coordinator"]
@@ -146,15 +112,83 @@ async def async_setup_entry(
 
 
 # --------------------------------------------------------------------------------------
-# Summary entity: one per Pool / Volume / Disk on NAS root device
+# Regular sensors
+# --------------------------------------------------------------------------------------
+
+class UgreenNasSensor(CoordinatorEntity, SensorEntity):
+    """Representation of each UGREEN NAS sensor."""
+
+    def __init__(self, hass: HomeAssistant, entry_id: str,
+                coordinator: DataUpdateCoordinator, endpoint: UgreenEntity) -> None:
+        super().__init__(coordinator)
+
+        self.hass = hass
+        self._entry_id = entry_id
+        self._endpoint = endpoint
+        self._key = endpoint.description.key
+        self._nas_device_id = hass.data[DOMAIN][self._entry_id].get("nas_device_id", "")
+
+        self._attr_name = f"UGREEN NAS {endpoint.description.name}"
+        self._attr_unique_id = f"{entry_id}_{endpoint.description.key}"
+        self._attr_icon = endpoint.description.icon
+        self._attr_device_info = build_device_info(hass, entry_id, self._key)
+
+    @property
+    def native_value(self) -> StateType | date | datetime | Decimal:
+        raw = self.coordinator.data.get(self._key)
+        return format_sensor_value(raw, self._endpoint)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        base_attrs = dict(super().extra_state_attributes or {})
+        base_attrs.update({
+            "UGNAS_global_id": "UGREEN NAS",
+            "UGNAS_device_id": self._nas_device_id,
+            "UGNAS_part_category": self._endpoint.nas_part_category,
+        })
+        return base_attrs
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Return the unit, keeping raw unscaled and leaving calculated values unitless."""
+        raw = self.coordinator.data.get(self._key)
+        unit = self._endpoint.description.unit_of_measurement
+        name = self._endpoint.description.name or ""
+        path = getattr(self._endpoint, "path", "")
+
+        # 1) Explicit RAW sensors: keep declared unit (e.g., "B/s")
+        if isinstance(name, str) and "(raw)" in name.lower():
+            return unit
+
+        # 2) Calculated, human-readable strings (unit embedded in state): no unit attribute
+        if isinstance(path, str) and path.startswith("calculated:scale_bytes_per_second"):
+            return None
+
+        # 3) Dynamic scaling for real numeric units (non-calculated)
+        if unit in ("B/s", "kB/s", "MB/s", "GB/s", "TB/s", "PB/s"):
+            return determine_unit(raw, str(unit), True)
+        if unit in ("B", "kB", "MB", "GB", "TB", "PB"):
+            return determine_unit(raw, str(unit), False)
+
+        # 4) Everything else: keep as-is (including None for text attributes)
+        return unit
+
+
+    def _handle_coordinator_update(self) -> None:
+        self._attr_native_value = self.native_value
+        self._attr_native_unit_of_measurement = self.native_unit_of_measurement
+        super()._handle_coordinator_update()
+
+
+# --------------------------------------------------------------------------------------
+# Summary sensors: one per Pool / Volume / Disk, available under NAS root device
 # --------------------------------------------------------------------------------------
 
 class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
     """One summary entity per Pool / Volume / Disk attached to the NAS root device."""
 
     _attr_icon = "mdi:clipboard-text-outline"
-    # Exclude ALL attributes from recorder history (kept visible in UI)
-    _unrecorded_attributes = frozenset({MATCH_ALL})
+    _unrecorded_attributes = frozenset({MATCH_ALL}) # Exclude ALL attributes from recorder
 
     def __init__(
         self,
@@ -176,9 +210,20 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
         self._mk = match_key                      # (p,) | (p,v) | (global_index,)
         self._nas_device_id = hass.data[DOMAIN][entry_id].get("nas_device_id", "")
 
-        self._attr_has_entity_name = False        # True: prefix entity name with DNS Name
-        self._attr_name = f"UGREEN NAS {title} Summary"
-        self._attr_unique_id = f"{entry_id}_root_summary_{title.replace(' ', '_').lower()}"
+        # Friendly name (stable " Summary" suffix)
+        self._attr_has_entity_name = False
+        base_name = f"UGREEN NAS {title} Summary"
+        self._attr_name = base_name
+
+        # Ensure entity_id contains "_summary" (generated from name)
+        # e.g. "sensor.ugreen_nas_disk_1_summary"
+        self.entity_id = async_generate_entity_id("sensor.{}", self._attr_name, hass=self.hass)
+
+        # Make unique_id explicitly end with "_summary" to separate from older IDs
+        # e.g. "<entry>_root_summary_disk_1_summary"
+        uid_title = re.sub(r"\s+", "_", title.strip()).lower()
+        self._attr_unique_id = f"{entry_id}_root_summary_{uid_title}_summary"
+
         # attach to NAS root device (fallback)
         self._attr_device_info = build_device_info(hass, entry_id, key="root")
 
@@ -260,7 +305,7 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
             if not st:
                 continue
             friendly = st.attributes.get("friendly_name") or hint or ent_id
-            clean = _strip_paren_prefix(str(friendly)).lower()
+            clean = strip_parent_prefix(str(friendly)).lower()
             if clean == "label" or clean.endswith(" label") or ent_id.endswith("_label"):
                 val = st.state
                 if val and val not in ("unknown", "unavailable"):
@@ -273,27 +318,45 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
             if not st:
                 continue
             friendly = st.attributes.get("friendly_name") or hint or ent_id
-            clean = _strip_paren_prefix(str(friendly)).lower()
+            clean = strip_parent_prefix(str(friendly)).lower()
             if clean == "status" or clean.endswith(" status") or ent_id.endswith("_status"):
                 val = st.state
                 if val and val not in ("unknown", "unavailable"):
                     return str(val)
         return None
 
+    # ---------- local helper for Summary Entities ----------
+
+    def _flatten_states_as_attrs(self, pairs: list[tuple[str, str]]) -> dict[str, object]:
+        out: dict[str, object] = {}
+        for hint, ent_id in pairs:
+            if ent_id.endswith("_raw"):   # exclude *_raw entities, we only want formatted values
+                continue
+            st = self.hass.states.get(ent_id)
+            if not st:
+                continue
+            friendly = st.attributes.get("friendly_name") or hint or ent_id
+            clean = strip_parent_prefix(str(friendly)).strip()
+            unit  = st.attributes.get("unit_of_measurement")
+            val   = st.state
+            if val not in ("unknown", "unavailable", None, ""):
+                out[clean] = f"{val}{(' ' + unit) if unit else ''}"
+        return out
+
     # ---------- build state & attributes (with no-op guard) ----------
 
     def _rebuild(self) -> None:
         pairs = self._collect_targets()
 
-        # 1) dynamic entity name from Label
+        # 1) dynamic entity name from Label (keep " Summary" suffix)
         label_val = self._find_label_value(pairs)
         if label_val:
-            new_name = f"UGREEN NAS {label_val}"
+            new_name = f"UGREEN NAS {label_val} Summary"
             if getattr(self, "_attr_name", None) != new_name:
                 self._attr_name = new_name
 
         # 2) attributes from children (labels stripped)
-        attrs = _flatten_states_as_attrs(self.hass, pairs)
+        attrs = self._flatten_states_as_attrs(pairs)
 
         # 3) state from Status (fallback: attribute count)
         status_val = self._find_status_value(pairs)
@@ -302,23 +365,23 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
         # 4) META attributes (not recorded)
         kind_map = {"pool": "Pool", "volume": "Volume", "disk": "Disk"}
         meta = {
-            "NAS_device_type": "UGREEN NAS",
-            "NAS_device_id": self._nas_device_id,
-            "NAS_summary_entity_for": kind_map.get(self._kind, self._kind),
-            "NAS_part_category": "Summary",
+            "UGNAS_global_id": "UGREEN NAS",
+            "UGNAS_device_id": self._nas_device_id,
+            "UGNAS_summary_entity_for": kind_map.get(self._kind, self._kind),
+            "UGNAS_part_category": "Summary",
         }
         if self._kind == "pool":
-            meta["pool_index"] = self._mk[0]
+            meta["UGNAS_pool_index"] = self._mk[0]
         elif self._kind == "volume":
             p, v = self._mk
-            meta["pool_index"] = p
-            meta["volume_index"] = v
+            meta["UGNAS_pool_index"] = p
+            meta["UGNAS_volume_index"] = v
         elif self._kind == "disk":
-            meta["NAS global disk number"] = self._mk[0]
+            meta["UGNAS global disk number"] = self._mk[0]
             if getattr(self, "_last_pd", None):
                 p, d = self._last_pd
-                meta["NAS member of pool"] = p
-                meta["NAS disk number in pool"] = d
+                meta["UGNAS member of pool"] = p
+                meta["UGNAS disk number in pool"] = d
 
         attrs.update(meta)
 
@@ -331,91 +394,3 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
     def _refresh(self) -> None:
         self._rebuild()
         self.async_write_ha_state()
-
-
-# --------------------------------------------------------------------------------------
-# Regular sensors
-# --------------------------------------------------------------------------------------
-
-class UgreenNasSensor(CoordinatorEntity, SensorEntity):
-    """Representation of each single UGREEN NAS sensor."""
-
-    def __init__(self, hass: HomeAssistant, entry_id: str,
-                 coordinator: DataUpdateCoordinator, endpoint: UgreenEntity) -> None:
-        super().__init__(coordinator)
-
-        self.hass = hass
-        self._entry_id = entry_id
-        self._endpoint = endpoint
-        self._key = endpoint.description.key
-        self._nas_device_id = hass.data[DOMAIN][self._entry_id].get("nas_device_id", "")
-
-        self._attr_name = f"UGREEN NAS {endpoint.description.name}"
-        self._attr_unique_id = f"{entry_id}_{endpoint.description.key}"
-        self._attr_icon = endpoint.description.icon
-        self._attr_device_info = build_device_info(hass, entry_id, self._key)
-
-    @property
-    def native_value(self) -> StateType | date | datetime | Decimal:
-        raw = self.coordinator.data.get(self._key)
-        return format_sensor_value(raw, self._endpoint)
-
-    @property
-    def extra_state_attributes(self) -> dict[str, object]:
-        base_attrs = dict(super().extra_state_attributes or {})
-        base_attrs.update({
-            "NAS_device_type": "UGREEN NAS",
-            "NAS_device_id": self._nas_device_id,
-            "NAS_part_category": self._endpoint.nas_part_category,
-        })
-
-        k = self._key
-        m_disk = re.search(r"disk(?P<disk>\d+)_pool(?P<pool>\d+)_", k)
-        if m_disk:
-            base_attrs["disk#"] = int(m_disk.group("disk"))
-            base_attrs["pool#"] = int(m_disk.group("pool"))
-            return base_attrs
-
-        m_vol = re.search(r"volume(?P<vol>\d+)_pool(?P<pool>\d+)_", k)
-        if m_vol:
-            base_attrs["volume#"] = int(m_vol.group("vol"))
-            base_attrs["pool#"] = int(m_vol.group("pool"))
-            return base_attrs
-
-        m_pool = re.search(r"pool(?P<pool>\d+)_", k)
-        if m_pool:
-            base_attrs["pool#"] = int(m_pool.group("pool"))
-            return base_attrs
-
-        return base_attrs
-
-    @property
-    def native_unit_of_measurement(self) -> str | None:
-        """Return the unit, keeping raw unscaled and leaving calculated values unitless."""
-        raw = self.coordinator.data.get(self._key)
-        unit = self._endpoint.description.unit_of_measurement  # do NOT coalesce to ""
-        name = self._endpoint.description.name or ""
-        path = getattr(self._endpoint, "path", "")
-
-        # 1) Explicit RAW sensors: keep declared unit (e.g., "B/s")
-        if isinstance(name, str) and "(raw)" in name.lower():
-            return unit
-
-        # 2) Calculated, human-readable strings (unit embedded in state): no unit attribute
-        if isinstance(path, str) and path.startswith("calculated:scale_bytes_per_second"):
-            return None
-
-        # 3) Dynamic scaling for real numeric units (non-calculated)
-        if unit in ("B/s", "kB/s", "MB/s", "GB/s", "TB/s", "PB/s"):
-            return determine_unit(raw, str(unit), True)
-        if unit in ("B", "kB", "MB", "GB", "TB", "PB"):
-            return determine_unit(raw, str(unit), False)
-
-        # 4) Everything else: keep as-is (including None for text attributes)
-        return unit
-
-
-    def _handle_coordinator_update(self) -> None:
-        self._attr_native_value = self.native_value
-        self._attr_native_unit_of_measurement = self.native_unit_of_measurement
-        super()._handle_coordinator_update()
