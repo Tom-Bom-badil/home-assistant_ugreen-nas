@@ -1,12 +1,13 @@
-import logging
-import re
+import logging, re
+
 from typing import Any, Optional, Union, Iterable, List, Awaitable, Callable, Mapping
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
-from .entities import UgreenEntity
 from homeassistant.helpers.entity import EntityDescription
+from .entities import UgreenEntity
 
 _LOGGER = logging.getLogger(__name__)
+
 
 def format_dynamic_size(
     raw: Any,
@@ -144,23 +145,25 @@ def convert_string_to_number(value: Union[str, int, float, Decimal], decimal_pla
 def format_sensor_value(raw: Any, endpoint: UgreenEntity) -> Any:
     """Format a raw value based on the endpoint definition."""
     try:
-        if endpoint.description.unit_of_measurement is not None and endpoint.description.unit_of_measurement in ("B", "kB", "MB", "GB", "TB"):
-            return format_dynamic_size(raw, endpoint.description.unit_of_measurement, endpoint.decimal_places)
 
         if isinstance(endpoint.description.name, str) and "Timestamp" in endpoint.description.name:
             return format_timestamp(raw)
+
+        if endpoint.description.unit_of_measurement is not None and endpoint.description.unit_of_measurement in ("B", "kB", "MB", "GB", "TB"):
+            if endpoint.description.key.endswith("_raw"):
+                return raw
+            else:
+                return format_dynamic_size(raw, endpoint.description.unit_of_measurement, endpoint.decimal_places)
 
         if "server_status" in endpoint.description.key:
             return format_status_code(raw, {
                 2: "Normal",
             })
 
-        if "disk" in endpoint.description.key and "status" in endpoint.description.key:
-        # From Web GUI: "0":"Normal","1":"Warnung","2":"Gefährlich","3":"Schwerwiegend"
+        if "USB_device_type" in endpoint.description.key:
             return format_status_code(raw, {
-                1: "Normal",         # Note: Normal operation is always returning "1" here???!!!
+                0: "Generic USB Device",   # 0 = External HDD?
             })
-            
 
         if "fan" in endpoint.description.key and "overall" in endpoint.description.key:
             return format_status_code(raw, {
@@ -173,8 +176,14 @@ def format_sensor_value(raw: Any, endpoint: UgreenEntity) -> Any:
                 1: "On",
             })
 
+        if "disk" in endpoint.description.key and "status" in endpoint.description.key:
+        # Web GUI .js states: "0":"Normal","1":"Warnung","2":"Gefährlich","3":"Schwerwiegend"
+            return format_status_code(raw, {
+                1: "Normal",   # Note: Normal operation is always returning "1" here - different to Web GUI???!!!
+            })
+
         if "disk" in endpoint.description.key and not "interface" in endpoint.description.key and "type" in endpoint.description.key:
-        # From Web GUI: "0":"Intern HDD","1":"Intern SSD","2":"M2-Festplatte","3":"Extern HDD","4":"Extern SSD","5":"Extern USB","6":"Unbekannt"
+        # Web GUI .js states: "0":"Intern HDD","1":"Intern SSD","2":"M2-Festplatte","3":"Extern HDD","4":"Extern SSD","5":"Extern USB","6":"Unbekannt"
             return format_status_code(raw, {
                 0: "HDD",
                 1: "SSD",
@@ -184,21 +193,28 @@ def format_sensor_value(raw: Any, endpoint: UgreenEntity) -> Any:
                 5: "USB",
                 6: "???",
             })
-            
+
         if "volume" in endpoint.description.key and "health" in endpoint.description.key:
-        # From Web GUI: "0":"Nicht unterstützt","1":"Normal","2":"Warnung","3":"Gefährlich","4":"Fehler","5":"Gesperrt"
             return format_status_code(raw, {
-                0: "Normal",         # Note: Normal operation is always returning "0" here???!!!
-                # 1: "Normal",
-                # 2: "Warning",
-                # 3: "Danger",
-                # 4: "Error",
-                # 5: "Locked",
+                0: "Normal",
             })
-            
-        if "USB_device_type" in endpoint.description.key:
+
+        if "volume" in endpoint.description.key and "status" in endpoint.description.key:
+        # Web GUI .js states: "0":"Normal","1":"Warnung","2":"Gefährlich","3":"Schwerwiegend"
             return format_status_code(raw, {
-                0: "Generic USB Device",   # 0 = External HDD?
+                0: "Normal",
+                1: "Warning",
+                2: "Danger",
+                3: "Faulty",
+            })
+
+        if "pool" in endpoint.description.key and "status" in endpoint.description.key:
+        # Web GUI .js states: "0":"Normal","1":"Warnung","2":"Gefährlich","3":"Schwerwiegend"
+            return format_status_code(raw, {
+                0: "Normal",
+                1: "Rebuilding",
+                2: "Degraded",
+                3: "Faulty",
             })
 
         if endpoint.description.unit_of_measurement is not None and endpoint.description.unit_of_measurement == "%":
@@ -379,3 +395,14 @@ async def make_entities(
             category=category,
         ))
     return out
+
+
+# Compile only once for strip_parent_prefix
+_PREFIX_VENDOR_RX = re.compile(r"^UGREEN\s+NAS\s*", re.IGNORECASE)
+_PREFIX_PARENT_RX = re.compile(r"^.*?\([^)]*\)\s*")
+def strip_parent_prefix(s: str | None) -> str:
+    """Remove 'UGREEN NAS ' and a leading '(...) ' group from labels."""
+    txt = (s or "")
+    txt = _PREFIX_VENDOR_RX.sub("", txt)
+    txt = _PREFIX_PARENT_RX.sub("", txt)
+    return txt.strip()
