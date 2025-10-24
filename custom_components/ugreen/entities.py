@@ -1085,6 +1085,17 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_VOLUME: List[UgreenEntity] = [ # -- vol --
     ),
     UgreenEntity(
         description=EntityDescription(
+            key="{prefix_key}_total_raw",
+            name="{prefix_name} Total Size (raw)",
+            icon="mdi:database",
+            unit_of_measurement=UnitOfInformation.BYTES,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].volumes[{i}].total",
+        nas_part_category="Volumes",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
             key="{prefix_key}_used",
             name="{prefix_name} Used Size",
             icon="mdi:database-check",
@@ -1096,8 +1107,30 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_VOLUME: List[UgreenEntity] = [ # -- vol --
     ),
     UgreenEntity(
         description=EntityDescription(
+            key="{prefix_key}_used_raw",
+            name="{prefix_name} Used Size (raw)",
+            icon="mdi:database-check",
+            unit_of_measurement=UnitOfInformation.BYTES,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].volumes[{i}].used",
+        nas_part_category="Volumes",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
             key="{prefix_key}_available",
             name="{prefix_name} Available Size",
+            icon="mdi:database-plus",
+            unit_of_measurement=UnitOfInformation.BYTES,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].volumes[{i}].available",
+        nas_part_category="Volumes",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_available_raw",
+            name="{prefix_name} Available Size (raw)",
             icon="mdi:database-plus",
             unit_of_measurement=UnitOfInformation.BYTES,
         ),
