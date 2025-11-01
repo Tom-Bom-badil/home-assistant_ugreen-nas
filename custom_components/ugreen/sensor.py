@@ -88,12 +88,22 @@ async def async_setup_entry(
             )
         )
 
-    # Volumes (global order by (pool asc, volume asc))
-    for (p, v) in sorted(volume_meta.keys(), key=lambda t: (t[0], t[1])):
+    # # Volumes (global order by (pool asc, volume asc))
+    # for (p, v) in sorted(volume_meta.keys(), key=lambda t: (t[0], t[1])):
+    #     summary_entities.append(
+    #         UgreenNasRootObjectSummary(
+    #             hass, entry.entry_id, status_coord, config_coord,
+    #             title=f"Volume {p}-{v}", match_kind="volume", match_key=(p, v)
+    #         )
+    #     )
+
+    # Volumes (global order; running index 1..N)
+    for i, (p, v) in enumerate(sorted(volume_meta.keys(), key=lambda t: (t[0], t[1])), start=1):
         summary_entities.append(
             UgreenNasRootObjectSummary(
                 hass, entry.entry_id, status_coord, config_coord,
-                title=f"Volume {p}-{v}", match_kind="volume", match_key=(p, v)
+                title=f"Volume {i}",                 # <-- nur laufende Nummer
+                match_kind="volume", match_key=(p, v)
             )
         )
 
