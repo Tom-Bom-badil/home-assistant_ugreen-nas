@@ -1085,6 +1085,17 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_VOLUME: List[UgreenEntity] = [ # -- vol --
     ),
     UgreenEntity(
         description=EntityDescription(
+            key="{prefix_key}_total_raw",
+            name="{prefix_name} Total Size (raw)",
+            icon="mdi:database",
+            unit_of_measurement=UnitOfInformation.BYTES,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].volumes[{i}].total",
+        nas_part_category="Volumes",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
             key="{prefix_key}_used",
             name="{prefix_name} Used Size",
             icon="mdi:database-check",
@@ -1096,8 +1107,30 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_VOLUME: List[UgreenEntity] = [ # -- vol --
     ),
     UgreenEntity(
         description=EntityDescription(
+            key="{prefix_key}_used_raw",
+            name="{prefix_name} Used Size (raw)",
+            icon="mdi:database-check",
+            unit_of_measurement=UnitOfInformation.BYTES,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].volumes[{i}].used",
+        nas_part_category="Volumes",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
             key="{prefix_key}_available",
             name="{prefix_name} Available Size",
+            icon="mdi:database-plus",
+            unit_of_measurement=UnitOfInformation.BYTES,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].volumes[{i}].available",
+        nas_part_category="Volumes",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_available_raw",
+            name="{prefix_name} Available Size (raw)",
             icon="mdi:database-plus",
             unit_of_measurement=UnitOfInformation.BYTES,
         ),
@@ -1260,17 +1293,6 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [ # -- disks --
     ),
     UgreenEntity(
         description=EntityDescription(
-            key="{prefix_key}_temperature",
-            name="{prefix_name} Temperature",
-            icon="mdi:thermometer",
-            unit_of_measurement=UnitOfTemperature.CELSIUS,
-        ),
-        endpoint="{endpoint}",
-        path="data.result[{series_index}].temperature",
-        nas_part_category="Disks",
-    ),
-    UgreenEntity(
-        description=EntityDescription(
             key="{prefix_key}_power_on_hours",
             name="{prefix_name} Power-On Hours",
             icon="mdi:clock-outline",
@@ -1352,6 +1374,17 @@ NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [
         endpoint="{endpoint}",
         path="calculated:scale_bytes_per_second:data.disk.series[{series_index}].write_rate",
         decimal_places=0,
+        nas_part_category="Status",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_sleep_state",
+            name="{prefix_name} Sleep State",
+            icon="mdi:sleep",
+            unit_of_measurement=None,
+        ),
+        endpoint="/ugreen/v1/desktop/components/data?id=desktop.component.TemperatureMonitoring",
+        path="data.disk_list[{series_index}-1].is_sleep",
         nas_part_category="Status",
     ),
 ]

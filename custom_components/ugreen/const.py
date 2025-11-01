@@ -10,9 +10,9 @@ CONF_UGREEN_PORT = "ugreen_port"
 CONF_USE_HTTPS = "use_https"
 CONF_STATE_INTERVAL = "state_interval"
 
-DEFAULT_SCAN_INTERVAL_CONFIG = 60   # 60 seconds (config entities)
-DEFAULT_SCAN_INTERVAL_STATE = 5     # 5 seconds (state entities)
-DEFAULT_SCAN_INTERVAL_WS = 30       # 30 seconds
+DEFAULT_SCAN_INTERVAL_CONFIG = 60   # config entities = 60 seconds
+DEFAULT_SCAN_INTERVAL_STATE = 5     # status entities =  5 seconds
+DEFAULT_SCAN_INTERVAL_WS = 20       # keep-alive ping for websocket = 20 seconds
 
 MANUFACTURER = "UGREEN"
 STORAGE_TECHNOLOGY = "Linux mdadm"
