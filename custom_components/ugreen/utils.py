@@ -270,6 +270,7 @@ def extract_value_from_path(data: dict[str, Any], path: str) -> Any:
     except Exception:
         return None
 
+
 async def get_entity_data_from_api(
     api: Any,
     session: Any,
