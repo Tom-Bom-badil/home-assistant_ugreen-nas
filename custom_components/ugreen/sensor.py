@@ -88,15 +88,6 @@ async def async_setup_entry(
             )
         )
 
-    # # Volumes (global order by (pool asc, volume asc))
-    # for (p, v) in sorted(volume_meta.keys(), key=lambda t: (t[0], t[1])):
-    #     summary_entities.append(
-    #         UgreenNasRootObjectSummary(
-    #             hass, entry.entry_id, status_coord, config_coord,
-    #             title=f"Volume {p}-{v}", match_kind="volume", match_key=(p, v)
-    #         )
-    #     )
-
     # Volumes (global order; running index 1..N)
     for i, (p, v) in enumerate(sorted(volume_meta.keys(), key=lambda t: (t[0], t[1])), start=1):
         summary_entities.append(
@@ -191,7 +182,7 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
 
 
 # --------------------------------------------------------------------------------------
-# Summary sensors: one per Pool / Volume / Disk, available under NAS root device
+# Summary sensors: one per pool / volume / disk, available under the NAS root device
 # --------------------------------------------------------------------------------------
 
 class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
@@ -244,7 +235,7 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
         self._rebuild()
         self.async_write_ha_state()
 
-    # ---------- collect target entities (no API calls) ----------
+    # ---------- collect target entities (without calling API) -----------------
 
     def _collect_targets(self) -> List[Tuple[str, str]]:
         reg = er.async_get(self.hass)
