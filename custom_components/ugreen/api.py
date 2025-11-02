@@ -629,6 +629,7 @@ class UgreenApiClient:
             prefix_key_base="pool",
             prefix_name_base="Pool",
             category="Pools",
+            single_compact=False,
         ))
 
         # 2) Create a global disk list
