@@ -14,7 +14,7 @@
 👉 This project enables **Home Assistant** to monitor data of a **UGOS based UGreen NAS** - *without modifying its operating system in any way*. No extra tools/scripts are installed in UGOS, no ssh access with cryptic shell commands is needed; we simply use what UGOS already provides.
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/2f3053ac-35a0-42af-af59-087d0ec2134a" alt="System View" width="600"/>
+  <img width="600" alt="system_view" src="https://github.com/user-attachments/assets/e40dfa67-93dc-44e4-a023-50e4203dc925" />
 </p>
 
 After it is provided with a user name and password during setup, the integration frequently retrieves and renews access authorization tokens, and queries data from an UGOS-builtin API (the same API that the UGOS Web GUI and the Mobile App are using).
