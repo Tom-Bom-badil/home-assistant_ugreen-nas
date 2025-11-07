@@ -4,7 +4,7 @@
 [![Custom integration](https://img.shields.io/badge/Custom%20Integration-%2341BDF5.svg)](https://www.home-assistant.io/getting-started/concepts-terminology)
 [![HACS Listing](https://img.shields.io/badge/HACS%20Listing-default-green.svg)](https://github.com/hacs)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/graphs/commit-activity)
-[![Version](https://img.shields.io/github/v/release/Tom-Bom-badil/home-assistant_ugreen-nas?include_prereleases&sort=semver&color=green)](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/releases)
+[![Version](https://img.shields.io/github/v/release/Tom-Bom-badil/home-assistant_ugreen-nas?sort=semver&color=green)](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/releases)
 [![Stars](https://img.shields.io/github/stars/Tom-Bom-badil/home-assistant_ugreen-nas?style=flat&color=yellow)](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/stargazers)
 
 ---
