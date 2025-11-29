@@ -37,8 +37,17 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         host = discovery_info.host
         port = discovery_info.port or 9999
 
-        # Set unique ID to prevent duplicate entries
-        await self.async_set_unique_id(f"ugreen_nas_{host}")
+        # Derive a stable base identifier that does not change with IPv4/IPv6
+        hostname = (discovery_info.hostname or "").rstrip(".")
+        instance = ""
+        if discovery_info.name:
+            instance = discovery_info.name.split("._", 1)[0].rstrip(".")
+
+        base_id = (hostname or instance or host or "").lower()
+        unique_id = f"ugreen_nas_{base_id}"
+
+        # Set unique ID to prevent duplicate entries across address changes
+        await self.async_set_unique_id(unique_id)
         self._abort_if_unique_id_configured()
 
         # Store discovered info for later use
@@ -46,9 +55,10 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._discovered_port = port
 
         # Update context with discovered info
-        self.context.update({
-            "title_placeholders": {"name": f"UGREEN NAS ({host})"}
-        })
+        display_name = hostname or instance or host
+        self.context.update(
+            {"title_placeholders": {"name": f"UGREEN NAS ({display_name})"}}
+        )
 
         return await self.async_step_user()
 
