@@ -1388,3 +1388,94 @@ NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [
         nas_part_category="Status",
     ),
 ]
+
+NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_CACHE: List[UgreenEntity] = [ # -- cache --
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_label",
+            name="{prefix_name} Label",
+            icon="mdi:database-clock",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.label",
+        nas_part_category="Cache",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_level",
+            name="{prefix_name} Level",
+            icon="mdi:database-settings",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.level",
+        nas_part_category="Cache",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_status",
+            name="{prefix_name} Status",
+            icon="mdi:check-circle-outline",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.status",
+        nas_part_category="Cache",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_size",
+            name="{prefix_name} Total Size",
+            icon="mdi:database",
+            unit_of_measurement=UnitOfInformation.BYTES,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.size",
+        nas_part_category="Cache",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_free",
+            name="{prefix_name} Free Size",
+            icon="mdi:database-minus",
+            unit_of_measurement=UnitOfInformation.BYTES,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.free",
+        nas_part_category="Cache",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_disk_count",
+            name="{prefix_name} Disk Count",
+            icon="mdi:harddisk",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.total_disk_num",
+        nas_part_category="Cache",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_mode",
+            name="{prefix_name} Mode",
+            icon="mdi:swap-horizontal",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.cache_vols[0].mode",
+        nas_part_category="Cache",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_hit_rate",
+            name="{prefix_name} Hit Rate",
+            icon="mdi:speedometer",
+            unit_of_measurement=PERCENTAGE,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.cache_vols[0].hit_rate",
+        nas_part_category="Cache",
+    ),
+]

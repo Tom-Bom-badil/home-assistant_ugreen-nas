@@ -155,7 +155,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             dev_by_name[name] = d or {}
 
     disk_meta: dict[tuple[int, int], tuple[str | None, str | None]] = {}
+    cache_disk_meta: dict[tuple[int, int], tuple[str | None, str | None]] = {}
     pool_meta: dict[int, tuple[str, str | None]] = {}
+    cache_meta: dict[int, tuple[str, str | None]] = {}
     volume_meta: dict[tuple[int, int], tuple[str, str | None]] = {}
 
     for p_idx, pool in enumerate(pools, start=1):
@@ -176,11 +178,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             model = (info.get("model") or info.get("name") or "").strip() or None
             disk_meta[(p_idx, d_idx)] = (brand, model)
 
+        # Cache (optional): attach meta for cache device and cache disks
+        cache = (pool or {}).get("cache")
+        if cache:
+            cache_meta[p_idx] = (MANUFACTURER, (cache or {}).get("level") or None)
+            for d_idx, cd in enumerate((cache or {}).get("disks") or [], start=1):
+                dev_name = (cd or {}).get("dev_name") or (cd or {}).get("name")
+                info = dev_by_name.get(dev_name, {})
+                brand = (info.get("brand") or info.get("manufacturer") or "").strip() or None
+                model = (info.get("model") or info.get("name") or "").strip() or None
+                cache_disk_meta[(p_idx, d_idx)] = (brand, model)
+
     # Persist for device_info.py
     hass.data.setdefault(DOMAIN, {}).setdefault(entry.entry_id, {}).update({
-        "disk_meta":   disk_meta,
-        "pool_meta":   pool_meta,
-        "volume_meta": volume_meta,
+        "disk_meta":       disk_meta,
+        "cache_disk_meta": cache_disk_meta,
+        "pool_meta":       pool_meta,
+        "cache_meta":      cache_meta,
+        "volume_meta":     volume_meta,
     })
 
 

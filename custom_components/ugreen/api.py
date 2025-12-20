@@ -24,6 +24,7 @@ from .entities import (
     NAS_SPECIFIC_STATUS_TEMPLATES_FANS_CHASSIS,
     NAS_SPECIFIC_STATUS_TEMPLATES_FAN_CPU,
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_POOL,
+    NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_CACHE,
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_VOLUME,
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK,
     NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK
@@ -609,7 +610,6 @@ class UgreenApiClient:
         endpoint_pools = "/ugreen/v1/storage/pool/list"
         endpoint_disk  = "/ugreen/v2/storage/disk/list"
 
-        # Get response on pools (main response)
         pools_resp = await self.get(session, endpoint_pools)
         results = ((pools_resp or {}).get("data", {}) or {}).get("result", []) or []
         if not results:
@@ -618,9 +618,9 @@ class UgreenApiClient:
 
         entities: List[UgreenEntity] = []
 
-        # 1) Create entities for pools
         async def _fetch_cached(_: str) -> dict:
             return pools_resp
+
         entities.extend(await make_entities(
             fetch=_fetch_cached,
             templates=NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_POOL,
@@ -629,10 +629,8 @@ class UgreenApiClient:
             prefix_key_base="pool",
             prefix_name_base="Pool",
             category="Pools",
-            single_compact=False,
         ))
 
-        # 2) Create a global disk list
         disk_resp = await self.get(session, endpoint_disk)
         disk_list = ((disk_resp or {}).get("data", {}) or {}).get("result", []) or []
         dev_index: dict[str, int] = {}
@@ -641,39 +639,149 @@ class UgreenApiClient:
             if isinstance(name, str) and name:
                 dev_index[name] = idx
 
-        # 3) Create entities for disks
-        for p_i, pool in enumerate(results):
-            disks = (pool or {}).get("disks") or []
-            for d_i, disk in enumerate(disks):
+        # 3) Create entities for disks (pool + optional cache) and volumes
+        def _add_disk_entities(
+            *,
+            pool_index: int,
+            disks: list[dict[str, Any]] | list[Any],
+            prefix_key_base: str,
+            prefix_name_base: str,
+            category: str,
+        ) -> None:
+            for d_i, disk in enumerate(disks or []):
                 dev_name = (disk or {}).get("dev_name") or (disk or {}).get("name")
-                if dev_name not in dev_index:
+                if not dev_name:
+                    continue
+                global_idx = dev_index.get(dev_name)
+                if global_idx is None:
                     _LOGGER.debug("[UGREEN NAS] dev_name '%s' not found in global disk list", dev_name)
                     continue
-                global_idx = dev_index[dev_name]
 
                 entities.extend(apply_templates(
                     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK,
                     series_index=global_idx,
-                    prefix_key=f"disk{d_i+1}_pool{p_i+1}",
-                    prefix_name=f"(Pool {p_i+1} | Disk {d_i+1})",
+                    prefix_key=f"{prefix_key_base}{d_i+1}_pool{pool_index}",
+                    prefix_name=f"(Pool {pool_index} | {prefix_name_base} {d_i+1})",
                     endpoint=endpoint_disk,
-                    category="Disks",
+                    category=category,
                 ))
 
-            # 4) Create entities for volumes, based on pools
+        for p_i, pool in enumerate(results, start=1):
+            # Disks (in pool)
+            _add_disk_entities(
+                pool_index=p_i,
+                disks=(pool or {}).get("disks") or [],
+                prefix_key_base="disk",
+                prefix_name_base="Disk",
+                category="Disks",
+            )
+
+            # Cache (optional)
+            cache = (pool or {}).get("cache")
+            if cache:
+                entities.extend(apply_templates(
+                    NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_CACHE,
+                    pool_index=p_i - 1,
+                    prefix_key=f"cache_pool{p_i}",
+                    prefix_name=f"(Pool {p_i} | Cache)",
+                    endpoint=endpoint_pools,
+                    category="Cache",
+                ))
+
+                _add_disk_entities(
+                    pool_index=p_i,
+                    disks=(cache or {}).get("disks") or [],
+                    prefix_key_base="cache_disk",
+                    prefix_name_base="Cache Disk",
+                    category="Cache",
+                )
+
+            # Volumes
             volumes = (pool or {}).get("volumes") or []
             for v_i, _ in enumerate(volumes):
                 entities.extend(apply_templates(
                     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_VOLUME,
-                    pool_index=p_i,
+                    pool_index=p_i - 1,
                     i=v_i,
-                    prefix_key=f"volume{v_i+1}_pool{p_i+1}",
-                    prefix_name=f"(Pool {p_i+1} | Volume {v_i+1})",
+                    prefix_key=f"volume{v_i+1}_pool{p_i}",
+                    prefix_name=f"(Pool {p_i} | Volume {v_i+1})",
                     endpoint=endpoint_pools,
                     category="Volumes",
                 ))
 
         return entities
+
+    # async def _get_dynamic_config_entities_storage(self, session: aiohttp.ClientSession) -> List[UgreenEntity]:
+    #     """Create STORAGE config entities (templated): Pools, Disks inside Pools, Volumes inside Pools."""
+
+    #     endpoint_pools = "/ugreen/v1/storage/pool/list"
+    #     endpoint_disk  = "/ugreen/v2/storage/disk/list"
+
+    #     # Get response on pools (main response)
+    #     pools_resp = await self.get(session, endpoint_pools)
+    #     results = ((pools_resp or {}).get("data", {}) or {}).get("result", []) or []
+    #     if not results:
+    #         _LOGGER.debug("[UGREEN NAS] No pools in %s response", endpoint_pools)
+    #         return []
+
+    #     entities: List[UgreenEntity] = []
+
+    #     # 1) Create entities for pools
+    #     async def _fetch_cached(_: str) -> dict:
+    #         return pools_resp
+    #     entities.extend(await make_entities(
+    #         fetch=_fetch_cached,
+    #         templates=NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_POOL,
+    #         endpoint=endpoint_pools,
+    #         list_path="data.result",
+    #         prefix_key_base="pool",
+    #         prefix_name_base="Pool",
+    #         category="Pools",
+    #         single_compact=False,
+    #     ))
+
+    #     # 2) Create a global disk list
+    #     disk_resp = await self.get(session, endpoint_disk)
+    #     disk_list = ((disk_resp or {}).get("data", {}) or {}).get("result", []) or []
+    #     dev_index: dict[str, int] = {}
+    #     for idx, d in enumerate(disk_list):
+    #         name = (d or {}).get("dev_name") or (d or {}).get("name")
+    #         if isinstance(name, str) and name:
+    #             dev_index[name] = idx
+
+    #     # 3) Create entities for disks
+    #     for p_i, pool in enumerate(results):
+    #         disks = (pool or {}).get("disks") or []
+    #         for d_i, disk in enumerate(disks):
+    #             dev_name = (disk or {}).get("dev_name") or (disk or {}).get("name")
+    #             if dev_name not in dev_index:
+    #                 _LOGGER.debug("[UGREEN NAS] dev_name '%s' not found in global disk list", dev_name)
+    #                 continue
+    #             global_idx = dev_index[dev_name]
+
+    #             entities.extend(apply_templates(
+    #                 NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK,
+    #                 series_index=global_idx,
+    #                 prefix_key=f"disk{d_i+1}_pool{p_i+1}",
+    #                 prefix_name=f"(Pool {p_i+1} | Disk {d_i+1})",
+    #                 endpoint=endpoint_disk,
+    #                 category="Disks",
+    #             ))
+
+    #         # 4) Create entities for volumes, based on pools
+    #         volumes = (pool or {}).get("volumes") or []
+    #         for v_i, _ in enumerate(volumes):
+    #             entities.extend(apply_templates(
+    #                 NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_VOLUME,
+    #                 pool_index=p_i,
+    #                 i=v_i,
+    #                 prefix_key=f"volume{v_i+1}_pool{p_i+1}",
+    #                 prefix_name=f"(Pool {p_i+1} | Volume {v_i+1})",
+    #                 endpoint=endpoint_pools,
+    #                 category="Volumes",
+    #             ))
+
+    #     return entities
 
 
     async def _get_dynamic_status_entities_storage_disks(self, session: aiohttp.ClientSession) -> list[UgreenEntity]:
