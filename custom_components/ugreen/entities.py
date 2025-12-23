@@ -19,6 +19,7 @@
 #          └─ POOLS
 #             ├─ VOLUMES
 #             └─ DISKS
+#             └─ CACHE
 #
 # Note: All NAS_SPECIFIC items are further split into CONFIG (60s) and STATUS (5s).
 
@@ -1389,12 +1390,13 @@ NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [
     ),
 ]
 
-NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_CACHE: List[UgreenEntity] = [ # -- cache --
+# Blueprint for SSD cache (config 60s)
+NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_CACHE: list[UgreenEntity] = [
     UgreenEntity(
         description=EntityDescription(
             key="{prefix_key}_label",
             name="{prefix_name} Label",
-            icon="mdi:database-clock",
+            icon="mdi:label-outline",
             unit_of_measurement=None,
         ),
         endpoint="{endpoint}",
@@ -1405,7 +1407,7 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_CACHE: List[UgreenEntity] = [ # -- cache -
         description=EntityDescription(
             key="{prefix_key}_level",
             name="{prefix_name} Level",
-            icon="mdi:database-settings",
+            icon="mdi:layers-triple",
             unit_of_measurement=None,
         ),
         endpoint="{endpoint}",
@@ -1416,7 +1418,7 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_CACHE: List[UgreenEntity] = [ # -- cache -
         description=EntityDescription(
             key="{prefix_key}_status",
             name="{prefix_name} Status",
-            icon="mdi:check-circle-outline",
+            icon="mdi:information-outline",
             unit_of_measurement=None,
         ),
         endpoint="{endpoint}",
@@ -1438,7 +1440,7 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_CACHE: List[UgreenEntity] = [ # -- cache -
         description=EntityDescription(
             key="{prefix_key}_free",
             name="{prefix_name} Free Size",
-            icon="mdi:database-minus",
+            icon="mdi:database-outline",
             unit_of_measurement=UnitOfInformation.BYTES,
         ),
         endpoint="{endpoint}",
@@ -1460,7 +1462,7 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_CACHE: List[UgreenEntity] = [ # -- cache -
         description=EntityDescription(
             key="{prefix_key}_mode",
             name="{prefix_name} Mode",
-            icon="mdi:swap-horizontal",
+            icon="mdi:cached",
             unit_of_measurement=None,
         ),
         endpoint="{endpoint}",
@@ -1471,11 +1473,22 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_CACHE: List[UgreenEntity] = [ # -- cache -
         description=EntityDescription(
             key="{prefix_key}_hit_rate",
             name="{prefix_name} Hit Rate",
-            icon="mdi:speedometer",
-            unit_of_measurement=PERCENTAGE,
+            icon="mdi:percent",
+            unit_of_measurement="%",
         ),
         endpoint="{endpoint}",
         path="data.result[{pool_index}].cache.cache_vols[0].hit_rate",
+        nas_part_category="Cache",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_used_cache_size",
+            name="{prefix_name} Used Cache Size",
+            icon="mdi:database-check",
+            unit_of_measurement=UnitOfInformation.BYTES,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.cache_vols[0].used_cache_size",
         nas_part_category="Cache",
     ),
 ]

@@ -180,10 +180,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Cache (optional): attach meta for cache device and cache disks
         cache = (pool or {}).get("cache")
-        if cache:
-            cache_meta[p_idx] = (MANUFACTURER, (cache or {}).get("level") or None)
-            for d_idx, cd in enumerate((cache or {}).get("disks") or [], start=1):
+        if isinstance(cache, dict) and cache:
+            level = (cache.get("level") or "").strip() or None
+            mode = None
+            cache_vols = cache.get("cache_vols") or []
+            if cache_vols and isinstance(cache_vols, list):
+                m = (cache_vols[0] or {}).get("mode")
+                if isinstance(m, str) and m:
+                    mode = m.upper()
+
+            cache_version = (cache.get("cache_version") or "").strip() or None
+            model = " ".join([x for x in (level, mode) if x]) or cache_version or None
+            cache_meta[p_idx] = (MANUFACTURER, model)
+
+            for d_idx, cd in enumerate(cache.get("disks") or [], start=1):
                 dev_name = (cd or {}).get("dev_name") or (cd or {}).get("name")
+                if not dev_name:
+                    continue
                 info = dev_by_name.get(dev_name, {})
                 brand = (info.get("brand") or info.get("manufacturer") or "").strip() or None
                 model = (info.get("model") or info.get("name") or "").strip() or None
