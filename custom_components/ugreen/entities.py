@@ -364,7 +364,20 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
         nas_part_category="Status",
     ),
 
-    ### FAN (overall status)
+    ### FANS (overall system setting)
+    UgreenEntity(
+        description=EntityDescription(
+            key="fans_system_mode",
+            name="Fans (system mode)",
+            icon="mdi:fan",
+            unit_of_measurement=None,
+        ),
+        endpoint="/ugreen/v1/hardware/fan/config",
+        path="data.result",
+        nas_part_category="Status",
+    ),
+
+    ### FANS (overall status)
     UgreenEntity(
         description=EntityDescription(
             key="fan_status_overall",
@@ -517,7 +530,7 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
 ]
 
 
-# Entities for actions available on any NAS: Shutdown, reboot."""
+# Entities for actions available on any NAS: Shutdown, reboot, fan modes."""
 ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
 
     UgreenEntity(
@@ -542,6 +555,40 @@ ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
         request_method="POST",
         nas_part_category="",
     ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="fan_mode_quiet",
+            name="Fan Mode: Quiet",
+            icon="mdi:fan-speed-1",
+        ),
+        endpoint="/ugreen/v1/hardware/fan/start?mode=1",
+        path="",
+        request_method="GET",
+        nas_part_category="",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="fan_mode_default",
+            name="Fan Mode: Default",
+            icon="mdi:fan-speed-2",
+        ),
+        endpoint="/ugreen/v1/hardware/fan/start?mode=2",
+        path="",
+        request_method="GET",
+        nas_part_category="",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="fan_mode_full_power",
+            name="Fan Mode: Full Power",
+            icon="mdi:fan-speed-3",
+        ),
+        endpoint="/ugreen/v1/hardware/fan/start?mode=3",
+        path="",
+        request_method="GET",
+        nas_part_category="",
+    ),
+
 ]
 
 
