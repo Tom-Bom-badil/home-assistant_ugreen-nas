@@ -18,7 +18,9 @@ from .const import (
     CONF_USERNAME,
     CONF_PASSWORD,
     CONF_USE_HTTPS,
+    CONF_CONFIG_INTERVAL,
     CONF_STATE_INTERVAL,
+    CONF_WS_INTERVAL,
     DEFAULT_SCAN_INTERVAL_STATE,
     DEFAULT_SCAN_INTERVAL_CONFIG,
     DEFAULT_SCAN_INTERVAL_WS,
@@ -89,9 +91,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER,
         name="ugreen_configuration",
         update_method=update_configuration_data,
-        update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL_CONFIG),
+        update_interval=timedelta(
+            seconds=int(entry.options.get(
+                CONF_CONFIG_INTERVAL,
+                entry.data.get(CONF_CONFIG_INTERVAL, DEFAULT_SCAN_INTERVAL_CONFIG),
+            ))
+        ),
     )
-
 
 
     ### Setup state entities (changing rather quickly, 5s polling)
@@ -117,7 +123,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER,
         name="ugreen_state",
         update_method=update_state_data,
-        update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL_STATE),
+        update_interval=timedelta(
+            seconds=int(entry.options.get(
+                CONF_STATE_INTERVAL,
+                entry.data.get(CONF_STATE_INTERVAL, DEFAULT_SCAN_INTERVAL_STATE),
+            ))
+        ),
     )
 
 
@@ -138,7 +149,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     ### Initial entities refresh and start of keep-alive websocket
     await config_coordinator.async_config_entry_first_refresh()
     await state_coordinator.async_config_entry_first_refresh()
-    await api.start_ws_keepalive_task(session, lang="de-DE", heartbeat=DEFAULT_SCAN_INTERVAL_WS)
+    await api.start_ws_keepalive_task(
+        session,
+        lang="de-DE",
+        heartbeat=int(entry.options.get(
+            CONF_WS_INTERVAL,
+            entry.data.get(CONF_WS_INTERVAL, DEFAULT_SCAN_INTERVAL_WS),
+        )),
+    )
 
 
     ### Build lightweight meta caches for Device Registry (disks/pools/volumes)

@@ -3,30 +3,30 @@
     "step": {
       "user": {
         "title": "Configurar UGREEN NAS",
-        "description": "Digite os detalhes de conexão do seu UGREEN NAS.",
+        "description": "Informe os dados de conexão do seu UGREEN NAS.",
         "data": {
-          "ugreen_host": "Endereço IP ou Nome do Host",
+          "ugreen_host": "Endereço IP ou nome do host",
           "ugreen_port": "Porta",
-          "username": "Nome de usuário",
-          "password": "Senha",
+          "username": "Nome de usuário administrador",
+          "password": "Senha de administrador",
           "use_https": "Usar HTTPS"
         },
         "data_description": {
-          "ugreen_host": "O endereço IP ou nome do host do seu UGREEN NAS (ex: 192.168.1.100)",
-          "ugreen_port": "A porta para a conexão (padrão: 9999 para HTTP, 9443 para HTTPS)",
-          "username": "Seu nome de usuário do UGREEN NAS",
-          "password": "Sua senha do UGREEN NAS",
-          "use_https": "Ativar HTTPS para uma conexão segura"
+          "ugreen_host": "O endereço IP ou nome do host do seu UGREEN NAS (ex.: 192.168.1.100).",
+          "ugreen_port": "Porta usada para a conexão (padrão: 9999 para HTTP, 9443 para HTTPS).",
+          "username": "Seu nome de usuário administrador do NAS.",
+          "password": "Sua senha de administrador do NAS (sem caracteres especiais – bug do UGOS!).",
+          "use_https": "Usar HTTPS para a conexão."
         }
       },
       "zeroconf": {
-        "title": "UGREEN NAS Descoberto",
-        "description": "Um UGREEN NAS foi descoberto automaticamente em sua rede. Digite suas credenciais para adicioná-lo."
+        "title": "UGREEN NAS encontrado",
+        "description": "Um UGREEN NAS foi encontrado automaticamente na rede. Informe suas credenciais para adicioná-lo."
       }
     },
     "error": {
-      "cannot_connect": "Falha na conexão. Verifique o endereço IP, porta e conexão de rede.",
-      "invalid_auth": "Credenciais inválidas. Verifique o nome de usuário e senha.",
+      "cannot_connect": "Falha na conexão. Verifique o endereço IP, a porta e a conexão de rede.",
+      "invalid_auth": "Erro de conexão ou credenciais inválidas. Verifique as configurações de rede e do usuário.",
       "unknown": "Ocorreu um erro desconhecido."
     },
     "abort": {
@@ -39,20 +39,26 @@
         "title": "Configurações do UGREEN NAS",
         "description": "Altere as configurações do seu UGREEN NAS. A integração será recarregada após salvar.",
         "data": {
-          "device_name": "Nome do Dispositivo",
-          "ugreen_host": "Endereço IP ou Nome do Host",
+          "device_name": "Nome do dispositivo",
+          "ugreen_host": "Endereço IP ou nome do host",
           "ugreen_port": "Porta",
-          "username": "Nome de usuário",
-          "password": "Senha",
+          "username": "Nome de usuário administrador",
+          "password": "Senha de administrador",
+          "state_interval": "(Avançado) Intervalo de leitura para entidades de estado",
+          "config_interval": "(Avançado) Intervalo de leitura para entidades de configuração",
+          "ws_interval": "(Avançado – de preferência manter assim) Intervalo de KeepAlive / pings para a API",
           "use_https": "Usar HTTPS"
         },
         "data_description": {
-          "device_name": "Altere o nome do dispositivo como mostrado no Home Assistant",
-          "ugreen_host": "O endereço IP ou nome do host do seu UGREEN NAS",
-          "ugreen_port": "A porta para a conexão (padrão: 9999 para HTTP, 9443 para HTTPS)",
-          "username": "Seu nome de usuário do UGREEN NAS",
-          "password": "Sua senha do UGREEN NAS",
-          "use_https": "Ativar HTTPS para uma conexão segura"
+          "device_name": "Altere o nome do dispositivo conforme exibido no Home Assistant.",
+          "ugreen_host": "O endereço IP ou nome do host do seu UGREEN NAS.",
+          "ugreen_port": "Porta usada para a conexão (padrão: 9999 para HTTP, 9443 para HTTPS).",
+          "username": "Seu nome de usuário administrador do NAS.",
+          "password": "Sua senha de administrador do NAS (sem caracteres especiais – bug do UGOS!).",
+          "state_interval": "Com que frequência os valores que mudam com frequência devem ser lidos? (5s)",
+          "config_interval": "Com que frequência os valores que mudam com menos frequência devem ser lidos? (60s)",
+          "ws_interval": "Com que frequência um ping da API deve ser enviado via WebSocket? (20s)",
+          "use_https": "Usar conexão HTTPS criptografada (requer porta HTTPS)."
         }
       }
     }

@@ -3,30 +3,30 @@
     "step": {
       "user": {
         "title": "UGREEN NAS beállítása",
-        "description": "Adja meg az UGREEN NAS kapcsolati adatait.",
+        "description": "Add meg az UGREEN NAS kapcsolati adatait.",
         "data": {
-          "ugreen_host": "IP-cím vagy hoszt név",
+          "ugreen_host": "IP-cím vagy hosztnév",
           "ugreen_port": "Port",
-          "username": "Felhasználónév",
-          "password": "Jelszó",
+          "username": "Admin felhasználónév",
+          "password": "Admin jelszó",
           "use_https": "HTTPS használata"
         },
         "data_description": {
-          "ugreen_host": "Az UGREEN NAS IP-címe vagy hoszt neve (pl. 192.168.1.100)",
-          "ugreen_port": "A kapcsolat portja (alapértelmezett: 9999 HTTP-hez, 9443 HTTPS-hez)",
-          "username": "Az UGREEN NAS felhasználóneve",
-          "password": "Az UGREEN NAS jelszava",
-          "use_https": "HTTPS engedélyezése biztonságos kapcsolathoz"
+          "ugreen_host": "Az UGREEN NAS IP-címe vagy hosztneve (pl. 192.168.1.100).",
+          "ugreen_port": "A kapcsolat portja (alapértelmezett: 9999 HTTP-hez, 9443 HTTPS-hez).",
+          "username": "A NAS admin felhasználóneved.",
+          "password": "A NAS admin jelszavad (nincsenek speciális karakterek – UGOS hiba!).",
+          "use_https": "HTTPS használata a kapcsolathoz."
         }
       },
       "zeroconf": {
         "title": "UGREEN NAS észlelve",
-        "description": "Egy UGREEN NAS automatikusan észlelve lett a hálózaton. Adja meg a hitelesítő adatait a hozzáadásához."
+        "description": "Egy UGREEN NAS automatikusan észlelve lett a hálózaton. Add meg a bejelentkezési adataidat a hozzáadáshoz."
       }
     },
     "error": {
-      "cannot_connect": "A kapcsolat sikertelen. Ellenőrizze az IP-címet, portot és hálózati kapcsolatot.",
-      "invalid_auth": "Érvénytelen hitelesítő adatok. Ellenőrizze a felhasználónevet és a jelszót.",
+      "cannot_connect": "A kapcsolat sikertelen. Ellenőrizd az IP-címet, a portot és a hálózati kapcsolatot.",
+      "invalid_auth": "Kapcsolati hiba vagy érvénytelen hitelesítő adatok. Ellenőrizd a hálózati és a felhasználói beállításokat.",
       "unknown": "Ismeretlen hiba történt."
     },
     "abort": {
@@ -37,22 +37,28 @@
     "step": {
       "init": {
         "title": "UGREEN NAS beállítások",
-        "description": "Az UGREEN NAS beállításainak módosítása. Az integráció a mentés után újratöltődik.",
+        "description": "Módosítsd az UGREEN NAS beállításait. Az integráció mentés után újratöltődik.",
         "data": {
           "device_name": "Eszköz neve",
-          "ugreen_host": "IP-cím vagy hoszt név",
+          "ugreen_host": "IP-cím vagy hosztnév",
           "ugreen_port": "Port",
-          "username": "Felhasználónév",
-          "password": "Jelszó",
-          "use_https": "HTTPS használata"
+          "username": "Admin felhasználónév",
+          "password": "Admin jelszó",
+          "state_interval": "(Speciális) Lekérdezési időköz az állapot entitásokhoz",
+          "config_interval": "(Speciális) Lekérdezési időköz a konfigurációs entitásokhoz",
+          "ws_interval": "(Speciális – lehetőleg hagyd így) KeepAlive időköz / pingek az API-hoz",
+          "use_https": "Https használata"
         },
         "data_description": {
-          "device_name": "Az eszköz nevének módosítása, ahogy a Home Assistant-ban megjelenik",
-          "ugreen_host": "Az UGREEN NAS IP-címe vagy hoszt neve",
-          "ugreen_port": "A kapcsolat portja (alapértelmezett: 9999 HTTP-hez, 9443 HTTPS-hez)",
-          "username": "Az UGREEN NAS felhasználóneve",
-          "password": "Az UGREEN NAS jelszava",
-          "use_https": "HTTPS engedélyezése biztonságos kapcsolathoz"
+          "device_name": "Módosítsd az eszköz nevét, ahogyan a Home Assistantban megjelenik.",
+          "ugreen_host": "Az UGREEN NAS IP-címe vagy hosztneve.",
+          "ugreen_port": "A kapcsolat portja (alapértelmezett: 9999 HTTP-hez, 9443 HTTPS-hez).",
+          "username": "A NAS admin felhasználóneved.",
+          "password": "A NAS admin jelszavad (nincsenek speciális karakterek – UGOS hiba!).",
+          "state_interval": "Milyen gyakran legyenek lekérdezve a gyakran változó értékek? (5s)",
+          "config_interval": "Milyen gyakran legyenek lekérdezve a ritkábban változó értékek? (60s)",
+          "ws_interval": "Milyen gyakran legyen WebSocketen keresztül API-ping küldve? (20s)",
+          "use_https": "Titkosított HTTPS kapcsolat használata (HTTPS port szükséges)."
         }
       }
     }

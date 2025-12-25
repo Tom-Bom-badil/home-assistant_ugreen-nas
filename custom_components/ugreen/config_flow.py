@@ -9,6 +9,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+from homeassistant.helpers.selector import NumberSelector, NumberSelectorConfig
 
 from .const import (
     DOMAIN,
@@ -18,7 +19,14 @@ from .const import (
     CONF_USERNAME,
     CONF_PASSWORD,
     CONF_USE_HTTPS,
+    CONF_STATE_INTERVAL,
+    CONF_CONFIG_INTERVAL,
+    CONF_WS_INTERVAL,
+    DEFAULT_SCAN_INTERVAL_STATE,
+    DEFAULT_SCAN_INTERVAL_CONFIG,
+    DEFAULT_SCAN_INTERVAL_WS,
 )
+
 from .api import UgreenApiClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -260,6 +268,19 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_PASSWORD, default=_get_value(CONF_PASSWORD, "")
                     ): str,
+                    vol.Optional(
+                        CONF_STATE_INTERVAL,
+                        default=_get_value(CONF_STATE_INTERVAL, DEFAULT_SCAN_INTERVAL_STATE),
+                    ): NumberSelector(NumberSelectorConfig(min=5, max=3600, step=1, mode="box")),
+                    vol.Optional(
+                        CONF_CONFIG_INTERVAL,
+                        default=_get_value(CONF_CONFIG_INTERVAL, DEFAULT_SCAN_INTERVAL_CONFIG),
+                    ): NumberSelector(NumberSelectorConfig(min=60, max=3600, step=1, mode="box")),
+                    # uncomment to show API ping frequency in configuration window
+                    # vol.Optional(
+                    #     CONF_WS_INTERVAL,
+                    #     default=_get_value(CONF_WS_INTERVAL, DEFAULT_SCAN_INTERVAL_WS),
+                    # ): NumberSelector(NumberSelectorConfig(min=20, max=60, step=1, mode="box")),
                     vol.Optional(
                         CONF_USE_HTTPS, default=_get_value(CONF_USE_HTTPS, False)
                     ): bool,
