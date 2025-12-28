@@ -7,16 +7,16 @@
         "data": {
           "ugreen_host": "IP-Adresse oder Hostname",
           "ugreen_port": "Port",
-          "username": "Benutzername",
-          "password": "Passwort",
+          "username": "Admin Benutzername",
+          "password": "Admin Passwort",
           "use_https": "HTTPS verwenden"
         },
         "data_description": {
-          "ugreen_host": "Die IP-Adresse oder der Hostname deines UGREEN NAS (z.B. 192.168.1.100)",
-          "ugreen_port": "Der Port für die Verbindung (Standard: 9999 für HTTP, 9443 für HTTPS)",
-          "username": "Dein UGREEN NAS Benutzername",
-          "password": "Dein UGREEN NAS Passwort",
-          "use_https": "Aktiviere HTTPS für eine sichere Verbindung"
+          "ugreen_host": "Die IP-Adresse oder der Hostname deines UGREEN NAS (z. B. 192.168.1.100).",
+          "ugreen_port": "Der Port für die Verbindung (Standard: 9999 für HTTP, 9443 für HTTPS).",
+          "username": "Dein NAS Admin Benutzername.",
+          "password": "Dein NAS Admin Passwort (keine Sonderzeichen - UGOS Bug!).",
+          "use_https": "HTTPS für die Verbindung benutzen."
         }
       },
       "zeroconf": {
@@ -26,7 +26,7 @@
     },
     "error": {
       "cannot_connect": "Verbindung fehlgeschlagen. Überprüfe IP-Adresse, Port und Netzwerkverbindung.",
-      "invalid_auth": "Ungültige Anmeldedaten. Bitte überprüfe Benutzername und Passwort.",
+      "invalid_auth": "Verbindungsfehler oder ungültige Anmeldedaten. Netzwerkeinstellungen und Benutzereinstellungen prüfen.",
       "unknown": "Ein unbekannter Fehler ist aufgetreten."
     },
     "abort": {
@@ -42,17 +42,23 @@
           "device_name": "Gerätename",
           "ugreen_host": "IP-Adresse oder Hostname",
           "ugreen_port": "Port",
-          "username": "Benutzername",
-          "password": "Passwort",
-          "use_https": "HTTPS verwenden"
+          "username": "Admin Benutzername",
+          "password": "Admin Passwort",
+          "state_interval": "(Erweitert) Auslese-Intervall für Status-Entitäten",
+          "config_interval": "(Erweitert) Auslese-Intervall für Konfigurations-Entitäten",
+          "ws_interval": "(Erweitert - möglichst so lassen) KeepAlive-Intervall / Pings zur API",
+          "use_https": "Https verwenden"
         },
         "data_description": {
-          "device_name": "Ändere den Namen des Geräts wie er in Home Assistant angezeigt wird",
-          "ugreen_host": "Die IP-Adresse oder der Hostname deines UGREEN NAS",
-          "ugreen_port": "Der Port für die Verbindung (Standard: 9999 für HTTP, 9443 für HTTPS)",
-          "username": "Dein UGREEN NAS Benutzername",
-          "password": "Dein UGREEN NAS Passwort",
-          "use_https": "Aktiviere HTTPS für eine sichere Verbindung"
+          "device_name": "Ändere den Namen des Geräts, wie er in Home Assistant angezeigt wird.",
+          "ugreen_host": "Die IP-Adresse oder der Hostname deines UGREEN NAS.",
+          "ugreen_port": "Der Port für die Verbindung (Standard: 9999 für HTTP, 9443 für HTTPS).",
+          "username": "Dein NAS Admin Benutzername.",
+          "password": "Dein NAS Admin Passwort (keine Sonderzeichen - UGOS Bug!).",
+          "state_interval": "Wie oft sollen sich häufig ändernde Werte ausgelesen werden? (5s)",
+          "config_interval": "Wie oft sollen sich seltener ändernde Werte ausgelesen werden? (60s)",
+          "ws_interval": "Wie oft soll ein API-Ping per Websocket gesendet werden? (20s)",
+          "use_https": "Verschlüsselte https-Verbindung benutzen (erfordert https-Port)."
         }
       }
     }

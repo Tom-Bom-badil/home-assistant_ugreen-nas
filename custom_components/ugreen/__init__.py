@@ -18,8 +18,12 @@ from .const import (
     CONF_USERNAME,
     CONF_PASSWORD,
     CONF_USE_HTTPS,
+    CONF_CONFIG_INTERVAL,
     CONF_STATE_INTERVAL,
+    CONF_WS_INTERVAL,
     DEFAULT_SCAN_INTERVAL_STATE,
+    DEFAULT_SCAN_INTERVAL_CONFIG,
+    DEFAULT_SCAN_INTERVAL_WS,
     MANUFACTURER,
 )
 
@@ -82,12 +86,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as err:
             raise UpdateFailed(f"[UGREEN NAS] Configuration entities update error: {err}") from err
     #   Create the coordinator
-    config_coordinator = DataUpdateCoordinator( # data polling every 60s
+    config_coordinator = DataUpdateCoordinator(
         hass,
         _LOGGER,
         name="ugreen_configuration",
         update_method=update_configuration_data,
-        update_interval=timedelta(seconds=60),
+        update_interval=timedelta(
+            seconds=int(entry.options.get(
+                CONF_CONFIG_INTERVAL,
+                entry.data.get(CONF_CONFIG_INTERVAL, DEFAULT_SCAN_INTERVAL_CONFIG),
+            ))
+        ),
     )
 
 
@@ -115,7 +124,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         name="ugreen_state",
         update_method=update_state_data,
         update_interval=timedelta(
-            seconds=entry.options.get(CONF_STATE_INTERVAL, entry.data.get(CONF_STATE_INTERVAL, DEFAULT_SCAN_INTERVAL_STATE))
+            seconds=int(entry.options.get(
+                CONF_STATE_INTERVAL,
+                entry.data.get(CONF_STATE_INTERVAL, DEFAULT_SCAN_INTERVAL_STATE),
+            ))
         ),
     )
 
@@ -137,7 +149,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     ### Initial entities refresh and start of keep-alive websocket
     await config_coordinator.async_config_entry_first_refresh()
     await state_coordinator.async_config_entry_first_refresh()
-    await api.start_ws_keepalive_task(session, lang="de-DE", heartbeat=15)
+    await api.start_ws_keepalive_task(
+        session,
+        lang="de-DE",
+        heartbeat=int(entry.options.get(
+            CONF_WS_INTERVAL,
+            entry.data.get(CONF_WS_INTERVAL, DEFAULT_SCAN_INTERVAL_WS),
+        )),
+    )
 
 
     ### Build lightweight meta caches for Device Registry (disks/pools/volumes)
@@ -155,7 +174,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             dev_by_name[name] = d or {}
 
     disk_meta: dict[tuple[int, int], tuple[str | None, str | None]] = {}
+    cache_disk_meta: dict[tuple[int, int], tuple[str | None, str | None]] = {}
     pool_meta: dict[int, tuple[str, str | None]] = {}
+    cache_meta: dict[int, tuple[str, str | None]] = {}
     volume_meta: dict[tuple[int, int], tuple[str, str | None]] = {}
 
     for p_idx, pool in enumerate(pools, start=1):
@@ -176,11 +197,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             model = (info.get("model") or info.get("name") or "").strip() or None
             disk_meta[(p_idx, d_idx)] = (brand, model)
 
+        # Cache (optional): attach meta for cache device and cache disks
+        cache = (pool or {}).get("cache")
+        if isinstance(cache, dict) and cache:
+            level = (cache.get("level") or "").strip() or None
+            mode = None
+            cache_vols = cache.get("cache_vols") or []
+            if cache_vols and isinstance(cache_vols, list):
+                m = (cache_vols[0] or {}).get("mode")
+                if isinstance(m, str) and m:
+                    mode = m.upper()
+
+            cache_version = (cache.get("cache_version") or "").strip() or None
+            model = " ".join([x for x in (level, mode) if x]) or cache_version or None
+            cache_meta[p_idx] = (MANUFACTURER, model)
+
+            for d_idx, cd in enumerate(cache.get("disks") or [], start=1):
+                dev_name = (cd or {}).get("dev_name") or (cd or {}).get("name")
+                if not dev_name:
+                    continue
+                info = dev_by_name.get(dev_name, {})
+                brand = (info.get("brand") or info.get("manufacturer") or "").strip() or None
+                model = (info.get("model") or info.get("name") or "").strip() or None
+                cache_disk_meta[(p_idx, d_idx)] = (brand, model)
+
     # Persist for device_info.py
     hass.data.setdefault(DOMAIN, {}).setdefault(entry.entry_id, {}).update({
-        "disk_meta":   disk_meta,
-        "pool_meta":   pool_meta,
-        "volume_meta": volume_meta,
+        "disk_meta":       disk_meta,
+        "cache_disk_meta": cache_disk_meta,
+        "pool_meta":       pool_meta,
+        "cache_meta":      cache_meta,
+        "volume_meta":     volume_meta,
     })
 
 

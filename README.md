@@ -11,13 +11,13 @@
 
 ## 🚀 Quick Overview
 
-👉 This project enables **Home Assistant** to monitor data of a **UGOS based UGreen NAS** - *without modifying its operating system in any way*. No extra tools/scripts are installed in UGOS, no ssh access with cryptic shell commands is needed; we simply use what UGOS already provides.
+👉 This project enables **Home Assistant** to monitor data of a **UGOS based UGreen NAS** - *without modifying its operating system in any way*. No extra tools/scripts are installed in UGOS, no ssh access with cryptic shell commands is needed; no difficult container setup is required - we simply use what UGOS already provides.
 <br/><br/>
 <p align="center">
   <img width="80%" alt="system_view" src="https://github.com/user-attachments/assets/e40dfa67-93dc-44e4-a023-50e4203dc925" />
 </p>
 <br/>
-After it is provided with a user name and password during setup, the integration frequently retrieves and renews access authorization tokens, and queries data from an UGOS-builtin API (the same API that the UGOS Web GUI and the Mobile App are using).
+The integration frequently retrieves and renews access authorization tokens, and queries data from the UGOS-builtin API (the same API that the UGOS Web GUI and the Mobile App are using).
 
 ---
 
@@ -25,6 +25,9 @@ After it is provided with a user name and password during setup, the integration
 
 👉 [**Click here**](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/wiki/03-%E2%80%90-Installation) for the step-by-step installation guide on the project Wiki.
 > ⏱️ Total setup time: *~5..10 minutes*
+
+👉 [**Here**](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/wiki/Example-Dashboard-Page) you can find a step-by-step guide on how to get dashboard shown in the screenshot. After initial installation, you can [**fine tune**](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/wiki/Fine%E2%80%90tuning-your-dashboard) the dashboard to your individual NAS configuration and needs.
+> ⏱️ Total dashboard installation time: *also ~5..10 minutes, plus the time for fine tuning*
 
 ---
 
