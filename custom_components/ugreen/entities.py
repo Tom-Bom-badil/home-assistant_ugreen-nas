@@ -5,7 +5,7 @@
 #    ├─ ALL_NAS_COMMON    (always present in any NAS)
 #    │  ├─ CONFIG         (60s polling: name, model etc)
 #    │  ├─ STATUS         (5s polling: temps, cpu usage etc)
-#    │  └─ BUTTONS        (actions; shutdown, restart)
+#    │  └─ BUTTONS        (actions; shutdown, restart, fan / cooling profiles)
 #    │
 #    └─ NAS_SPECIFIC      (presence 1..n is depending on your NAS & setup)
 #       ├─ LAN
@@ -18,7 +18,8 @@
 #       └─ STORAGE
 #          └─ POOLS
 #             ├─ VOLUMES
-#             └─ DISKS
+#             ├─ DISKS
+#             └─ CACHE
 #
 # Note: All NAS_SPECIFIC items are further split into CONFIG (60s) and STATUS (5s).
 
@@ -363,7 +364,20 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
         nas_part_category="Status",
     ),
 
-    ### FAN (overall status)
+    ### FANS (overall system setting)
+    UgreenEntity(
+        description=EntityDescription(
+            key="fans_system_mode",
+            name="Fans (system mode)",
+            icon="mdi:fan",
+            unit_of_measurement=None,
+        ),
+        endpoint="/ugreen/v1/hardware/fan/config",
+        path="data.result",
+        nas_part_category="Status",
+    ),
+
+    ### FANS (overall status)
     UgreenEntity(
         description=EntityDescription(
             key="fan_status_overall",
@@ -516,7 +530,7 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
 ]
 
 
-# Entities for actions available on any NAS: Shutdown, reboot."""
+# Entities for actions available on any NAS: Shutdown, reboot, fan modes."""
 ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
 
     UgreenEntity(
@@ -541,6 +555,40 @@ ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
         request_method="POST",
         nas_part_category="",
     ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="fan_mode_quiet",
+            name="Fan Mode: Quiet",
+            icon="mdi:fan-speed-1",
+        ),
+        endpoint="/ugreen/v1/hardware/fan/start?mode=1",
+        path="",
+        request_method="GET",
+        nas_part_category="",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="fan_mode_default",
+            name="Fan Mode: Default",
+            icon="mdi:fan-speed-2",
+        ),
+        endpoint="/ugreen/v1/hardware/fan/start?mode=2",
+        path="",
+        request_method="GET",
+        nas_part_category="",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="fan_mode_full_power",
+            name="Fan Mode: Full Power",
+            icon="mdi:fan-speed-3",
+        ),
+        endpoint="/ugreen/v1/hardware/fan/start?mode=3",
+        path="",
+        request_method="GET",
+        nas_part_category="",
+    ),
+
 ]
 
 
@@ -1386,5 +1434,108 @@ NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [
         endpoint="/ugreen/v1/desktop/components/data?id=desktop.component.TemperatureMonitoring",
         path="data.disk_list[{series_index}-1].is_sleep",
         nas_part_category="Status",
+    ),
+]
+
+# Blueprint for SSD cache (config 60s)
+NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_CACHE: list[UgreenEntity] = [
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_label",
+            name="{prefix_name} Label",
+            icon="mdi:label-outline",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.label",
+        nas_part_category="Cache",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_level",
+            name="{prefix_name} Level",
+            icon="mdi:layers-triple",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.level",
+        nas_part_category="Cache",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_status",
+            name="{prefix_name} Status",
+            icon="mdi:information-outline",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.status",
+        nas_part_category="Cache",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_size",
+            name="{prefix_name} Total Size",
+            icon="mdi:database",
+            unit_of_measurement=UnitOfInformation.BYTES,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.size",
+        nas_part_category="Cache",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_free",
+            name="{prefix_name} Free Size",
+            icon="mdi:database-outline",
+            unit_of_measurement=UnitOfInformation.BYTES,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.free",
+        nas_part_category="Cache",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_disk_count",
+            name="{prefix_name} Disk Count",
+            icon="mdi:harddisk",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.total_disk_num",
+        nas_part_category="Cache",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_mode",
+            name="{prefix_name} Mode",
+            icon="mdi:cached",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.cache_vols[0].mode",
+        nas_part_category="Cache",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_hit_rate",
+            name="{prefix_name} Hit Rate",
+            icon="mdi:percent",
+            unit_of_measurement="%",
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.cache_vols[0].hit_rate",
+        nas_part_category="Cache",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_used_cache_size",
+            name="{prefix_name} Used Cache Size",
+            icon="mdi:database-check",
+            unit_of_measurement=UnitOfInformation.BYTES,
+        ),
+        endpoint="{endpoint}",
+        path="data.result[{pool_index}].cache.cache_vols[0].used_cache_size",
+        nas_part_category="Cache",
     ),
 ]

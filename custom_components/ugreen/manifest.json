@@ -4,11 +4,11 @@
   "codeowners": ["@Tom-Bom-badil", "@dobby5"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas",
+  "documentation": "https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/wiki",
   "integration_type": "device",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/issues",
   "requirements": [],
-  "version": "v2025.11.1",
+  "version": "v2025.12.1",
   "zeroconf": [{ "type": "_device-info._tcp.local." }]
 }

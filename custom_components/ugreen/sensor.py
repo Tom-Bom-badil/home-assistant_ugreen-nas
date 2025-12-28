@@ -76,6 +76,7 @@ async def async_setup_entry(
     pool_meta   = (data_ctx.get("pool_meta")   or {})
     volume_meta = (data_ctx.get("volume_meta") or {})
     disk_meta   = (data_ctx.get("disk_meta")   or {})
+    cache_disk_meta = (data_ctx.get("cache_disk_meta") or {})
 
     summary_entities: list[UgreenNasRootObjectSummary] = []
 
@@ -105,6 +106,18 @@ async def async_setup_entry(
             UgreenNasRootObjectSummary(
                 hass, entry.entry_id, status_coord, config_coord,
                 title=f"Disk {i}", match_kind="disk", match_key=(i,)
+            )
+        )
+
+    # Cache Disks (global order: pool asc, cache_disk asc)
+    global_cache_disk_pairs = sorted(cache_disk_meta.keys(), key=lambda t: (t[0], t[1]))
+    for i, _pcd in enumerate(global_cache_disk_pairs, start=1):
+        summary_entities.append(
+            UgreenNasRootObjectSummary(
+                hass, entry.entry_id, status_coord, config_coord,
+                title=f"Cache Disk {i}",
+                match_kind="cache_disk",
+                match_key=(i,)
             )
         )
 
@@ -267,19 +280,37 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
                     items.append((friendly, eid))
                 continue
 
-        if self._kind != "disk":
+            if self._kind == "cache_disk":
+                # collect candidates; determine target pair later
+                if "_cache_disk" in uid and "_pool" in uid:
+                    items.append((friendly, eid))
+                continue
+
+        # if self._kind != "disk":
+        if self._kind not in ("disk", "cache_disk"):
             return items
 
-        # Determine the (pool, disk) pair for the global disk index
+        # Determine the (pool, disk) pair for the global index
         pairs: list[tuple[int, int]] = []
         for hint, _ in items:
             nm = (hint or "").lower()
-            if "(pool " in nm and " | disk " in nm:
+            # if "(pool " in nm and " | disk " in nm:
+            if self._kind == "disk" and "(pool " in nm and " | disk " in nm:
                 try:
                     inside = nm.split("(")[1].split(")")[0]  # "pool x | disk y"
                     parts = [s.strip() for s in inside.split("|")]
                     p = int(parts[0].split(" ")[1])
                     d = int(parts[1].split(" ")[1])
+                    pairs.append((p, d))
+                except Exception:
+                    continue
+
+            if self._kind == "cache_disk" and "(pool " in nm and " | cache disk " in nm:
+                try:
+                    inside = nm.split("(")[1].split(")")[0]  # "pool x | cache disk y"
+                    parts = [s.strip() for s in inside.split("|")]
+                    p = int(parts[0].split(" ")[1])
+                    d = int(parts[1].split(" ")[2])  # "cache disk y" -> ["cache","disk","y"]
                     pairs.append((p, d))
                 except Exception:
                     continue
@@ -294,7 +325,10 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
         filtered: list[tuple[str, str]] = []
         for hint, eid in items:
             nm = (hint or "").lower()
-            if f"(pool {p} | disk {d})" in nm:
+            # if f"(pool {p} | disk {d})" in nm:
+            if self._kind == "disk" and f"(pool {p} | disk {d})" in nm:
+                filtered.append((hint, eid))
+            if self._kind == "cache_disk" and f"(pool {p} | cache disk {d})" in nm:
                 filtered.append((hint, eid))
         return filtered
 
@@ -364,7 +398,7 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
         new_state = status_val if status_val is not None else len(attrs)
 
         # 4) META attributes (not recorded)
-        kind_map = {"pool": "Pool", "volume": "Volume", "disk": "Disk"}
+        kind_map = {"pool": "Pool", "volume": "Volume", "disk": "Disk", "cache_disk": "Cache Disk"}
         meta = {
             "UGNAS_global_id": "UGREEN NAS",
             "UGNAS_device_id": self._nas_device_id,
@@ -383,6 +417,12 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
                 p, d = self._last_pd
                 meta["UGNAS member of pool"] = p
                 meta["UGNAS disk number in pool"] = d
+        elif self._kind == "cache_disk":
+            if self._last_pd:
+                p, d = self._last_pd
+                meta["UGNAS member of pool"] = p
+                meta["UGNAS cache disk number in pool"] = d
+                meta["UGNAS global cache disk number"] = self._mk[0]
 
         attrs.update(meta)
 
