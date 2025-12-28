@@ -5,7 +5,7 @@
 #    ├─ ALL_NAS_COMMON    (always present in any NAS)
 #    │  ├─ CONFIG         (60s polling: name, model etc)
 #    │  ├─ STATUS         (5s polling: temps, cpu usage etc)
-#    │  └─ BUTTONS        (actions; shutdown, restart)
+#    │  └─ BUTTONS        (actions; shutdown, restart, fan / cooling profiles)
 #    │
 #    └─ NAS_SPECIFIC      (presence 1..n is depending on your NAS & setup)
 #       ├─ LAN
@@ -18,7 +18,7 @@
 #       └─ STORAGE
 #          └─ POOLS
 #             ├─ VOLUMES
-#             └─ DISKS
+#             ├─ DISKS
 #             └─ CACHE
 #
 # Note: All NAS_SPECIFIC items are further split into CONFIG (60s) and STATUS (5s).
