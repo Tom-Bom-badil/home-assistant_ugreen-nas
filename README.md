@@ -27,7 +27,7 @@ The integration frequently retrieves and renews access authorization tokens, and
 > ⏱️ Total setup time: *~5..10 minutes*
 
 👉 [**Here**](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/wiki/Example-Dashboard-Page) you can find a step-by-step guide on how to get dashboard shown in the screenshot. After initial installation, you can [**fine tune**](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/wiki/Fine%E2%80%90tuning-your-dashboard) the dashboard to your individual NAS configuration and needs.
-> 💬 Total dashboard installation time: *also ~5..10 minutes, plus the time for fine tuning*
+> ⏱️ Total dashboard installation time: *also ~5..10 minutes, plus the time for fine tuning*
 
 ---
 
