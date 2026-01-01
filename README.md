@@ -46,4 +46,4 @@ The integration automatically retrieves and renews access authorization tokens a
 
 ---
 
-<sub>* Active installations: Analytics numbers are based on HA Analytics opt-in users, estimated to be less than ¼ of all active HA instances. Click the button for more info.</sub>
+<sub>* Active installations: Analytics numbers are based on HA Analytics opt-in users, estimated to represent less than ¼ of all active HA installations. Click the button for more info.</sub>
