@@ -634,6 +634,7 @@ class UgreenApiClient:
             prefix_key_base="pool",
             prefix_name_base="Pool",
             category="Pools",
+            single_compact=False,
         ))
 
         disk_resp = await self.get(session, endpoint_disk)

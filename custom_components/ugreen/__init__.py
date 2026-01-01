@@ -10,6 +10,13 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.device_registry import async_get as async_get_device_registry
 
+from .utils import get_entity_data_from_api
+from .api import UgreenApiClient
+from .entities import (
+    ALL_NAS_COMMON_CONFIG_ENTITIES,
+    ALL_NAS_COMMON_STATE_ENTITIES,
+    ALL_NAS_COMMON_BUTTON_ENTITIES
+)
 from .const import (
     DOMAIN,
     PLATFORMS,
@@ -27,16 +34,8 @@ from .const import (
     MANUFACTURER,
 )
 
-from .utils import get_entity_data_from_api
-
-from .api import UgreenApiClient
-from .entities import (
-    ALL_NAS_COMMON_CONFIG_ENTITIES,
-    ALL_NAS_COMMON_STATE_ENTITIES,
-    ALL_NAS_COMMON_BUTTON_ENTITIES
-)
-
 _LOGGER = logging.getLogger(__name__)
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Setup and start the integration."""
@@ -55,7 +54,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         password=entry.options.get(CONF_PASSWORD, entry.data.get(CONF_PASSWORD)),
         use_https=bool(entry.options.get(CONF_USE_HTTPS, entry.data.get(CONF_USE_HTTPS, False))),
     )
-    # keepalive_websocket = api.ws_keepalive(session, lang="de-DE")
 
 
     ### Initial authentication
