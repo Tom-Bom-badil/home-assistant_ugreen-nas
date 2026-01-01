@@ -4,8 +4,8 @@
 [![Custom integration](https://img.shields.io/badge/Custom%20Integration-%2341BDF5.svg)](https://www.home-assistant.io/getting-started/concepts-terminology)
 [![HACS Listing](https://img.shields.io/badge/HACS%20Listing-default-green.svg)](https://github.com/hacs)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/graphs/commit-activity)
-[![Version](https://img.shields.io/github/v/release/Tom-Bom-badil/home-assistant_ugreen-nas?sort=semver&color=green)](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/releases)
-[![Stars](https://img.shields.io/github/stars/Tom-Bom-badil/home-assistant_ugreen-nas?style=flat&color=yellow)](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/stargazers)
+[![HA Analytics](https://img.shields.io/badge/dynamic/json?url=https://analytics.home-assistant.io/custom_integrations.json&query=$.ugreen.total&label=HA%20Analytics&suffix=%20active%20installations&color=gold)](https://analytics.home-assistant.io/)
+[![Stars](https://img.shields.io/github/stars/Tom-Bom-badil/home-assistant_ugreen-nas?style=flat&color=gold)](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/stargazers)
 
 ---
 
@@ -23,10 +23,10 @@ The integration frequently retrieves and renews access authorization tokens, and
 
 ## ⚙️ Setup Instructions
 
-👉 [**Click here**](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/wiki/03-%E2%80%90-Installation) for the step-by-step installation guide on the project Wiki.
+👉 [**Click here**](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/wiki/03-%E2%80%90-Installation) for the step-by-step installation guide on the project Wiki. In case of problems showing up during installation, we have prepared a [**troubleshooting guide**](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/discussions/176) for you on the discussions.
 > ⏱️ Total setup time: *~5..10 minutes*
 
-👉 [**Here**](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/wiki/Example-Dashboard-Page) you can find a step-by-step guide on how to get dashboard shown in the screenshot. After initial installation, you can [**fine tune**](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/wiki/Fine%E2%80%90tuning-your-dashboard) the dashboard to your individual NAS configuration and needs.
+👉 [**Here**](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/wiki/Example-Dashboard-Page) you can find a step-by-step guide on how to get the dashboard as shown in the screenshot. After initial installation, you can [**fine tune**](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/wiki/Fine%E2%80%90tuning-your-dashboard) the dashboard to your individual NAS configuration and needs.
 > ⏱️ Total dashboard installation time: *also ~5..10 minutes, plus the time for fine tuning*
 
 ---
@@ -43,4 +43,4 @@ The integration frequently retrieves and renews access authorization tokens, and
 
 ---
 
-*Thanks for using this integration and your feedback! 😊*
+*Thanks for using this integration, and for your feedback! 😊*
