@@ -74,6 +74,7 @@ class UgreenApiClient:
         self._ws_stop = asyncio.Event()
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._ws_connected: bool = False
+        self._nas_online: bool = True
 
 
     ### "The API" - public entrypoints (e.g. used by __init__.py) ##############
@@ -116,6 +117,10 @@ class UgreenApiClient:
         """Return above counted number of dynamic entities on request."""
         return self._dynamic_entity_counts or {}
 
+    @property
+    def nas_online(self) -> bool:
+        """Return current online state derived from heartbeat checks."""
+        return self._nas_online
 
     ### Internally used functions ##############################################
 
@@ -299,6 +304,42 @@ class UgreenApiClient:
         self._ws = None
         self._ws_connected = False
 
+    def _set_nas_online(self, online: bool, *, reason: str | None = None) -> None:
+        """Update online state and emit exactly one log line on state changes."""
+        if online == self._nas_online:
+            return
+
+        self._nas_online = online
+
+        if online:
+            _LOGGER.info("[UGREEN NAS] NAS is online again; polling resumed.")
+            self._nas_online_logged = True
+        else:
+            # keep log noise extremely low (single line per offline event)
+            _LOGGER.warning("[UGREEN NAS] NAS appears offline; polling paused.")
+            self._nas_online_logged = False
+
+        if reason:
+            _LOGGER.debug("[UGREEN NAS] Online state change reason: %s", reason)
+
+    async def _heartbeat_ok(self, session: aiohttp.ClientSession, *, timeout: float = 1.0) -> bool:
+        """Unauthenticated heartbeat check; used as online-gate for polling."""
+        url = f"{self.base_url}/ugreen/v1/verify/heartbeat"
+        try:
+            async with async_timeout.timeout(timeout):
+                resp = await session.get(url, ssl=self._ssl)
+            async with resp:
+                if resp.status != 200:
+                    return False
+                # Some firmware returns JSON; don't depend on it, but try to parse quickly.
+                with contextlib.suppress(Exception):
+                    payload = await resp.json(content_type=None)
+                    if isinstance(payload, dict) and payload.get("code") not in (None, 200):
+                        return False
+                return True
+        except Exception:
+            return False
+
     async def _ws_keepalive_loop(self, session: aiohttp.ClientSession, *, lang: str, heartbeat: int) -> None:
         """Container-like endless WS loop: subscribe, ping periodically, continuously receive, backoff reconnect, re-auth on 401/403."""
         def _url(token: str) -> str:
@@ -315,6 +356,19 @@ class UgreenApiClient:
 
         backoff = [1, 2, 5, 10, 15, 30, 60]
         while not self._ws_stop.is_set():
+            # Heartbeat preflight: keep log noise low and avoid aggressive retries when NAS is offline
+            hb_ok = await self._heartbeat_ok(session, timeout=1.0)
+            if not hb_ok:
+                self._set_nas_online(False, reason="heartbeat failed")
+                # Avoid WS connect/login storms while NAS is down
+                if self._ws and not self._ws.closed:
+                    with contextlib.suppress(Exception):
+                        await self._ws.close()
+                self._ws = None
+                self._ws_connected = False
+                await asyncio.sleep(max(heartbeat, 5))
+                continue
+            self._set_nas_online(True, reason="heartbeat ok")
             try:
                 # Ensure we have a token (login on demand)
                 if not self.token:
@@ -352,6 +406,11 @@ class UgreenApiClient:
                 while not self._ws_stop.is_set():
                     now = time.time()
                     if now - last_ping >= heartbeat:
+                        hb_ok = await self._heartbeat_ok(session, timeout=1.0)
+                        if not hb_ok:
+                            self._set_nas_online(False, reason="heartbeat failed")
+                            raise RuntimeError("heartbeat failed")
+                        self._set_nas_online(True)
                         with contextlib.suppress(Exception):
                             await ws.ping()
                             _LOGGER.debug("WS ping()")
@@ -366,7 +425,7 @@ class UgreenApiClient:
                         continue
 
                     if msg.type in (WSMsgType.CLOSE, WSMsgType.CLOSED, WSMsgType.CLOSING, WSMsgType.ERROR):
-                        _LOGGER.warning("WS closed or error frame — reconnecting.")
+                        _LOGGER.warning("WS closed or error frame — reconnecting.") if self._nas_online else _LOGGER.debug("WS closed or error frame while offline — reconnecting.")
                         raise RuntimeError(f"ws closed: {msg.type}")
 
                 # graceful stop requested
@@ -384,7 +443,7 @@ class UgreenApiClient:
                 # Exponential backoff (container style)
                 delay = backoff[0]
                 backoff = backoff[1:] or [60]
-                _LOGGER.error("WS loop error: %s — reconnect in %ds", e, delay)
+                _LOGGER.error("WS loop error: %s — reconnect in %ds", e, delay) if self._nas_online else _LOGGER.debug("WS loop error while offline: %s — reconnect in %ds", e, delay)
                 await asyncio.sleep(delay)
 
         # Cleanup

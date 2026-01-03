@@ -77,6 +77,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         config_entities_grouped_by_endpoint[entity.endpoint].append(entity)
     #   Create the update function for the corresponding coordinator
     async def update_configuration_data() -> dict[str, Any]:
+        if not api.nas_online:
+            return {}
         try:
             _LOGGER.debug("[UGREEN NAS] Updating configuration data...")
             endpoint_to_entities = hass.data[DOMAIN][entry.entry_id]["config_entities_grouped_by_endpoint"]
@@ -109,6 +111,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.debug("[UGREEN NAS] List of state entities prepared.")
     #   Create the update function for the corresponding coordinator
     async def update_state_data() -> dict[str, Any]: # update for coordinator
+        if not api.nas_online:
+            return {}
         try:
             _LOGGER.debug("[UGREEN NAS] Updating state data...")
             endpoint_to_entities = hass.data[DOMAIN][entry.entry_id]["state_entities_grouped_by_endpoint"]
