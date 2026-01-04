@@ -73,7 +73,7 @@ class UgreenApiClient:
             ssl_context.verify_mode = ssl.CERT_NONE
             self._ssl = ssl_context
         else:
-            self._ssl = False
+            self._ssl = None
 
         # web socket items to prevent API going asleep ('keep_alive')
         self._ws_task: asyncio.Task[Any] | None = None
