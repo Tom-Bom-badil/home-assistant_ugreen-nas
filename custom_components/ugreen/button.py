@@ -1,14 +1,14 @@
-# button.py
 import logging
 import re
 
+from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.button import ButtonEntity
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.core import HomeAssistant
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers import device_registry as dr
+
 
 from .device_info import build_device_info
 from .const import DOMAIN
@@ -16,7 +16,6 @@ from .api import UgreenApiClient
 from .entities import UgreenEntity
 
 _LOGGER = logging.getLogger(__name__)
-
 _MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
 
 
@@ -25,24 +24,22 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up UGREEN NAS buttons based on a config entry."""
+    """Set up UGREEN NAS buttons.."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["config_coordinator"]
     entities: list[UgreenEntity] = hass.data[DOMAIN][entry.entry_id]["button_entities"]
     api = hass.data[DOMAIN][entry.entry_id]["api"]
-
+    # general (see entities.py)
     button_entities = [
         UgreenNasButton(hass, entry.entry_id, coordinator, entity, api)
         for entity in entities
     ]
-
-    # Add a WOL button (HA service call, no UGOS API call)
+    # specific (see below)
     button_entities.append(UgreenNasWakeOnLanButton(hass, entry.entry_id, coordinator))
-
     async_add_entities(button_entities)
 
 
 class UgreenNasButton(CoordinatorEntity, ButtonEntity):
-    """UGREEN NAS action button backed by UGOS API calls."""
+    """UGREEN NAS action button backed by UGOS API calls - defined in entities.py."""
 
     def __init__(
         self,
@@ -89,7 +86,7 @@ class UgreenNasButton(CoordinatorEntity, ButtonEntity):
 
 
 class UgreenNasWakeOnLanButton(CoordinatorEntity, ButtonEntity):
-    """Wake the NAS using Home Assistant's wake_on_lan service (fire & forget)."""
+    """UGreen NAS wake_on_lan button (fire&forget method)."""
 
     def __init__(self, hass: HomeAssistant, entry_id: str, coordinator: DataUpdateCoordinator) -> None:
         super().__init__(coordinator)
@@ -103,14 +100,10 @@ class UgreenNasWakeOnLanButton(CoordinatorEntity, ButtonEntity):
         self._attr_device_info = build_device_info(hass, entry_id, self._key)
 
     def _collect_all_macs(self) -> list[str]:
-        """Collect all valid LAN MACs.
-
-        Primary source: device registry (works even if NAS is offline and after HA restart).
-        Fallback: coordinator cache (runtime data while NAS is online).
-        """
+        """Collect all valid LAN MACs."""
         macs: list[str] = []
 
-        # 1) Device Registry (persistent)
+        # 1) Device Registry (primary source, persistent)
         try:
             dev_reg = dr.async_get(self.hass)
             root_id = f"entry:{self._entry_id}"
@@ -125,7 +118,7 @@ class UgreenNasWakeOnLanButton(CoordinatorEntity, ButtonEntity):
         except Exception as e:
             _LOGGER.debug("[UGREEN NAS] Failed to read MACs from device registry: %s", e)
 
-        # 2) Fallback: coordinator data (volatile runtime cache)
+        # 2) Coordinator Data (fallback, volatile runtime cache)
         if not macs:
             data = self.coordinator.data or {}
             for i in range(1, 17):
@@ -135,7 +128,7 @@ class UgreenNasWakeOnLanButton(CoordinatorEntity, ButtonEntity):
                     if _MAC_RE.match(mac):
                         macs.append(mac)
 
-        # De-duplicate but keep order
+        # 3) De-duplicate, but keep order
         seen: set[str] = set()
         uniq: list[str] = []
         for m in macs:
