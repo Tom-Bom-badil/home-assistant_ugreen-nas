@@ -5,7 +5,6 @@
 [![HACS Listing](https://img.shields.io/badge/HACS%20Listing-default-green.svg)](https://github.com/hacs)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/graphs/commit-activity)
 [![HA Analytics](https://img.shields.io/badge/dynamic/json?url=https://analytics.home-assistant.io/custom_integrations.json&query=$.ugreen.total&label=HA%20Analytics%20%2A&suffix=%20active%20installations&color=gold)](https://analytics.home-assistant.io/)
-[![Stars](https://img.shields.io/github/stars/Tom-Bom-badil/home-assistant_ugreen-nas?style=flat&color=gold)](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/stargazers)
 
 ---
 
