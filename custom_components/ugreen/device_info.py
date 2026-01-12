@@ -6,11 +6,17 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from .const import DOMAIN
 
 
-_RE_DISK = re.compile(r"^disk(?P<d>\d+)_pool(?P<p>\d+)\b")
-_RE_CACHE_DISK = re.compile(r"^cache_disk(?P<d>\d+)_pool(?P<p>\d+)\b")
-_RE_CACHE = re.compile(r"^cache_pool(?P<p>\d+)\b")
-_RE_VOLUME = re.compile(r"^volume(?P<v>\d+)_pool(?P<p>\d+)\b")
-_RE_POOL = re.compile(r"^pool(?P<p>\d+)\b")
+# _RE_DISK = re.compile(r"^disk(?P<d>\d+)_pool(?P<p>\d+)\b")
+# _RE_CACHE_DISK = re.compile(r"^cache_disk(?P<d>\d+)_pool(?P<p>\d+)\b")
+# _RE_CACHE = re.compile(r"^cache_pool(?P<p>\d+)\b")
+# _RE_VOLUME = re.compile(r"^volume(?P<v>\d+)_pool(?P<p>\d+)\b")
+# _RE_POOL = re.compile(r"^pool(?P<p>\d+)\b")
+
+_RE_DISK = re.compile(r"^disk(?P<d>\d+)_pool(?P<p>\d+)(?:_|$)")
+_RE_CACHE_DISK = re.compile(r"^cache_disk(?P<d>\d+)_pool(?P<p>\d+)(?:_|$)")
+_RE_CACHE = re.compile(r"^cache_pool(?P<p>\d+)(?:_|$)")
+_RE_VOLUME = re.compile(r"^volume(?P<v>\d+)_pool(?P<p>\d+)(?:_|$)")
+_RE_POOL = re.compile(r"^pool(?P<p>\d+)(?:_|$)")
 
 
 def build_device_info(hass: HomeAssistant, entry_id: str, key: str, model: str | None = None) -> DeviceInfo:

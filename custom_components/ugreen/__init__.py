@@ -10,6 +10,13 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.device_registry import async_get as async_get_device_registry
 
+from .utils import get_entity_data_from_api
+from .api import UgreenApiClient
+from .entities import (
+    ALL_NAS_COMMON_CONFIG_ENTITIES,
+    ALL_NAS_COMMON_STATE_ENTITIES,
+    ALL_NAS_COMMON_BUTTON_ENTITIES
+)
 from .const import (
     DOMAIN,
     PLATFORMS,
@@ -27,16 +34,8 @@ from .const import (
     MANUFACTURER,
 )
 
-from .utils import get_entity_data_from_api
-
-from .api import UgreenApiClient
-from .entities import (
-    ALL_NAS_COMMON_CONFIG_ENTITIES,
-    ALL_NAS_COMMON_STATE_ENTITIES,
-    ALL_NAS_COMMON_BUTTON_ENTITIES
-)
-
 _LOGGER = logging.getLogger(__name__)
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Setup and start the integration."""
@@ -55,7 +54,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         password=entry.options.get(CONF_PASSWORD, entry.data.get(CONF_PASSWORD)),
         use_https=bool(entry.options.get(CONF_USE_HTTPS, entry.data.get(CONF_USE_HTTPS, False))),
     )
-    # keepalive_websocket = api.ws_keepalive(session, lang="de-DE")
 
 
     ### Initial authentication
@@ -79,6 +77,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         config_entities_grouped_by_endpoint[entity.endpoint].append(entity)
     #   Create the update function for the corresponding coordinator
     async def update_configuration_data() -> dict[str, Any]:
+        if not api.nas_online:
+            return {}
         try:
             _LOGGER.debug("[UGREEN NAS] Updating configuration data...")
             endpoint_to_entities = hass.data[DOMAIN][entry.entry_id]["config_entities_grouped_by_endpoint"]
@@ -111,6 +111,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.debug("[UGREEN NAS] List of state entities prepared.")
     #   Create the update function for the corresponding coordinator
     async def update_state_data() -> dict[str, Any]: # update for coordinator
+        if not api.nas_online:
+            return {}
         try:
             _LOGGER.debug("[UGREEN NAS] Updating state data...")
             endpoint_to_entities = hass.data[DOMAIN][entry.entry_id]["state_entities_grouped_by_endpoint"]
