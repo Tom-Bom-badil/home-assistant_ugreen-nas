@@ -3,7 +3,7 @@ name: Enforce develop → main only
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled, ready_for_review]
 
 jobs:
   guard:
