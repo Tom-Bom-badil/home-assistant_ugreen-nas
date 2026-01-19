@@ -67,13 +67,7 @@ class UgreenApiClient:
         self._dynamic_entity_counts_lock = asyncio.Lock()
 
         # Disable SSL certificate checking
-        if self.scheme == "https":
-            ssl_context = ssl.create_default_context()
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_NONE
-            self._ssl = ssl_context
-        else:
-            self._ssl = None
+        self._ssl = (False if self.scheme == "https" else None)
 
         # web socket items to prevent API going asleep ('keep_alive')
         self._ws_task: asyncio.Task[Any] | None = None
