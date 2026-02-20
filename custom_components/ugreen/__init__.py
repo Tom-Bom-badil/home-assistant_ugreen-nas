@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.device_registry import async_get as async_get_device_registry
+from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, format_mac
 
 from .utils import get_entity_data_from_api
 from .api import UgreenApiClient
@@ -242,7 +243,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     serial  = (common.get("serial") or "").strip()
     brand = "UGREEN"
     model_display = f"{brand} {model}" if model and not model.upper().startswith(brand) else (model or brand)
-
+    hardware  = (sys_info or {}).get("data", {}).get("hardware", {})
     hass.data.setdefault(DOMAIN, {}).setdefault(entry.entry_id, {})["root_device_name"] = name
     device = None
 
@@ -255,6 +256,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if serial:
             identifiers.add((DOMAIN, f"serial:{serial}"))
 
+        connections = set()
+        for net in hardware.get("net", []):
+            mac = format_mac(net.get("mac", ""))
+            if mac:
+                connections.add((CONNECTION_NETWORK_MAC, mac))
+
         # Create or get root device
         device = dev_reg.async_get_or_create(
             config_entry_id=entry.entry_id,
@@ -264,6 +271,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             model=model_display,
             sw_version=version,
             serial_number=serial or None,
+            connections=connections or None,
         )
 
         # Enforce NAS DNS name as device name (only if not user-overridden)
