@@ -8,7 +8,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from homeassistant.helpers.device_registry import async_get as async_get_device_registry
+from homeassistant.helpers.device_registry import (
+    async_get as async_get_device_registry,
+    CONNECTION_NETWORK_MAC,
+)
 
 from .utils import get_entity_data_from_api
 from .api import UgreenApiClient
@@ -232,17 +235,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "volume_meta":     volume_meta,
     })
 
-
     ### Device registration
     sys_info = await api.get(session, "/ugreen/v1/sysinfo/machine/common")
-    common  = (sys_info or {}).get("data", {}).get("common", {})
-    model   = common.get("model", "Unknown")
-    version = common.get("system_version", "Unknown")
-    name    = common.get("nas_name", "UGREEN NAS")
-    serial  = (common.get("serial") or "").strip()
-    brand = "UGREEN"
+    common   = (sys_info or {}).get("data", {}).get("common", {}) or {}
+    model    = common.get("model", "Unknown")
+    version  = common.get("system_version", "Unknown")
+    name     = common.get("nas_name", "UGREEN NAS")
+    serial   = (common.get("serial") or "").strip()
+    macs     = common.get("mac") or []
+    brand    = "UGREEN"
     model_display = f"{brand} {model}" if model and not model.upper().startswith(brand) else (model or brand)
 
+    # MACs as additional device connections (needed for WOL)
+    connections = {(CONNECTION_NETWORK_MAC, m.strip().lower()) for m in macs if isinstance(m, str) and m.strip()}
     hass.data.setdefault(DOMAIN, {}).setdefault(entry.entry_id, {})["root_device_name"] = name
     device = None
 
@@ -259,12 +264,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         device = dev_reg.async_get_or_create(
             config_entry_id=entry.entry_id,
             identifiers=identifiers,
+            connections=connections if connections else None,
             name=name,
             manufacturer=brand,
             model=model_display,
             sw_version=version,
             serial_number=serial or None,
         )
+
+        # v2026.2+: WOL wasn't working properly
+        # Re-introduce MAC addresses, fill MACs for already-registered devices after update
+        if device and connections:
+            merged = set(device.connections or set()) | connections
+            if merged != set(device.connections or set()):
+                dev_reg.async_update_device(device.id, connections=merged)
 
         # Enforce NAS DNS name as device name (only if not user-overridden)
         if device and not device.name_by_user and device.name != name:
