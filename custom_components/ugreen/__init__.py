@@ -31,6 +31,7 @@ from .const import (
     CONF_CONFIG_INTERVAL,
     CONF_STATE_INTERVAL,
     CONF_WS_INTERVAL,
+    CONF_ENTITY_PREFIX,
     DEFAULT_SCAN_INTERVAL_STATE,
     DEFAULT_SCAN_INTERVAL_CONFIG,
     DEFAULT_SCAN_INTERVAL_WS,
@@ -48,6 +49,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.debug("[UGREEN NAS] Setting up config entry: %s", entry.entry_id)
     hass.data.setdefault(DOMAIN, {})
     session = async_get_clientsession(hass)
+
 
     # Read configuration from entry (options override data)
     api = UgreenApiClient(
@@ -70,7 +72,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.debug("[UGREEN NAS] Entity counts done: %s", dynamic_entity_counts)
 
 
-    ### Setup configuration entities (never or slowly changing, 60s polling)
+    ### Setup configuration entities (never or slowly changing data, 60s polling)
     #   Build the entity list
     config_entities =  list(ALL_NAS_COMMON_CONFIG_ENTITIES)
     config_entities += await api.DISCOVER_NAS_SPECIFIC_CONFIG_ENTITIES(session)
@@ -103,7 +105,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
 
-    ### Setup state entities (changing rather quickly, 5s polling)
+    ### Setup state entities (rather quickly changing data, 5s polling)
     #   Build the entity list
     state_entities =  list(ALL_NAS_COMMON_STATE_ENTITIES)
     state_entities += await api.DISCOVER_NAS_SPECIFIC_STATE_ENTITIES(session)
@@ -241,10 +243,48 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     model    = common.get("model", "Unknown")
     version  = common.get("system_version", "Unknown")
     name     = common.get("nas_name", "UGREEN NAS")
+    entity_prefix = (entry.options.get(CONF_ENTITY_PREFIX, entry.data.get(CONF_ENTITY_PREFIX, "")) or "").strip()
+    if entity_prefix:
+        name = entity_prefix
     serial   = (common.get("serial") or "").strip()
     macs     = common.get("mac") or []
     brand    = "UGREEN"
     model_display = f"{brand} {model}" if model and not model.upper().startswith(brand) else (model or brand)
+
+
+    ### Migrate config entry unique_id to stable serial-based format if needed 
+    if serial:
+        new_unique_id = f"ugreen_{serial}"
+
+        if entry.unique_id != new_unique_id:
+            duplicate_entry = next(
+                (
+                    existing_entry
+                    for existing_entry in hass.config_entries.async_entries(DOMAIN)
+                    if existing_entry.entry_id != entry.entry_id
+                    and existing_entry.unique_id == new_unique_id
+                ),
+                None,
+            )
+
+            if duplicate_entry:
+                _LOGGER.warning(
+                    "[UGREEN NAS] Unique ID migration skipped for entry %s: %s is already used by entry %s",
+                    entry.entry_id,
+                    new_unique_id,
+                    duplicate_entry.entry_id,
+                )
+            else:
+                _LOGGER.info(
+                    "[UGREEN NAS] Updating config entry unique_id from %s to %s",
+                    entry.unique_id,
+                    new_unique_id,
+                )
+                hass.config_entries.async_update_entry(
+                    entry,
+                    unique_id=new_unique_id,
+                )
+
 
     # MACs as additional device connections (needed for WOL)
     connections = {(CONNECTION_NETWORK_MAC, m.strip().lower()) for m in macs if isinstance(m, str) and m.strip()}
