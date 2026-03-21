@@ -9,6 +9,7 @@
           "ugreen_port": "Port",
           "username": "Admin username",
           "password": "Admin password",
+          "entity_prefix": "(Multi-NAS) Unique device name",
           "use_https": "Use HTTPS"
         },
         "data_description": {
@@ -16,6 +17,7 @@
           "ugreen_port": "Port used for the connection (default: 9999 for HTTP, 9443 for HTTPS).",
           "username": "Your NAS admin username.",
           "password": "Your NAS admin password (no special characters – UGOS bug!).",
+          "entity_prefix": "Must start with a letter; letters, numbers, and spaces are allowed afterwards.",
           "use_https": "Use HTTPS for the connection."
         }
       },
@@ -27,6 +29,8 @@
     "error": {
       "cannot_connect": "Connection failed. Please check the IP address, port and network connection.",
       "invalid_auth": "Connection error or invalid credentials. Please check network and user settings.",
+      "invalid_entity_prefix": "Invalid device name. It must start with a letter; afterwards only letters, numbers, and spaces are allowed.",
+      "entity_prefix_in_use": "This device name is already used by another UGREEN NAS.",
       "unknown": "An unknown error occurred."
     },
     "abort": {
@@ -47,6 +51,7 @@
           "state_interval": "(Advanced) Polling interval for state entities",
           "config_interval": "(Advanced) Polling interval for configuration entities",
           "ws_interval": "(Advanced – recommended to keep) Keepalive interval / API pings",
+          "entity_prefix": "(Multi-NAS) Unique device name",
           "use_https": "Use HTTPS"
         },
         "data_description": {
@@ -58,6 +63,7 @@
           "state_interval": "How often should frequently changing values be polled? (5s)",
           "config_interval": "How often should less frequently changing values be polled? (60s)",
           "ws_interval": "How often should an API keepalive ping be sent via WebSocket? (20s)",
+          "entity_prefix": "Must start with a letter; letters, numbers, and spaces are allowed afterwards.",
           "use_https": "Use an encrypted HTTPS connection (requires HTTPS port)."
         }
       }
