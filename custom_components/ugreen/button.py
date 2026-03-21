@@ -5,18 +5,27 @@ from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.button import ButtonEntity
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 
 from .device_info import build_device_info
-from .const import DOMAIN
+from .const import DOMAIN, DEFAULT_ENTITY_PREFIX
 from .api import UgreenApiClient
 from .entities import UgreenEntity
 
 _LOGGER = logging.getLogger(__name__)
 _MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+
+
+def _get_entity_prefix(hass: HomeAssistant, entry_id: str) -> str:
+    """Return the configured NAS prefix for entity names."""
+    return (
+        hass.data.get(DOMAIN, {}).get(entry_id, {}).get("root_device_name")
+        or DEFAULT_ENTITY_PREFIX
+    )
 
 
 async def async_setup_entry(
@@ -54,12 +63,14 @@ class UgreenNasButton(CoordinatorEntity, ButtonEntity):
         self._entry_id = entry_id
         self._endpoint = endpoint
         self._api = api
-
         self._key = endpoint.description.key
-        self._attr_name = endpoint.description.name
+        entity_prefix = _get_entity_prefix(hass, entry_id)
+        self._attr_name = f"{entity_prefix} {endpoint.description.name}"
+        self.entity_id = async_generate_entity_id("button.{}", self._attr_name, hass=self.hass)
         self._attr_unique_id = f"{entry_id}_{self._key}"
         self._attr_icon = endpoint.description.icon
         self._attr_device_info = build_device_info(hass, entry_id, self._key)
+
 
     async def async_press(self) -> None:
         """Perform the button action."""
@@ -93,11 +104,13 @@ class UgreenNasWakeOnLanButton(CoordinatorEntity, ButtonEntity):
         self.hass = hass
         self._entry_id = entry_id
         self._key = "wake_on_lan"
-
-        self._attr_name = "Wake Up"
+        entity_prefix = _get_entity_prefix(hass, entry_id)
+        self._attr_name = f"{entity_prefix} Wake Up"
+        self.entity_id = async_generate_entity_id("button.{}", self._attr_name, hass=self.hass)
         self._attr_unique_id = f"{entry_id}_wake_on_lan"
         self._attr_icon = "mdi:power"
         self._attr_device_info = build_device_info(hass, entry_id, self._key)
+
 
     def _collect_all_macs(self) -> list[str]:
         """Collect all valid LAN MACs."""
