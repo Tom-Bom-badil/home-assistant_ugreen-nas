@@ -6,12 +6,6 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from .const import DOMAIN
 
 
-# _RE_DISK = re.compile(r"^disk(?P<d>\d+)_pool(?P<p>\d+)\b")
-# _RE_CACHE_DISK = re.compile(r"^cache_disk(?P<d>\d+)_pool(?P<p>\d+)\b")
-# _RE_CACHE = re.compile(r"^cache_pool(?P<p>\d+)\b")
-# _RE_VOLUME = re.compile(r"^volume(?P<v>\d+)_pool(?P<p>\d+)\b")
-# _RE_POOL = re.compile(r"^pool(?P<p>\d+)\b")
-
 _RE_DISK = re.compile(r"^disk(?P<d>\d+)_pool(?P<p>\d+)(?:_|$)")
 _RE_CACHE_DISK = re.compile(r"^cache_disk(?P<d>\d+)_pool(?P<p>\d+)(?:_|$)")
 _RE_CACHE = re.compile(r"^cache_pool(?P<p>\d+)(?:_|$)")
@@ -24,6 +18,11 @@ def build_device_info(hass: HomeAssistant, entry_id: str, key: str, model: str |
     root_id = f"entry:{entry_id}"
     ctx = hass.data.get(DOMAIN, {}).get(entry_id, {})
     root_name = ctx.get("root_device_name") or "UGREEN NAS"
+
+    def sub_id(kind: str, p: int, n: int | None = None) -> str:
+        if n is None:
+            return f"entry:{entry_id}:{kind}:{p}"
+        return f"entry:{entry_id}:{kind}:{p}:{n}"
 
     # Cache Disks (keys like "cache_disk1_pool2_*")
     if key.startswith("cache_disk") and "_pool" in key:
@@ -40,11 +39,11 @@ def build_device_info(hass: HomeAssistant, entry_id: str, key: str, model: str |
             model_disp = model_raw or f"Cache Disk {d}"
 
         return DeviceInfo(
-            identifiers={(DOMAIN, f"ugreen_nas_cache_disk_{p}_{d}")},
+            identifiers={(DOMAIN, sub_id("cache_disk", p, d))},
             name=f"{root_name} (Pool {p} | Cache Disk {d})",
             manufacturer=brand or "UGREEN",
             model=model_disp,
-            via_device=(DOMAIN, root_id),  # root-level as requested
+            via_device=(DOMAIN, root_id),
         )
 
     # Cache device per pool (keys like "cache_pool2_*")
@@ -57,11 +56,11 @@ def build_device_info(hass: HomeAssistant, entry_id: str, key: str, model: str |
         model_disp = (lvl or "").upper() or mfg
 
         return DeviceInfo(
-            identifiers={(DOMAIN, f"ugreen_nas_cache_{p}")},
+            identifiers={(DOMAIN, sub_id("cache", p))},
             name=f"{root_name} (Pool {p} | Cache)",
             manufacturer=mfg,
             model=model_disp,
-            via_device=(DOMAIN, root_id),  # root-level as requested
+            via_device=(DOMAIN, root_id),
         )
 
     # Disks
@@ -77,11 +76,11 @@ def build_device_info(hass: HomeAssistant, entry_id: str, key: str, model: str |
             model_disp = model_raw or f"Disk {d}"
 
         return DeviceInfo(
-            identifiers={(DOMAIN, f"ugreen_nas_disk_{p}_{d}")},
+            identifiers={(DOMAIN, sub_id("disk", p, d))},
             name=f"{root_name} (Pool {p} | Disk {d})",
             manufacturer=brand or "UGREEN",
             model=model_disp,
-            via_device=(DOMAIN, f"ugreen_nas_pool_{p}"),
+            via_device=(DOMAIN, sub_id("pool", p)),
         )
 
     # Volumes
@@ -98,11 +97,11 @@ def build_device_info(hass: HomeAssistant, entry_id: str, key: str, model: str |
             model_disp = mfg
 
         return DeviceInfo(
-            identifiers={(DOMAIN, f"ugreen_nas_volume_{p}_{v}")},
+            identifiers={(DOMAIN, sub_id("volume", p, v))},
             name=f"{root_name} (Pool {p} | Volume {v})",
             manufacturer=mfg,
             model=f"{model_disp} volume",
-            via_device=(DOMAIN, f"ugreen_nas_pool_{p}"),
+            via_device=(DOMAIN, sub_id("pool", p)),
         )
 
     # Pools
@@ -116,7 +115,7 @@ def build_device_info(hass: HomeAssistant, entry_id: str, key: str, model: str |
         model_disp = raid_up if raid_up and raid_up.lower().startswith(mfg.lower()) else (f"{mfg} {raid_up}" if raid_up else mfg)
 
         return DeviceInfo(
-            identifiers={(DOMAIN, f"ugreen_nas_pool_{p}")},
+            identifiers={(DOMAIN, sub_id("pool", p))},
             name=f"{root_name} (Pool {p})",
             manufacturer=mfg,
             model=f"{model_disp} pool",
