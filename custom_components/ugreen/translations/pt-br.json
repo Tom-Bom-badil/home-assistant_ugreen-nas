@@ -9,6 +9,7 @@
           "ugreen_port": "Porta",
           "username": "Nome de usuário administrador",
           "password": "Senha de administrador",
+          "entity_prefix": "(Multi-NAS) Nome exclusivo do dispositivo",
           "use_https": "Usar HTTPS"
         },
         "data_description": {
@@ -16,6 +17,7 @@
           "ugreen_port": "Porta usada para a conexão (padrão: 9999 para HTTP, 9443 para HTTPS).",
           "username": "Seu nome de usuário administrador do NAS.",
           "password": "Sua senha de administrador do NAS (sem caracteres especiais – bug do UGOS!).",
+          "entity_prefix": "Deve começar com uma letra; depois disso, letras, números e espaços são permitidos.",
           "use_https": "Usar HTTPS para a conexão."
         }
       },
@@ -27,6 +29,8 @@
     "error": {
       "cannot_connect": "Falha na conexão. Verifique o endereço IP, a porta e a conexão de rede.",
       "invalid_auth": "Erro de conexão ou credenciais inválidas. Verifique as configurações de rede e do usuário.",
+      "invalid_entity_prefix": "Nome do dispositivo inválido. Ele deve começar com uma letra; depois disso, apenas letras, números e espaços são permitidos.",
+      "entity_prefix_in_use": "Este nome de dispositivo já está sendo usado por outro UGREEN NAS.",
       "unknown": "Ocorreu um erro desconhecido."
     },
     "abort": {
@@ -47,6 +51,7 @@
           "state_interval": "(Avançado) Intervalo de leitura para entidades de estado",
           "config_interval": "(Avançado) Intervalo de leitura para entidades de configuração",
           "ws_interval": "(Avançado – de preferência manter assim) Intervalo de KeepAlive / pings para a API",
+          "entity_prefix": "(Multi-NAS) Nome exclusivo do dispositivo",
           "use_https": "Usar HTTPS"
         },
         "data_description": {
@@ -58,6 +63,7 @@
           "state_interval": "Com que frequência os valores que mudam com frequência devem ser lidos? (5s)",
           "config_interval": "Com que frequência os valores que mudam com menos frequência devem ser lidos? (60s)",
           "ws_interval": "Com que frequência um ping da API deve ser enviado via WebSocket? (20s)",
+          "entity_prefix": "Deve começar com uma letra; depois disso, letras, números e espaços são permitidos.",
           "use_https": "Usar conexão HTTPS criptografada (requer porta HTTPS)."
         }
       }

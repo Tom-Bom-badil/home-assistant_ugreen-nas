@@ -9,6 +9,7 @@
           "ugreen_port": "Port",
           "username": "Admin felhasználónév",
           "password": "Admin jelszó",
+          "entity_prefix": "(Multi-NAS) Egyedi eszköznév",
           "use_https": "HTTPS használata"
         },
         "data_description": {
@@ -16,6 +17,7 @@
           "ugreen_port": "A kapcsolat portja (alapértelmezett: 9999 HTTP-hez, 9443 HTTPS-hez).",
           "username": "A NAS admin felhasználóneved.",
           "password": "A NAS admin jelszavad (nincsenek speciális karakterek – UGOS hiba!).",
+          "entity_prefix": "Betűvel kell kezdődnie; utána betűk, számok és szóközök engedélyezettek.",
           "use_https": "HTTPS használata a kapcsolathoz."
         }
       },
@@ -27,6 +29,8 @@
     "error": {
       "cannot_connect": "A kapcsolat sikertelen. Ellenőrizd az IP-címet, a portot és a hálózati kapcsolatot.",
       "invalid_auth": "Kapcsolati hiba vagy érvénytelen hitelesítő adatok. Ellenőrizd a hálózati és a felhasználói beállításokat.",
+      "invalid_entity_prefix": "Érvénytelen eszköznév. Betűvel kell kezdődnie; utána csak betűk, számok és szóközök engedélyezettek.",
+      "entity_prefix_in_use": "Ezt az eszköznevet már egy másik UGREEN NAS használja.",
       "unknown": "Ismeretlen hiba történt."
     },
     "abort": {
@@ -47,7 +51,8 @@
           "state_interval": "(Speciális) Lekérdezési időköz az állapot entitásokhoz",
           "config_interval": "(Speciális) Lekérdezési időköz a konfigurációs entitásokhoz",
           "ws_interval": "(Speciális – lehetőleg hagyd így) KeepAlive időköz / pingek az API-hoz",
-          "use_https": "Https használata"
+          "entity_prefix": "(Multi-NAS) Egyedi eszköznév",
+          "use_https": "HTTPS használata"
         },
         "data_description": {
           "device_name": "Módosítsd az eszköz nevét, ahogyan a Home Assistantban megjelenik.",
@@ -58,6 +63,7 @@
           "state_interval": "Milyen gyakran legyenek lekérdezve a gyakran változó értékek? (5s)",
           "config_interval": "Milyen gyakran legyenek lekérdezve a ritkábban változó értékek? (60s)",
           "ws_interval": "Milyen gyakran legyen WebSocketen keresztül API-ping küldve? (20s)",
+          "entity_prefix": "Betűvel kell kezdődnie; utána betűk, számok és szóközök engedélyezettek.",
           "use_https": "Titkosított HTTPS kapcsolat használata (HTTPS port szükséges)."
         }
       }
