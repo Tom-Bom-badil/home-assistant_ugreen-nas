@@ -8,6 +8,7 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import MATCH_ALL
 from homeassistant.core import HomeAssistant, State
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.util import slugify
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import StateType
@@ -17,12 +18,29 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
 )
 
-from .const import DOMAIN
+from .const import DOMAIN, DEFAULT_ENTITY_PREFIX
 from .device_info import build_device_info
 from .entities import UgreenEntity
 from .utils import determine_unit, format_sensor_value, strip_parent_prefix
 
 _LOGGER = logging.getLogger(__name__)
+
+
+# --------------------------------------------------------------------------------------
+# Helpers for Multi-NAS feature
+# --------------------------------------------------------------------------------------
+
+def _get_entity_prefix(hass: HomeAssistant, entry_id: str) -> str:
+    """Return the configured NAS prefix for entity names."""
+    return (
+        hass.data.get(DOMAIN, {}).get(entry_id, {}).get("root_device_name")
+        or DEFAULT_ENTITY_PREFIX
+    )
+
+
+def _get_entity_prefix_slug(hass: HomeAssistant, entry_id: str) -> str:
+    """Return a slugified NAS prefix for default entity_ids."""
+    return slugify(_get_entity_prefix(hass, entry_id)) or "ugreen_nas"
 
 
 # --------------------------------------------------------------------------------------
@@ -141,8 +159,9 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
         self._endpoint = endpoint
         self._key = endpoint.description.key
         self._nas_device_id = hass.data[DOMAIN][self._entry_id].get("nas_device_id", "")
-
-        self._attr_name = f"UGREEN NAS {endpoint.description.name}"
+        entity_prefix = _get_entity_prefix(hass, entry_id)
+        self._attr_name = f"{entity_prefix} {endpoint.description.name}"
+        self.entity_id = async_generate_entity_id("sensor.{}", self._attr_name, hass=self.hass)
         self._attr_unique_id = f"{entry_id}_{endpoint.description.key}"
         self._attr_icon = endpoint.description.icon
         self._attr_device_info = build_device_info(hass, entry_id, self._key)
@@ -157,7 +176,7 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
         base_attrs = dict(super().extra_state_attributes or {})
         base_attrs.update({
             "UGNAS_global_id": "UGREEN NAS",
-            "UGNAS_device_id": self._nas_device_id,
+            "UGNAS_device_id": _get_entity_prefix(self.hass, self._entry_id),
             "UGNAS_part_category": self._endpoint.nas_part_category,
         })
         return base_attrs
@@ -226,11 +245,10 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
 
         # Friendly name (stable " Summary" suffix)
         self._attr_has_entity_name = False
-        base_name = f"UGREEN NAS {title} Summary"
+        entity_prefix = _get_entity_prefix(hass, entry_id)
+        base_name = f"{entity_prefix} {title} Summary"
         self._attr_name = base_name
-
         # Ensure entity_id contains "_summary" (generated from name)
-        # e.g. "sensor.ugreen_nas_disk_1_summary"
         self.entity_id = async_generate_entity_id("sensor.{}", self._attr_name, hass=self.hass)
 
         # Make unique_id explicitly end with "_summary" to separate from older IDs
@@ -386,7 +404,9 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
         # 1) dynamic entity name from Label (keep " Summary" suffix)
         label_val = self._find_label_value(pairs)
         if label_val:
-            new_name = f"UGREEN NAS {label_val} Summary"
+            # new_name = f"UGREEN NAS {label_val} Summary"
+            entity_prefix = _get_entity_prefix(self.hass, self._entry_id)
+            new_name = f"{entity_prefix} {label_val} Summary"
             if getattr(self, "_attr_name", None) != new_name:
                 self._attr_name = new_name
 
