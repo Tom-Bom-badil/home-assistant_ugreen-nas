@@ -7,7 +7,6 @@ CACHE_TECHNOLOGY = "Linux lvm-v1"
 
 CONF_UGREEN_HOST = "ugreen_host"
 CONF_UGREEN_PORT = "ugreen_port"
-CONF_DEVICE_NAME = "device_name"
 CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
 CONF_USE_HTTPS = "use_https"

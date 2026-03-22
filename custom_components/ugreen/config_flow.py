@@ -13,7 +13,6 @@ from homeassistant.util import slugify
 from .api import UgreenApiClient
 from .const import (
     DOMAIN,
-    CONF_DEVICE_NAME,
     CONF_UGREEN_HOST,
     CONF_UGREEN_PORT,
     CONF_USERNAME,
@@ -380,14 +379,6 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
                 user_input[CONF_DASHBOARD_POOL_COLUMNS] = pool_columns
                 user_input[CONF_DASHBOARD_VOLUME_COLUMNS] = volume_columns
                 user_input[CONF_DASHBOARD_IMAGE_FILE] = image_file
-
-                if CONF_DEVICE_NAME in user_input and user_input[CONF_DEVICE_NAME]:
-                    device_name = user_input[CONF_DEVICE_NAME]
-                    self.hass.config_entries.async_update_entry(
-                        self._entry,
-                        title=device_name,
-                    )
-
                 return self.async_create_entry(title="", data=user_input)
 
         def _get_value(key: str, default: Any = None) -> Any:
@@ -414,6 +405,17 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
                         default=_get_value(CONF_PASSWORD, ""),
                     ): str,
                     vol.Required(
+                        CONF_ENTITY_PREFIX,
+                        default=_get_value(
+                            CONF_ENTITY_PREFIX,
+                            DEFAULT_ENTITY_PREFIX,
+                        ),
+                    ): str,
+                    vol.Optional(
+                        CONF_USE_HTTPS,
+                        default=_get_value(CONF_USE_HTTPS, False),
+                    ): bool,
+                    vol.Required(
                         CONF_STATE_INTERVAL,
                         default=_get_value(
                             CONF_STATE_INTERVAL,
@@ -436,13 +438,6 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
                     #     CONF_WS_INTERVAL,
                     #     default=_get_value(CONF_WS_INTERVAL, DEFAULT_SCAN_INTERVAL_WS),
                     # ): NumberSelector(NumberSelectorConfig(min=20, max=60, step=1, mode="box")),
-                    vol.Required(
-                        CONF_ENTITY_PREFIX,
-                        default=_get_value(
-                            CONF_ENTITY_PREFIX,
-                            DEFAULT_ENTITY_PREFIX,
-                        ),
-                    ): str,
                     vol.Required(
                         CONF_DASHBOARD_DISK_COLUMNS,
                         default=_get_value(
@@ -477,10 +472,6 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
                             DEFAULT_DASHBOARD_IMAGE_FILE,
                         ),
                     ): str,
-                    vol.Optional(
-                        CONF_USE_HTTPS,
-                        default=_get_value(CONF_USE_HTTPS, False),
-                    ): bool,
                 }
             ),
             errors=errors,
