@@ -9,7 +9,7 @@
           "ugreen_port": "Porta",
           "username": "Nome de usuário administrador",
           "password": "Senha de administrador",
-          "entity_prefix": "(Multi-NAS) Nome exclusivo do dispositivo",
+          "entity_prefix": "Nome exclusivo do dispositivo (padrão: UGREEN NAS)",
           "use_https": "Usar HTTPS"
         },
         "data_description": {
@@ -43,28 +43,34 @@
         "title": "Configurações do UGREEN NAS",
         "description": "Altere as configurações do seu UGREEN NAS. A integração será recarregada após salvar.",
         "data": {
-          "device_name": "Nome do dispositivo",
           "ugreen_host": "Endereço IP ou nome do host",
           "ugreen_port": "Porta",
           "username": "Nome de usuário administrador",
           "password": "Senha de administrador",
-          "state_interval": "(Avançado) Intervalo de leitura para entidades de estado",
-          "config_interval": "(Avançado) Intervalo de leitura para entidades de configuração",
-          "ws_interval": "(Avançado – de preferência manter assim) Intervalo de KeepAlive / pings para a API",
-          "entity_prefix": "(Multi-NAS) Nome exclusivo do dispositivo",
-          "use_https": "Usar HTTPS"
+          "entity_prefix": "Nome exclusivo do dispositivo (padrão: UGREEN NAS)",
+          "use_https": "Usar HTTPS",
+          "state_interval": "[Avançado] Intervalo de atualização para entidades de estado (5s)",
+          "config_interval": "[Avançado] Intervalo de atualização para entidades de configuração (60s)",
+          "ws_interval": "[Avançado] Pings keepalive da API (20s)",
+          "dashboard_disk_columns": "[Dashboard de exemplo] Máx. de colunas de discos por linha (5)",
+          "dashboard_pool_columns": "[Dashboard de exemplo] Máx. de colunas de pools por linha (2)",
+          "dashboard_volume_columns": "[Dashboard de exemplo] Máx. de colunas de volumes por linha (2)",
+          "dashboard_image_file": "[Dashboard de exemplo] Nome do arquivo de imagem (default_picture.png)"
         },
         "data_description": {
-          "device_name": "Altere o nome do dispositivo conforme exibido no Home Assistant.",
           "ugreen_host": "O endereço IP ou nome do host do seu UGREEN NAS.",
           "ugreen_port": "Porta usada para a conexão (padrão: 9999 para HTTP, 9443 para HTTPS).",
           "username": "Seu nome de usuário administrador do NAS.",
           "password": "Sua senha de administrador do NAS (sem caracteres especiais – bug do UGOS!).",
-          "state_interval": "Com que frequência os valores que mudam com frequência devem ser lidos? (5s)",
-          "config_interval": "Com que frequência os valores que mudam com menos frequência devem ser lidos? (60s)",
-          "ws_interval": "Com que frequência um ping da API deve ser enviado via WebSocket? (20s)",
           "entity_prefix": "Deve começar com uma letra; depois disso, letras, números e espaços são permitidos.",
-          "use_https": "Usar conexão HTTPS criptografada (requer porta HTTPS)."
+          "use_https": "Usar conexão HTTPS criptografada (requer porta HTTPS).",
+          "state_interval": "Com que frequência os valores que mudam com frequência devem ser atualizados?",
+          "config_interval": "Com que frequência os valores que mudam com menos frequência devem ser atualizados?",
+          "ws_interval": "Com que frequência um ping keepalive da API deve ser enviado via WebSocket?",
+          "dashboard_disk_columns": "Número de blocos de disco deste NAS a serem exibidos lado a lado no dashboard.",
+          "dashboard_pool_columns": "Número de blocos de pool deste NAS a serem exibidos lado a lado no dashboard.",
+          "dashboard_volume_columns": "Número de blocos de volume deste NAS a serem exibidos lado a lado no dashboard.",
+          "dashboard_image_file": "Arquivo de imagem individual do dashboard para este NAS na pasta www/community/ugreen/."
         }
       }
     }

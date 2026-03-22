@@ -1,0 +1,78 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurar UGREEN NAS",
+        "description": "Introduce los datos de conexión de tu UGREEN NAS.",
+        "data": {
+          "ugreen_host": "Dirección IP o nombre de host",
+          "ugreen_port": "Puerto",
+          "username": "Nombre de usuario administrador",
+          "password": "Contraseña de administrador",
+          "entity_prefix": "Nombre único del dispositivo (predeterminado: UGREEN NAS)",
+          "use_https": "Usar HTTPS"
+        },
+        "data_description": {
+          "ugreen_host": "La dirección IP o el nombre de host de tu UGREEN NAS (p. ej. 192.168.1.100).",
+          "ugreen_port": "Puerto utilizado para la conexión (predeterminado: 9999 para HTTP, 9443 para HTTPS).",
+          "username": "Tu nombre de usuario administrador del NAS.",
+          "password": "Tu contraseña de administrador del NAS (sin caracteres especiales – ¡error de UGOS!).",
+          "entity_prefix": "Debe comenzar con una letra; después se permiten letras, números y espacios.",
+          "use_https": "Usar HTTPS para la conexión."
+        }
+      },
+      "zeroconf": {
+        "title": "UGREEN NAS detectado",
+        "description": "Se ha detectado automáticamente un UGREEN NAS en la red. Introduce tus credenciales para añadirlo."
+      }
+    },
+    "error": {
+      "cannot_connect": "La conexión ha fallado. Comprueba la dirección IP, el puerto y la conexión de red.",
+      "invalid_auth": "Error de conexión o credenciales no válidas. Comprueba la configuración de red y del usuario.",
+      "invalid_entity_prefix": "Nombre de dispositivo no válido. Debe comenzar con una letra; después solo se permiten letras, números y espacios.",
+      "entity_prefix_in_use": "Este nombre de dispositivo ya está siendo utilizado por otro UGREEN NAS.",
+      "unknown": "Se ha producido un error desconocido."
+    },
+    "abort": {
+      "already_configured": "Este UGREEN NAS ya está configurado."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ajustes de UGREEN NAS",
+        "description": "Cambia los ajustes de tu UGREEN NAS. La integración se recargará después de guardar.",
+        "data": {
+          "ugreen_host": "Dirección IP o nombre de host",
+          "ugreen_port": "Puerto",
+          "username": "Nombre de usuario administrador",
+          "password": "Contraseña de administrador",
+          "entity_prefix": "Nombre único del dispositivo (predeterminado: UGREEN NAS)",
+          "use_https": "Usar HTTPS",
+          "state_interval": "[Avanzado] Intervalo de sondeo para entidades de estado (5s)",
+          "config_interval": "[Avanzado] Intervalo de sondeo para entidades de configuración (60s)",
+          "ws_interval": "[Avanzado] Pings keepalive de la API (20s)",
+          "dashboard_disk_columns": "[Dashboard de ejemplo] Máx. columnas de discos por fila (5)",
+          "dashboard_pool_columns": "[Dashboard de ejemplo] Máx. columnas de pools por fila (2)",
+          "dashboard_volume_columns": "[Dashboard de ejemplo] Máx. columnas de volúmenes por fila (2)",
+          "dashboard_image_file": "[Dashboard de ejemplo] Nombre del archivo de imagen (default_picture.png)"
+        },
+        "data_description": {
+          "ugreen_host": "La dirección IP o el nombre de host de tu UGREEN NAS.",
+          "ugreen_port": "Puerto utilizado para la conexión (predeterminado: 9999 para HTTP, 9443 para HTTPS).",
+          "username": "Tu nombre de usuario administrador del NAS.",
+          "password": "Tu contraseña de administrador del NAS (sin caracteres especiales – ¡error de UGOS!).",
+          "entity_prefix": "Debe comenzar con una letra; después se permiten letras, números y espacios.",
+          "use_https": "Usar una conexión HTTPS cifrada (requiere puerto HTTPS).",
+          "state_interval": "¿Con qué frecuencia deben sondearse los valores que cambian con frecuencia?",
+          "config_interval": "¿Con qué frecuencia deben sondearse los valores que cambian con menos frecuencia?",
+          "ws_interval": "¿Con qué frecuencia debe enviarse un ping keepalive de la API mediante WebSocket?",
+          "dashboard_disk_columns": "Número de mosaicos de discos de este NAS que se mostrarán uno al lado del otro en el dashboard.",
+          "dashboard_pool_columns": "Número de mosaicos de pools de este NAS que se mostrarán uno al lado del otro en el dashboard.",
+          "dashboard_volume_columns": "Número de mosaicos de volúmenes de este NAS que se mostrarán uno al lado del otro en el dashboard.",
+          "dashboard_image_file": "Archivo de imagen individual del dashboard para este NAS en la carpeta www/community/ugreen/."
+        }
+      }
+    }
+  }
+}

@@ -9,7 +9,7 @@
           "ugreen_port": "Port",
           "username": "Admin Benutzername",
           "password": "Admin Passwort",
-          "entity_prefix": "(Multi-NAS) Eindeutiger Gerätename",
+          "entity_prefix": "Eindeutiger Gerätename (Standard: UGREEN NAS)",
           "use_https": "HTTPS verwenden"
         },
         "data_description": {
@@ -17,9 +17,8 @@
           "ugreen_port": "Der Port für die Verbindung (Standard: 9999 für HTTP, 9443 für HTTPS).",
           "username": "Dein NAS Admin Benutzername.",
           "password": "Dein NAS Admin Passwort (keine Sonderzeichen - UGOS Bug!).",
-          "entity_prefix": "Beginnt mit einem Buchstaben; danach sind Buchstaben, Zahlen und Leerzeichen erlaubt.",
+          "entity_prefix": "Muss mit einem Buchstaben beginnen; danach sind Buchstaben, Zahlen und Leerzeichen erlaubt.",
           "use_https": "HTTPS für die Verbindung benutzen."
-          
         }
       },
       "zeroconf": {
@@ -44,36 +43,34 @@
         "title": "UGREEN NAS Einstellungen",
         "description": "Ändere die Einstellungen für dein UGREEN NAS. Die Integration wird nach dem Speichern neu geladen.",
         "data": {
-          "device_name": "Gerätename",
           "ugreen_host": "IP-Adresse oder Hostname",
           "ugreen_port": "Port",
           "username": "Admin Benutzername",
           "password": "Admin Passwort",
-          "entity_prefix": "(Multi-NAS) Eindeutiger Gerätename",
+          "entity_prefix": "Eindeutiger Gerätename (Standard: UGREEN NAS)",
           "use_https": "HTTPS verwenden",
-          "state_interval": "(Erweitert) Auslese-Intervall für Status-Entitäten",
-          "config_interval": "(Erweitert) Auslese-Intervall für Konfigurations-Entitäten",
-          "ws_interval": "(Erweitert - möglichst so lassen) KeepAlive-Intervall / Pings zur API",
-          "dashboard_disk_columns": "(Example Dashboard) Anzahl Disk-Spalten",
-          "dashboard_pool_columns": "(Example Dashboard) Anzahl Pool-Spalten",
-          "dashboard_volume_columns": "(Example Dashboard) Anzahl Volume-Spalten",
-          "dashboard_image_file": "(Example Dashboard) Name der Bilddatei"
+          "state_interval": "[Erweitert] Auslese-Intervall für Status-Entitäten (5s)",
+          "config_interval": "[Erweitert] Auslese-Intervall für Konfigurations-Entitäten (60s)",
+          "ws_interval": "[Erweitert] Keepalive-API-Pings (20s)",
+          "dashboard_disk_columns": "[Beispiel-Dashboard] Maximale Anzahl Disk-Spalten pro Zeile (5)",
+          "dashboard_pool_columns": "[Beispiel-Dashboard] Maximale Anzahl Pool-Spalten pro Zeile (2)",
+          "dashboard_volume_columns": "[Beispiel-Dashboard] Maximale Anzahl Volume-Spalten pro Zeile (2)",
+          "dashboard_image_file": "[Beispiel-Dashboard] Name der Bilddatei (default_picture.png)"
         },
         "data_description": {
-          "device_name": "Ändere den Namen des Geräts, wie er in Home Assistant angezeigt wird.",
           "ugreen_host": "Die IP-Adresse oder der Hostname deines UGREEN NAS.",
           "ugreen_port": "Der Port für die Verbindung (Standard: 9999 für HTTP, 9443 für HTTPS).",
           "username": "Dein NAS Admin Benutzername.",
           "password": "Dein NAS Admin Passwort (keine Sonderzeichen - UGOS Bug!).",
-          "entity_prefix": "Beginnt mit einem Buchstaben; danach sind Buchstaben, Zahlen und Leerzeichen erlaubt.",
-          "use_https": "Verschlüsselte https-Verbindung benutzen (erfordert https-Port).",
-          "state_interval": "Wie oft sollen sich häufig ändernde Werte ausgelesen werden? (5s)",
-          "config_interval": "Wie oft sollen sich seltener ändernde Werte ausgelesen werden? (60s)",
-          "ws_interval": "Wie oft soll ein API-Ping per Websocket gesendet werden? (20s)",
-          "dashboard_disk_columns": "Nebeneinander anzuzeigende Disk-Kacheln für dieses NAS auf dem Dashboard.",
-          "dashboard_pool_columns": "Nebeneinander anzuzeigende Pool-Kacheln für dieses NAS auf dem Dashboard.",
-          "dashboard_volume_columns": "Nebeneinander anzuzeigende Volume-Kacheln für dieses NAS auf dem Dashboard.",
-          "dashboard_image_file": "Bilddatei unter /local/community/ugreen/ für die Dashboard-Anzeige."
+          "entity_prefix": "Muss mit einem Buchstaben beginnen; danach sind Buchstaben, Zahlen und Leerzeichen erlaubt.",
+          "use_https": "Verschlüsselte HTTPS-Verbindung benutzen (erfordert HTTPS-Port).",
+          "state_interval": "Wie oft sollen sich häufig ändernde Werte ausgelesen werden?",
+          "config_interval": "Wie oft sollen sich seltener ändernde Werte ausgelesen werden?",
+          "ws_interval": "Wie oft soll ein API-Keepalive-Ping per WebSocket gesendet werden?",
+          "dashboard_disk_columns": "Anzahl der Disk-Kacheln dieses NAS, die auf dem Dashboard nebeneinander angezeigt werden.",
+          "dashboard_pool_columns": "Anzahl der Pool-Kacheln dieses NAS, die auf dem Dashboard nebeneinander angezeigt werden.",
+          "dashboard_volume_columns": "Anzahl der Volume-Kacheln dieses NAS, die auf dem Dashboard nebeneinander angezeigt werden.",
+          "dashboard_image_file": "Individuelle Dashboard-Bilddatei für dieses NAS im Ordner www/community/ugreen/."
         }
       }
     }

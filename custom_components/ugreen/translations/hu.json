@@ -9,7 +9,7 @@
           "ugreen_port": "Port",
           "username": "Admin felhasználónév",
           "password": "Admin jelszó",
-          "entity_prefix": "(Multi-NAS) Egyedi eszköznév",
+          "entity_prefix": "Egyedi eszköznév (alapértelmezett: UGREEN NAS)",
           "use_https": "HTTPS használata"
         },
         "data_description": {
@@ -43,28 +43,34 @@
         "title": "UGREEN NAS beállítások",
         "description": "Módosítsd az UGREEN NAS beállításait. Az integráció mentés után újratöltődik.",
         "data": {
-          "device_name": "Eszköz neve",
           "ugreen_host": "IP-cím vagy hosztnév",
           "ugreen_port": "Port",
           "username": "Admin felhasználónév",
           "password": "Admin jelszó",
-          "state_interval": "(Speciális) Lekérdezési időköz az állapot entitásokhoz",
-          "config_interval": "(Speciális) Lekérdezési időköz a konfigurációs entitásokhoz",
-          "ws_interval": "(Speciális – lehetőleg hagyd így) KeepAlive időköz / pingek az API-hoz",
-          "entity_prefix": "(Multi-NAS) Egyedi eszköznév",
-          "use_https": "HTTPS használata"
+          "entity_prefix": "Egyedi eszköznév (alapértelmezett: UGREEN NAS)",
+          "use_https": "HTTPS használata",
+          "state_interval": "[Speciális] Lekérdezési időköz az állapot entitásokhoz (5s)",
+          "config_interval": "[Speciális] Lekérdezési időköz a konfigurációs entitásokhoz (60s)",
+          "ws_interval": "[Speciális] Keepalive API pingek (20s)",
+          "dashboard_disk_columns": "[Példa dashboard] Max. lemezoszlop soronként (5)",
+          "dashboard_pool_columns": "[Példa dashboard] Max. pooltípus-oszlop soronként (2)",
+          "dashboard_volume_columns": "[Példa dashboard] Max. kötetoszlop soronként (2)",
+          "dashboard_image_file": "[Példa dashboard] Képfájl neve (default_picture.png)"
         },
         "data_description": {
-          "device_name": "Módosítsd az eszköz nevét, ahogyan a Home Assistantban megjelenik.",
           "ugreen_host": "Az UGREEN NAS IP-címe vagy hosztneve.",
           "ugreen_port": "A kapcsolat portja (alapértelmezett: 9999 HTTP-hez, 9443 HTTPS-hez).",
           "username": "A NAS admin felhasználóneved.",
           "password": "A NAS admin jelszavad (nincsenek speciális karakterek – UGOS hiba!).",
-          "state_interval": "Milyen gyakran legyenek lekérdezve a gyakran változó értékek? (5s)",
-          "config_interval": "Milyen gyakran legyenek lekérdezve a ritkábban változó értékek? (60s)",
-          "ws_interval": "Milyen gyakran legyen WebSocketen keresztül API-ping küldve? (20s)",
           "entity_prefix": "Betűvel kell kezdődnie; utána betűk, számok és szóközök engedélyezettek.",
-          "use_https": "Titkosított HTTPS kapcsolat használata (HTTPS port szükséges)."
+          "use_https": "Titkosított HTTPS kapcsolat használata (HTTPS port szükséges).",
+          "state_interval": "Milyen gyakran legyenek lekérdezve a gyakran változó értékek?",
+          "config_interval": "Milyen gyakran legyenek lekérdezve a ritkábban változó értékek?",
+          "ws_interval": "Milyen gyakran legyen API keepalive ping küldve WebSocketen keresztül?",
+          "dashboard_disk_columns": "Hány lemezcsempe jelenjen meg egymás mellett a dashboardon ennél a NAS-nál.",
+          "dashboard_pool_columns": "Hány poolcsempe jelenjen meg egymás mellett a dashboardon ennél a NAS-nál.",
+          "dashboard_volume_columns": "Hány kötetcsempe jelenjen meg egymás mellett a dashboardon ennél a NAS-nál.",
+          "dashboard_image_file": "Egyéni dashboard képfájl ehhez a NAS-hoz a www/community/ugreen/ mappában."
         }
       }
     }
