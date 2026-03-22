@@ -9,7 +9,7 @@
           "ugreen_port": "Port",
           "username": "Admin username",
           "password": "Admin password",
-          "entity_prefix": "(Multi-NAS) Unique device name",
+          "entity_prefix": "Unique device name (default: UGREEN NAS)",
           "use_https": "Use HTTPS"
         },
         "data_description": {
@@ -17,7 +17,7 @@
           "ugreen_port": "Port used for the connection (default: 9999 for HTTP, 9443 for HTTPS).",
           "username": "Your NAS admin username.",
           "password": "Your NAS admin password (no special characters – UGOS bug!).",
-          "entity_prefix": "Must start with a letter; letters, numbers, and spaces are allowed afterwards.",
+          "entity_prefix": "Must start with a letter; then letters, numbers, and spaces are allowed.",
           "use_https": "Use HTTPS for the connection."
         }
       },
@@ -43,28 +43,34 @@
         "title": "UGREEN NAS settings",
         "description": "Change the settings for your UGREEN NAS. The integration will be reloaded after saving.",
         "data": {
-          "device_name": "Device name",
           "ugreen_host": "IP address or hostname",
           "ugreen_port": "Port",
           "username": "Admin username",
           "password": "Admin password",
-          "state_interval": "(Advanced) Polling interval for state entities",
-          "config_interval": "(Advanced) Polling interval for configuration entities",
-          "ws_interval": "(Advanced – recommended to keep) Keepalive interval / API pings",
-          "entity_prefix": "(Multi-NAS) Unique device name",
-          "use_https": "Use HTTPS"
+          "entity_prefix": "Unique device name (default: UGREEN NAS)",
+          "use_https": "Use HTTPS",
+          "state_interval": "[Advanced] Polling interval for state entities (5s)",
+          "config_interval": "[Advanced] Polling interval for configuration entities (60s)",
+          "ws_interval": "[Advanced] Keepalive API pings (20s)",
+          "dashboard_disk_columns": "[Example Dashboard] Max disk columns per row (5)",
+          "dashboard_pool_columns": "[Example Dashboard] Max pool columns per row (2)",
+          "dashboard_volume_columns": "[Example Dashboard] Max volume columns per row (2)",
+          "dashboard_image_file": "[Example Dashboard] Image file name (default_picture.png)"
         },
         "data_description": {
-          "device_name": "Change the device name as it is shown in Home Assistant.",
           "ugreen_host": "The IP address or hostname of your UGREEN NAS.",
           "ugreen_port": "Port used for the connection (default: 9999 for HTTP, 9443 for HTTPS).",
           "username": "Your NAS admin username.",
           "password": "Your NAS admin password (no special characters – UGOS bug!).",
-          "state_interval": "How often should frequently changing values be polled? (5s)",
-          "config_interval": "How often should less frequently changing values be polled? (60s)",
-          "ws_interval": "How often should an API keepalive ping be sent via WebSocket? (20s)",
-          "entity_prefix": "Must start with a letter; letters, numbers, and spaces are allowed afterwards.",
-          "use_https": "Use an encrypted HTTPS connection (requires HTTPS port)."
+          "entity_prefix": "Must start with a letter; then letters, numbers, and spaces are allowed.",
+          "use_https": "Use an encrypted HTTPS connection (requires HTTPS port).",
+          "state_interval": "How often should frequently changing values be polled?",
+          "config_interval": "How often should less frequently changing values be polled?",
+          "ws_interval": "How often should an API keepalive ping be sent via WebSocket?",
+          "dashboard_disk_columns": "Number of disk tiles for this NAS to be shown side by side on the dashboard.",
+          "dashboard_pool_columns": "Number of pool tiles for this NAS to be shown side by side on the dashboard.",
+          "dashboard_volume_columns": "Number of volume tiles for this NAS to be shown side by side on the dashboard.",
+          "dashboard_image_file": "Individual dashboard image file for this NAS in the www/community/ugreen/ folder."
         }
       }
     }
