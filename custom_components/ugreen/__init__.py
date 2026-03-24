@@ -1,4 +1,4 @@
-import logging, contextlib
+import logging, contextlib, os, shutil
 
 from datetime import timedelta
 from typing import Any
@@ -41,6 +41,40 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
+async def async_install_frontend_files(hass: HomeAssistant) -> None:
+    """Copy dashboard frontend files to /www/community/ugreen if needed."""
+
+    def _install() -> None:
+        source_dir = hass.config.path("custom_components", DOMAIN, "frontend")
+        target_dir = hass.config.path("www", "community", DOMAIN)
+
+        if not os.path.isdir(source_dir):
+            _LOGGER.debug("[UGREEN NAS] Frontend source folder not found: %s", source_dir)
+            return
+
+        os.makedirs(target_dir, exist_ok=True)
+
+        for entry in os.scandir(source_dir):
+            if not entry.is_file():
+                continue
+
+            src = entry.path
+            dst = os.path.join(target_dir, entry.name)
+
+            if os.path.isfile(dst):
+                try:
+                    if os.path.getsize(src) == os.path.getsize(dst):
+                        _LOGGER.debug("[UGREEN NAS] Frontend file already up to date: %s", entry.name)
+                        continue
+                except OSError as err:
+                    _LOGGER.debug("[UGREEN NAS] Size check failed for %s: %s", entry.name, err)
+
+            shutil.copy2(src, dst)
+            _LOGGER.debug("[UGREEN NAS] Installed frontend file: %s", entry.name)
+
+    await hass.async_add_executor_job(_install)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Setup and start the integration."""
 
@@ -65,6 +99,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not await api.authenticate(session):
         _LOGGER.error("[UGREEN NAS] Initial login failed. Aborting setup.")
         return False
+
+
+    ### Side job: Check for and copy picture files for Lovelace Dashboard if needed
+    await async_install_frontend_files(hass)
 
 
     ### Create global counters for dynamic entities
