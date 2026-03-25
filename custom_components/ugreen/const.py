@@ -21,6 +21,7 @@ DEFAULT_SCAN_INTERVAL_STATE = 5     # status entities =  5 seconds
 DEFAULT_SCAN_INTERVAL_WS = 20       # keep-alive ping for websocket = 20 seconds
 DEFAULT_ENTITY_PREFIX = "UGREEN NAS"
 
+CONF_DISCOVERY_HOSTNAME = "discovery_hostname"
 LOVELACE_DEVICE_SELECT_NAME = "UGREEN NAS Lovelace Device Select"
 LOVELACE_DEVICE_SELECT_UNIQUE_ID = "ugreen_nas_lovelace_device_select"
 
