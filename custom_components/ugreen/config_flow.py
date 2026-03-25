@@ -22,6 +22,7 @@ from .const import (
     CONF_CONFIG_INTERVAL,
     CONF_WS_INTERVAL,
     CONF_ENTITY_PREFIX,
+    CONF_DISCOVERY_HOSTNAME,
     CONF_DASHBOARD_DISK_COLUMNS,
     CONF_DASHBOARD_POOL_COLUMNS,
     CONF_DASHBOARD_VOLUME_COLUMNS,
@@ -36,8 +37,38 @@ from .const import (
     DEFAULT_DASHBOARD_IMAGE_FILE,
 )
 
+
 _LOGGER = logging.getLogger(__name__)
 HEARTBEAT_PATH = "/ugreen/v1/verify/heartbeat"
+
+
+def _normalize_host(value: str | None) -> str:
+    """Normalize host values for duplicate checks."""
+    return (value or "").strip().rstrip(".").lower()
+
+
+def _host_variants(value: str | None) -> set[str]:
+    """Return simple comparable host variants."""
+    host = _normalize_host(value)
+    variants: set[str] = set()
+    if not host:
+        return variants
+    variants.add(host)
+    if host.endswith(".local"):
+        variants.add(host[:-6])
+    return variants
+
+
+def _select_discovery_hostname(discovery_info: ZeroconfServiceInfo) -> str:
+    """Return the preferred normalized discovery hostname."""
+    hostname = _normalize_host(getattr(discovery_info, "hostname", None))
+    host = _normalize_host(getattr(discovery_info, "host", None))
+    instance_name = _normalize_host(
+        discovery_info.name.split("._", 1)[0]
+        if getattr(discovery_info, "name", None)
+        else None
+    )
+    return hostname or host or instance_name
 
 
 def _build_entry_unique_id(serial: str) -> str:
@@ -133,6 +164,7 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize the config flow."""
         self._discovered_host = None
         self._discovered_port = None
+        self._discovered_hostname = None
 
     async def async_step_zeroconf(
         self, discovery_info: ZeroconfServiceInfo
@@ -142,13 +174,54 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         host = discovery_info.host
         port = discovery_info.port or 9999
+        hostname = getattr(discovery_info, "hostname", None)
+        instance_name = (
+            discovery_info.name.split("._", 1)[0]
+            if getattr(discovery_info, "name", None)
+            else None
+        )
+        discovery_hostname = _select_discovery_hostname(discovery_info)
+        discovered_variants = set()
+        discovered_variants |= _host_variants(host)
+        discovered_variants |= _host_variants(hostname)
+        discovered_variants |= _host_variants(instance_name)
 
         for configured_entry in self._async_current_entries():
+            saved_discovery_hostname = configured_entry.data.get(
+                CONF_DISCOVERY_HOSTNAME, ""
+            )
+            saved_discovery_variants = _host_variants(saved_discovery_hostname)
+
+            if saved_discovery_variants & discovered_variants:
+                _LOGGER.debug(
+                    "[UGREEN NAS] Zeroconf discovery matches existing entry %s via saved discovery hostname %s",
+                    configured_entry.entry_id,
+                    sorted(saved_discovery_variants & discovered_variants),
+                )
+                return self.async_abort(reason="already_configured")
+
             configured_host = configured_entry.options.get(
                 CONF_UGREEN_HOST,
                 configured_entry.data.get(CONF_UGREEN_HOST),
             )
-            if configured_host == host:
+            configured_variants = _host_variants(configured_host)
+
+            if configured_variants & discovered_variants:
+                _LOGGER.debug(
+                    "[UGREEN NAS] Zeroconf discovery matches existing entry %s via configured host %s",
+                    configured_entry.entry_id,
+                    sorted(configured_variants & discovered_variants),
+                )
+
+                if discovery_hostname and not saved_discovery_hostname:
+                    self.hass.config_entries.async_update_entry(
+                        configured_entry,
+                        data={
+                            **configured_entry.data,
+                            CONF_DISCOVERY_HOSTNAME: discovery_hostname,
+                        },
+                    )
+
                 return self.async_abort(reason="already_configured")
 
         if not await _is_ugreen_device(self.hass, host, port):
@@ -159,8 +232,20 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             return self.async_abort(reason="not_ugreen_nas")
 
+        unique_host = (
+            _normalize_host(host)
+            or _normalize_host(hostname)
+            or _normalize_host(instance_name)
+        )
+
+        # Set unique ID to prevent duplicate discovery flows
+        await self.async_set_unique_id(f"ugreen_nas_{unique_host}")
+        self._abort_if_unique_id_configured()
+
+        # Store discovered info for later use
         self._discovered_host = host
         self._discovered_port = port
+        self._discovered_hostname = discovery_hostname
 
         hostname = (discovery_info.hostname or "").rstrip(".")
         instance = ""
@@ -275,6 +360,7 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                         CONF_USERNAME: user_input[CONF_USERNAME],
                                         CONF_PASSWORD: user_input[CONF_PASSWORD],
                                         CONF_USE_HTTPS: user_input.get(CONF_USE_HTTPS, False),
+                                        CONF_DISCOVERY_HOSTNAME: self._discovered_hostname or "",
                                         CONF_ENTITY_PREFIX: entity_prefix,
                                         CONF_DASHBOARD_DISK_COLUMNS: disk_columns,
                                         CONF_DASHBOARD_POOL_COLUMNS: pool_columns,
