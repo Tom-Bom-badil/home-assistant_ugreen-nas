@@ -85,7 +85,7 @@ async def async_setup_entry(
     async_add_entities(config_sensors + state_sensors)
 
     # --------------------------------------------------------------------------
-    # One summary entity per Pool / Volume / Disk under NAS root
+    # One summary entity per Pool / Volume / Disk / Cache under NAS root
     # --------------------------------------------------------------------------
     data_ctx = hass.data[DOMAIN][entry.entry_id]
     status_coord: DataUpdateCoordinator = data_ctx["state_coordinator"]
@@ -95,6 +95,7 @@ async def async_setup_entry(
     volume_meta = (data_ctx.get("volume_meta") or {})
     disk_meta   = (data_ctx.get("disk_meta")   or {})
     cache_disk_meta = (data_ctx.get("cache_disk_meta") or {})
+    cache_meta = (data_ctx.get("cache_meta") or {})
 
     summary_entities: list[UgreenNasRootObjectSummary] = []
 
@@ -104,6 +105,15 @@ async def async_setup_entry(
             UgreenNasRootObjectSummary(
                 hass, entry.entry_id, status_coord, config_coord,
                 title=f"Pool {p}", match_kind="pool", match_key=(p,)
+            )
+        )
+
+    # Cache (if present)
+    for p in sorted(cache_meta.keys()):
+        summary_entities.append(
+            UgreenNasRootObjectSummary(
+                hass, entry.entry_id, status_coord, config_coord,
+                title=f"Cache {p}", match_kind="cache", match_key=(p,)
             )
         )
 
@@ -214,11 +224,11 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
 
 
 # --------------------------------------------------------------------------------------
-# Summary sensors: one per pool / volume / disk, available under the NAS root device
+# Summary sensors: one per pool / volume / disk / cache, attached to NAS root device
 # --------------------------------------------------------------------------------------
 
 class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
-    """One summary entity per Pool / Volume / Disk attached to the NAS root device."""
+    """One summary entity per Pool / Volume / Disk / Cache, attached to NAS root device."""
 
     _attr_icon = "mdi:clipboard-text-outline"
     _unrecorded_attributes = frozenset({MATCH_ALL}) # Exclude ALL attributes from recorder
@@ -289,6 +299,12 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
             if self._kind == "volume":
                 p, v = self._mk
                 if f"(pool {p} | volume {v})" in nm:
+                    items.append((friendly, eid))
+                continue
+
+            if self._kind == "cache":
+                (p,) = self._mk
+                if f"_cache_pool{p}_" in uid:
                     items.append((friendly, eid))
                 continue
 
@@ -418,7 +434,13 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
         new_state = status_val if status_val is not None else len(attrs)
 
         # 4) META attributes (not recorded)
-        kind_map = {"pool": "Pool", "volume": "Volume", "disk": "Disk", "cache_disk": "Cache Disk"}
+        kind_map = {
+            "pool": "Pool",
+            "volume": "Volume",
+            "disk": "Disk",
+            "cache": "Cache",
+            "cache_disk": "Cache Disk",
+        }
         meta = {
             "UGNAS_global_id": "UGREEN NAS",
             "UGNAS_device_id": self._nas_device_id,
@@ -437,8 +459,11 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
                 p, d = self._last_pd
                 meta["UGNAS member of pool"] = p
                 meta["UGNAS disk number in pool"] = d
+        elif self._kind == "cache":
+            meta["UGNAS_pool_index"] = self._mk[0]
         elif self._kind == "cache_disk":
-            if self._last_pd:
+            # if self._last_pd:
+            if getattr(self, "_last_pd", None):
                 p, d = self._last_pd
                 meta["UGNAS member of pool"] = p
                 meta["UGNAS cache disk number in pool"] = d
