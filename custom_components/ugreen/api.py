@@ -460,16 +460,6 @@ class UgreenApiClient:
         return [
             # List-driven sections (fetch + list_path)
             dict(
-                key="LAN",
-                kind="list",
-                templates=NAS_SPECIFIC_CONFIG_TEMPLATES_LAN,
-                endpoint="/ugreen/v1/sysinfo/machine/common",
-                list_path="data.hardware.net",
-                prefix_key_base="LAN",
-                prefix_name_base="LAN Port",
-                category="Network",
-            ),
-            dict(
                 key="USB",
                 kind="list",
                 templates=NAS_SPECIFIC_CONFIG_TEMPLATES_USB,
@@ -514,6 +504,11 @@ class UgreenApiClient:
             ),
 
             # Custom builder (special logic for storage tree building)
+            dict(
+                key="LAN",
+                kind="custom",
+                builder="_get_dynamic_config_entities_lan",
+            ),
             dict(
                 key="STORAGE",
                 kind="custom",
@@ -666,6 +661,133 @@ class UgreenApiClient:
             out.extend(ents)
 
         return out
+
+
+    async def _get_dynamic_config_entities_lan(self, session: aiohttp.ClientSession) -> List[UgreenEntity]:
+        """Create LAN config entities from iface/list (UGOS >= 1.14 returns bridges instead of hardware.net ports)."""
+
+        endpoint = "/ugreen/v1/network/iface/list"
+        resp = await self.get(session, endpoint)
+        ifaces = ((resp or {}).get("data", {}) or {}).get("ifaces", []) or []
+        if not ifaces:
+            _LOGGER.debug("[UGREEN NAS] No ifaces in %s response", endpoint)
+            return []
+
+        entities: List[UgreenEntity] = []
+
+        lan_ifaces = [
+            iface for iface in ifaces
+            if isinstance(iface, dict)
+            and iface.get("type") == 5
+            and str(iface.get("interface") or "").startswith("bridge")
+        ]
+
+        for i, iface in enumerate(lan_ifaces, start=1):
+            label = str(iface.get("label") or "").strip()
+            slaves = iface.get("slaves") or []
+
+            lan_label = None
+            for slave in slaves:
+                slave_label = str((slave or {}).get("label") or "").strip()
+                if slave_label.upper().startswith("LAN"):
+                    lan_label = slave_label
+                    break
+
+            prefix_key = f"LAN{i}"
+            prefix_name = lan_label or f"LAN Port {i}"
+
+            entities.extend([
+                UgreenEntity(
+                    description=EntityDescription(
+                        key=f"{prefix_key}_model",
+                        name=f"{prefix_name} Model",
+                        icon="mdi:lan",
+                        unit_of_measurement=None,
+                    ),
+                    endpoint=endpoint,
+                    path=f"data.ifaces[{i-1}].label",
+                    nas_part_category="Network",
+                ),
+                UgreenEntity(
+                    description=EntityDescription(
+                        key=f"{prefix_key}_ip",
+                        name=f"{prefix_name} IP",
+                        icon="mdi:lan",
+                        unit_of_measurement=None,
+                    ),
+                    endpoint=endpoint,
+                    path=f"data.ifaces[{i-1}].ipv4.ipaddr",
+                    nas_part_category="Network",
+                ),
+                UgreenEntity(
+                    description=EntityDescription(
+                        key=f"{prefix_key}_mac",
+                        name=f"{prefix_name} MAC",
+                        icon="mdi:lan",
+                        unit_of_measurement=None,
+                    ),
+                    endpoint=endpoint,
+                    path=f"data.ifaces[{i-1}].mac",
+                    nas_part_category="Network",
+                ),
+                UgreenEntity(
+                    description=EntityDescription(
+                        key=f"{prefix_key}_speed",
+                        name=f"{prefix_name} Speed",
+                        icon="mdi:speedometer",
+                        unit_of_measurement="Mb/s",
+                    ),
+                    endpoint=endpoint,
+                    path=f"data.ifaces[{i-1}].speed",
+                    nas_part_category="Network",
+                ),
+                UgreenEntity(
+                    description=EntityDescription(
+                        key=f"{prefix_key}_mtu",
+                        name=f"{prefix_name} MTU",
+                        icon="mdi:lan",
+                        unit_of_measurement=None,
+                    ),
+                    endpoint=endpoint,
+                    path=f"data.ifaces[{i-1}].mtu",
+                    nas_part_category="Network",
+                ),
+                UgreenEntity(
+                    description=EntityDescription(
+                        key=f"{prefix_key}_netmask",
+                        name=f"{prefix_name} Netmask",
+                        icon="mdi:lan",
+                        unit_of_measurement=None,
+                    ),
+                    endpoint=endpoint,
+                    path=f"data.ifaces[{i-1}].ipv4.netmask",
+                    nas_part_category="Network",
+                ),
+                UgreenEntity(
+                    description=EntityDescription(
+                        key=f"{prefix_key}_gateway",
+                        name=f"{prefix_name} Gateway",
+                        icon="mdi:lan",
+                        unit_of_measurement=None,
+                    ),
+                    endpoint=endpoint,
+                    path=f"data.ifaces[{i-1}].ipv4.gateway",
+                    nas_part_category="Network",
+                ),
+                UgreenEntity(
+                    description=EntityDescription(
+                        key=f"{prefix_key}_dnsserver",
+                        name=f"{prefix_name} DNS Server",
+                        icon="mdi:lan",
+                        unit_of_measurement=None,
+                    ),
+                    endpoint=endpoint,
+                    path=f"data.ifaces[{i-1}].ipv4.dns[0]",
+                    nas_part_category="Network",
+                ),
+            ])
+
+        return entities
 
 
     async def _get_dynamic_config_entities_storage(self, session: aiohttp.ClientSession) -> List[UgreenEntity]:
