@@ -1,0 +1,163 @@
+ugreen_nas_template:
+  name: |
+    [[[
+      const friendly =
+        entity?.attributes?.friendly_name || entity?.entity_id || '';
+      const selectedNas =
+        states['select.ugreen_nas_lovelace_device_select']?.state || '';
+      if (selectedNas && friendly.startsWith(selectedNas + ' ')) {
+        return friendly.slice(selectedNas.length + 1);
+      }
+      if (friendly.startsWith('UGREEN NAS ')) {
+        return friendly.slice('UGREEN NAS '.length);
+      }
+      return friendly;
+    ]]]
+  show_icon: false
+  show_state: true
+  show_name: true
+  tap_action:
+    action: more-info
+  styles:
+    card:
+      - background-color: |
+          [[[
+            const type = entity.attributes.UGNAS_part_category || '';
+            switch (type) {
+              case 'Device':
+                return '#B8860B';
+              case 'Hardware':
+                return '#4682B4';
+              case 'Status':
+                return '#556B2F';
+              case 'Network':
+                return '#008080';
+              case 'Disks':
+                return '#2E8B57';
+              case 'Pools':
+                return '#483D8B';
+              case 'Volumes':
+                return '#2F4F4F';
+              case 'USB':
+                return '#468499';
+              case 'UPS':
+                return '#468499';
+              case 'Summary':
+                return '#5DADE2';
+              case 'Cache':
+                return '#708090';
+              default:
+                return '#8B0000';
+            }
+          ]]]
+      - border-radius: 10px
+      - min-height: 13vh
+      - height: 13vh
+      - padding: 0px
+      - display: grid
+      - grid-template-rows: auto 1fr auto
+      - grid-template-columns: 1fr
+      - position: relative
+      - overflow: hidden
+    name:
+      - font-size: 0.8em
+      - color: white
+      - z-index: 2
+      - justify-self: stretch
+      - align-self: start
+      - width: 100%
+      - background-color: rgba(0, 0, 0, 0.2)
+      - padding: 0.2em 0.8em
+      - box-sizing: border-box
+      - text-align: left
+      - margin-top: 0px
+    state:
+      - display: grid
+      - place-items: center
+      - text-align: center
+      - color: white
+      - font-size: 1.2em
+      - font-weight: bold
+      - z-index: 2
+      - white-space: normal
+      - word-break: break-word
+      - overflow-wrap: break-word
+      - margin-top: '-1.75vh'
+      - width: 100%
+      - padding: 0 4px
+      - height: 7vh
+      - overflow: hidden
+      - text-overflow: ellipsis
+      - '-webkit-line-clamp': 2
+      - '-webkit-box-orient': vertical
+      - font-size: |
+          [[[
+            const len = entity.state.length;
+            if (len <= 6) return '2em';
+            if (len <= 10) return '1.5em';
+            if (len <= 20) return '1em';
+            return '0.8em';
+          ]]]
+    custom_fields:
+      icon_bg:
+        - position: absolute
+        - top: 10px
+        - right: 0px
+        - width: 6em
+        - opacity: 0.15
+        - z-index: 1
+      footer:
+        - background-color: rgba(0, 0, 0, 0.2)
+        - color: white
+        - font-size: 0.8em
+        - display: grid
+        - grid-template-columns: 1fr auto
+        - align-items: center
+        - padding: 0 0.8em
+        - height: 1.5em
+        - width: 100%
+        - box-sizing: border-box
+        - z-index: 2
+        - position: absolute
+        - bottom: 0
+        - left: 0
+  custom_fields:
+    icon_bg: |
+      [[[ 
+        const stateObj = entity;
+        const icon = stateObj && stateObj.attributes && stateObj.attributes.icon 
+          ? stateObj.attributes.icon 
+          : 'mdi:help-circle';
+        return `
+          <ha-icon
+            icon="${icon}"
+            style="height: 100%; width: auto; color: white;">
+          </ha-icon>
+        `;
+      ]]]
+    footer: |
+      [[[ 
+        if (entity && entity.last_changed) {
+          const date = new Date(entity.last_changed);
+          return `
+            <div style="display: contents;">
+              <span style="justify-self: start; padding-top: 2px;">
+                ${entity.attributes.UGNAS_part_category || ''}
+              </span>
+              <span style="justify-self: end; padding-top: 2px;">
+                ${date.toLocaleString('de-DE', { 
+                  day: '2-digit', month: '2-digit',
+                  hour: '2-digit', minute: '2-digit'
+                })}
+              </span>
+            </div>
+          `;
+        } else {
+          return `
+            <div style="display: contents;">
+              <span style="justify-self: start; padding-top: 2px;"></span>
+              <ha-icon icon="mdi:arrow-right" style="justify-self: end; width:1em; height:1em;"></ha-icon>
+            </div>
+          `;
+        }
+      ]]]
