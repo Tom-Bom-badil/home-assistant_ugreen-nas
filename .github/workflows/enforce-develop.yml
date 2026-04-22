@@ -1,5 +1,5 @@
 # .github/workflows/enforce-develop.yml
-name: Enforce pushes/PR's to :main from :develop only
+name: Reject PR's to :main branch
 
 on:
   pull_request:
@@ -13,5 +13,5 @@ jobs:
         if: ${{ github.event.pull_request.base.ref == 'main' && (github.event.pull_request.head.ref != 'develop' || github.event.pull_request.head.repo.full_name != github.repository) }}
         run: |
           echo "❌ PRs to :main can only be created from the :develop branch."
-          echo "👉 Please re-create your PR towards :develop."
+          echo "👉 Please re-create your PR towards the :develop branch."
           exit 1
