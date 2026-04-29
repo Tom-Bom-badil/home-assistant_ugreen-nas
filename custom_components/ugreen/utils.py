@@ -155,6 +155,13 @@ def format_sensor_value(raw: Any, endpoint: UgreenEntity) -> Any:
             else:
                 return format_dynamic_size(raw, endpoint.description.unit_of_measurement, endpoint.decimal_places)
 
+        if endpoint.description.key == "power_mode":
+            return format_status_code(raw, {
+                0: "High Performance",
+                1: "Balanced",
+                2: "Energy Saving",
+            })
+
         if "server_status" in endpoint.description.key:
             return format_status_code(raw, {
                 2: "Normal",

@@ -390,6 +390,19 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
         nas_part_category="Status",
     ),
 
+    ### Power setting
+    UgreenEntity(
+        description=EntityDescription(
+            key="power_mode",
+            name="Power Mode",
+            icon="mdi:speedometer",
+            unit_of_measurement=None,
+        ),
+        endpoint="/ugreen/v1/hardware/cpu/config",
+        path="data.frequency",
+        nas_part_category="Hardware",
+    ),
+
     ### LAN (net.overview = first element, overall)
     UgreenEntity(
         description=EntityDescription(
@@ -530,7 +543,7 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
 ]
 
 
-# Entities for actions available on any NAS: Shutdown, reboot, fan modes."""
+# Entities for actions available on any NAS: Shutdown, reboot, fan modes, power."""
 ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
 
     UgreenEntity(
@@ -586,6 +599,39 @@ ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
         endpoint="/ugreen/v1/hardware/fan/start?mode=3",
         path="",
         request_method="GET",
+        nas_part_category="",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="power_high_performance",
+            name="Power: High Performance",
+            icon="mdi:speedometer",
+        ),
+        endpoint="/ugreen/v1/hardware/cpu/frequency?frequency=0",
+        path="",
+        request_method="POST",
+        nas_part_category="",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="power_balanced",
+            name="Power: Balanced",
+            icon="mdi:speedometer-medium",
+        ),
+        endpoint="/ugreen/v1/hardware/cpu/frequency?frequency=1",
+        path="",
+        request_method="POST",
+        nas_part_category="",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="power_frequency_energy_saving",
+            name="Power: Energy Saving",
+            icon="mdi:speedometer-slow",
+        ),
+        endpoint="/ugreen/v1/hardware/cpu/frequency?frequency=2",
+        path="",
+        request_method="POST",
         nas_part_category="",
     ),
 
