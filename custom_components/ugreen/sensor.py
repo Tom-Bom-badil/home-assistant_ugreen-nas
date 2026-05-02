@@ -4,15 +4,19 @@ from typing import List, Tuple
 from datetime import date, datetime
 from decimal import Decimal
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.core import HomeAssistant
 from homeassistant.const import MATCH_ALL
-from homeassistant.core import HomeAssistant, State
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.util import slugify
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.entity import async_generate_entity_id
+from homeassistant.components.sensor import (
+    SensorEntity,
+    SensorDeviceClass,
+    SensorStateClass,
+)
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
@@ -41,6 +45,62 @@ def _get_entity_prefix(hass: HomeAssistant, entry_id: str) -> str:
 def _get_entity_prefix_slug(hass: HomeAssistant, entry_id: str) -> str:
     """Return a slugified NAS prefix for default entity_ids."""
     return slugify(_get_entity_prefix(hass, entry_id)) or "ugreen_nas"
+
+
+# --------------------------------------------------------------------------------------
+# Helpers for statistics metadata
+# --------------------------------------------------------------------------------------
+
+_DATA_RATE_UNITS = {"B/s", "kB/s", "MB/s", "GB/s", "TB/s", "PB/s"}
+
+_RAM_SIZE_KEYS = {
+    "ram_usage_total_usable",
+    "ram_usage_free",
+    "ram_usage_cache",
+    "ram_usage_shared",
+    "ram_usage_used_gb",
+    "ram_total_size",
+}
+
+
+def _get_statistics_meta(
+    endpoint: UgreenEntity,
+) -> tuple[SensorStateClass | None, SensorDeviceClass | None]:
+    """Return statistics metadata for numeric sensors."""
+
+    key = endpoint.description.key
+    unit = str(endpoint.description.unit_of_measurement or "")
+    path = getattr(endpoint, "path", "")
+
+    # Calculated bps (note: the human-readable transfer rate strings are not numeric).
+    if isinstance(path, str) and path.startswith("calculated:scale_bytes_per_second"):
+        return None, None
+
+    # Percentages: CPU / RAM usage.
+    if key in {"cpu_usage", "mem_usage"}:
+        return SensorStateClass.MEASUREMENT, None
+
+    # RAM byte values.
+    if key in _RAM_SIZE_KEYS:
+        return SensorStateClass.MEASUREMENT, SensorDeviceClass.DATA_SIZE
+
+    # Temperatures: CPU, disks, cache disks.
+    if key == "cpu_temperature" or (
+        key.endswith("_temperature") and "disk" in key
+    ):
+        return SensorStateClass.MEASUREMENT, SensorDeviceClass.TEMPERATURE
+
+    # Fan RPM values.
+    if key == "cpu_fan_speed" or (
+        key.startswith("device_fan") and key.endswith("_speed")
+    ):
+        return SensorStateClass.MEASUREMENT, None
+
+    # Raw transfer rates only, not formatted "123 MB/s" string sensors.
+    if key.endswith("_raw") and unit in _DATA_RATE_UNITS:
+        return SensorStateClass.MEASUREMENT, SensorDeviceClass.DATA_RATE
+
+    return None, None
 
 
 # --------------------------------------------------------------------------------------
@@ -174,6 +234,7 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
         self.entity_id = async_generate_entity_id("sensor.{}", self._attr_name, hass=self.hass)
         self._attr_unique_id = f"{entry_id}_{endpoint.description.key}"
         self._attr_icon = endpoint.description.icon
+        self._attr_state_class, self._attr_device_class = _get_statistics_meta(endpoint)
         self._attr_device_info = build_device_info(hass, entry_id, self._key)
 
     @property
