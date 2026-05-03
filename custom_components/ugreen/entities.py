@@ -625,7 +625,7 @@ ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
     ),
     UgreenEntity(
         description=EntityDescription(
-            key="power_frequency_energy_saving",
+            key="power_energy_saving",
             name="Power: Energy Saving",
             icon="mdi:speedometer-slow",
         ),
