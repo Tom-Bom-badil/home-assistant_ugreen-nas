@@ -3,11 +3,13 @@ import logging
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
 from homeassistant.util import slugify
+from .device_info import build_device_info
 
 from .const import (
     CONF_DASHBOARD_DISK_COLUMNS,
@@ -25,6 +27,31 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+POWER_MODE_OPTIONS = {
+    "High Performance": "power_high_performance",
+    "Balanced": "power_balanced",
+    "Energy Saving": "power_energy_saving",
+}
+
+POWER_MODE_STATE = {
+    0: "High Performance",
+    1: "Balanced",
+    2: "Energy Saving",
+}
+
+FAN_MODE_OPTIONS = {
+    "Quiet": "fan_mode_quiet",
+    "Default": "fan_mode_default",
+    "Full Power": "fan_mode_full_power",
+}
+
+FAN_MODE_STATE = {
+    1: "Quiet",
+    2: "Default",
+    3: "Full Power",
+}
 
 
 def _is_owner_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -121,12 +148,18 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the global Lovelace NAS selector."""
-    if not _is_owner_entry(hass, entry):
-        return
+    """Set up UGREEN NAS select entities."""
+    data = hass.data[DOMAIN][entry.entry_id]
 
-    coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]["config_coordinator"]
-    async_add_entities([UgreenLovelaceDeviceSelect(hass, coordinator)])
+    entities: list[SelectEntity] = [
+        UgreenPowerModeSelect(hass, entry, data["state_coordinator"]),
+        UgreenFanModeSelect(hass, entry, data["state_coordinator"]),
+    ]
+
+    if _is_owner_entry(hass, entry):
+        entities.append(UgreenLovelaceDeviceSelect(hass, data["config_coordinator"]))
+
+    async_add_entities(entities)
 
 
 class UgreenLovelaceDeviceSelect(CoordinatorEntity, RestoreEntity, SelectEntity):
@@ -263,3 +296,130 @@ class UgreenLovelaceDeviceSelect(CoordinatorEntity, RestoreEntity, SelectEntity)
         self._rebuild_devices()
         self._ensure_valid_selection()
         super()._handle_coordinator_update()
+
+
+class UgreenPowerModeSelect(CoordinatorEntity, SelectEntity):
+    """Compact select entity that triggers existing UGREEN NAS power mode buttons."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        coordinator: DataUpdateCoordinator,
+    ) -> None:
+        super().__init__(coordinator)
+        self.hass = hass
+        self._entry = entry
+        self._current: str | None = None
+
+        self._attr_name = f"{_get_entry_label(entry)} Power Mode"
+        self._attr_unique_id = f"{entry.entry_id}_power_mode_select"
+        self._attr_icon = "mdi:speedometer"
+        self._attr_device_info = build_device_info(hass, entry.entry_id, "power_mode_select")
+
+    @property
+    def options(self) -> list[str]:
+        """Return selectable power modes."""
+        return list(POWER_MODE_OPTIONS)
+
+    @property
+    def current_option(self) -> str | None:
+        """Return the current power mode."""
+        raw = (self.coordinator.data or {}).get("power_mode")
+        try:
+            self._current = POWER_MODE_STATE.get(int(raw), self._current)
+        except (TypeError, ValueError):
+            pass
+        return self._current
+
+    async def async_select_option(self, option: str) -> None:
+        """Press the mapped button and refresh the current mode."""
+        button_key = POWER_MODE_OPTIONS.get(option)
+        entity_id = er.async_get(self.hass).async_get_entity_id(
+            "button",
+            DOMAIN,
+            f"{self._entry.entry_id}_{button_key}",
+        ) if button_key else None
+
+        if not entity_id:
+            _LOGGER.warning("[UGREEN NAS] Power mode button not found for option: %s", option)
+            return
+
+        self._current = option
+        self.async_write_ha_state()
+
+        await self.hass.services.async_call(
+            "button",
+            "press",
+            {"entity_id": entity_id},
+            blocking=True,
+        )
+
+        await self.coordinator.async_request_refresh()
+
+
+class UgreenFanModeSelect(CoordinatorEntity, SelectEntity):
+    """Compact select entity that triggers existing UGREEN NAS fan mode buttons."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        coordinator: DataUpdateCoordinator,
+    ) -> None:
+        super().__init__(coordinator)
+        self.hass = hass
+        self._entry = entry
+        self._current: str | None = None
+
+        self._attr_name = f"{_get_entry_label(entry)} Fan Mode"
+        self._attr_unique_id = f"{entry.entry_id}_fan_mode_select"
+        self._attr_icon = "mdi:fan"
+        self._attr_device_info = build_device_info(hass, entry.entry_id, "fan_mode_select")
+
+    @property
+    def options(self) -> list[str]:
+        """Return selectable fan modes."""
+        return list(FAN_MODE_OPTIONS)
+
+    @property
+    def current_option(self) -> str | None:
+        """Return the current fan mode."""
+        raw = (self.coordinator.data or {}).get("fans_system_mode")
+
+        try:
+            self._current = FAN_MODE_STATE.get(int(raw), self._current)
+        except (TypeError, ValueError):
+            if isinstance(raw, str):
+                self._current = {
+                    "quiet": "Quiet",
+                    "default": "Default",
+                    "full power": "Full Power",
+                }.get(raw.lower(), self._current)
+
+        return self._current
+
+    async def async_select_option(self, option: str) -> None:
+        """Press the mapped button and refresh the current fan mode."""
+        button_key = FAN_MODE_OPTIONS.get(option)
+        entity_id = er.async_get(self.hass).async_get_entity_id(
+            "button",
+            DOMAIN,
+            f"{self._entry.entry_id}_{button_key}",
+        ) if button_key else None
+
+        if not entity_id:
+            _LOGGER.warning("[UGREEN NAS] Fan mode button not found for option: %s", option)
+            return
+
+        self._current = option
+        self.async_write_ha_state()
+
+        await self.hass.services.async_call(
+            "button",
+            "press",
+            {"entity_id": entity_id},
+            blocking=True,
+        )
+
+        await self.coordinator.async_request_refresh()
