@@ -4,9 +4,9 @@
 [![Custom integration](https://img.shields.io/badge/Custom%20Integration-%2341BDF5.svg)](https://www.home-assistant.io/getting-started/concepts-terminology)
 [![HACS Listing](https://img.shields.io/badge/HACS%20Listing-default-green.svg)](https://github.com/hacs)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/graphs/commit-activity)
-[![HA Analytics](https://img.shields.io/badge/dynamic/json?url=https://analytics.home-assistant.io/custom_integrations.json&query=$.ugreen.total&label=HA%20Analytics%20%2A&suffix=%20active%20installations&color=green)](https://analytics.home-assistant.io/)
+[![HA Analytics](https://img.shields.io/badge/dynamic/json?url=https://analytics.home-assistant.io/custom_integrations.json&query=$.ugreen.total&label=HA%20Analytics%20&suffix=%20active%20installations%20%2A&color=green)](https://analytics.home-assistant.io/)
 
-<sub><sup>* **HA Analytics:** It is estimated that less than ¼ of all HA users have opted in to HA Analytics, so the actual number of installations is likely significantly higher.</sup></sub>
+<sup><sub>* It is estimated that less than ¼ of all HA users have opted in to HA Analytics to share their usage data, so the actual number of installations is likely way higher.</sub></sup>
 
 ---
 
