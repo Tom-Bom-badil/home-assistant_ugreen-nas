@@ -247,7 +247,7 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
         base_attrs = dict(super().extra_state_attributes or {})
         base_attrs.update({
             "UGNAS_global_id": "UGREEN NAS",
-            "UGNAS_device_id": _get_entity_prefix(self.hass, self._entry_id),
+            "UGNAS_device_id": _get_entity_prefix_slug(self.hass, self._entry_id),
             "UGNAS_part_category": self._endpoint.nas_part_category,
         })
         return base_attrs
@@ -312,7 +312,7 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
         self._config = config_coord
         self._kind = match_kind                   # "pool" | "volume" | "disk"
         self._mk = match_key                      # (p,) | (p,v) | (global_index,)
-        self._nas_device_id = hass.data[DOMAIN][entry_id].get("nas_device_id", "")
+        self._nas_device_id = _get_entity_prefix_slug(hass, entry_id)
 
         # Friendly name (stable " Summary" suffix)
         self._attr_has_entity_name = False
