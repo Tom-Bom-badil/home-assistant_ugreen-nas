@@ -359,6 +359,7 @@ def apply_templates(templates: Iterable[UgreenEntity], **fmt: Any) -> List[Ugree
             endpoint=filled_endpoint,
             path=filled_path,
             request_method=t.request_method,
+            payload=t.payload,
             decimal_places=t.decimal_places,
             nas_part_category=(t.nas_part_category or "").format(**fmt),
         ))

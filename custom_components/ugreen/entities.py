@@ -25,7 +25,7 @@
 
 
 from dataclasses import dataclass
-from typing import List
+from typing import Any, List
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.const import (
     PERCENTAGE, REVOLUTIONS_PER_MINUTE, UnitOfDataRate, UnitOfTemperature,
@@ -38,6 +38,7 @@ class UgreenEntity:
     endpoint: str
     path: str
     request_method: str = "GET"
+    payload: dict[str, Any] | None = None
     decimal_places: int = 2
     nas_part_category: str = ""
 
@@ -607,9 +608,10 @@ ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
             name="Power Mode: High Performance",
             icon="mdi:speedometer",
         ),
-        endpoint="/ugreen/v1/hardware/cpu/frequency?frequency=0",
+        endpoint="/ugreen/v1/hardware/cpu/frequency",
         path="",
         request_method="POST",
+        payload={"frequency": 0},
         nas_part_category="",
     ),
     UgreenEntity(
@@ -618,9 +620,10 @@ ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
             name="Power Mode: Balanced",
             icon="mdi:speedometer-medium",
         ),
-        endpoint="/ugreen/v1/hardware/cpu/frequency?frequency=1",
+        endpoint="/ugreen/v1/hardware/cpu/frequency",
         path="",
         request_method="POST",
+        payload={"frequency": 1},
         nas_part_category="",
     ),
     UgreenEntity(
@@ -629,9 +632,10 @@ ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
             name="Power Mode: Energy Saving",
             icon="mdi:speedometer-slow",
         ),
-        endpoint="/ugreen/v1/hardware/cpu/frequency?frequency=2",
+        endpoint="/ugreen/v1/hardware/cpu/frequency",
         path="",
         request_method="POST",
+        payload={"frequency": 2},
         nas_part_category="",
     ),
 

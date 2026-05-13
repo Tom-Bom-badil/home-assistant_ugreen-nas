@@ -82,7 +82,7 @@ class UgreenNasButton(CoordinatorEntity, ButtonEntity):
             path = self._endpoint.endpoint
 
             if method == "POST":
-                await self._api.post(session, path)
+                await self._api.post(session, path, self._endpoint.payload)
             elif method == "GET":
                 await self._api.get(session, path)
             else:
