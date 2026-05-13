@@ -172,7 +172,7 @@ def format_sensor_value(raw: Any, endpoint: UgreenEntity) -> Any:
                 0: "Generic USB Device",   # 0 = External HDD?
             })
 
-        if "fans" in endpoint.description.key and "mode" in endpoint.description.key:
+        if endpoint.description.key in {"fan_mode", "fans_system_mode"}:
             return format_status_code(raw, {
                 1: "quiet",
                 2: "default",

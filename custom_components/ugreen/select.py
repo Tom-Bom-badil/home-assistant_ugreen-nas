@@ -30,9 +30,9 @@ _LOGGER = logging.getLogger(__name__)
 
 
 POWER_MODE_OPTIONS = {
-    "High Performance": "power_high_performance",
-    "Balanced": "power_balanced",
-    "Energy Saving": "power_energy_saving",
+    "High Performance": "power_mode_high_performance",
+    "Balanced": "power_mode_balanced",
+    "Energy Saving": "power_mode_energy_saving",
 }
 
 POWER_MODE_STATE = {
@@ -53,6 +53,11 @@ FAN_MODE_STATE = {
     3: "Full Power",
 }
 
+POWER_ACTION_OPTIONS = {
+    "Shutdown": "power_action_shutdown",
+    "Wake Up": "power_action_wake_up",
+    "Reboot": "power_action_reboot",
+}
 
 def _is_owner_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Only the first loaded config entry creates the global dashboard helpers."""
@@ -385,7 +390,7 @@ class UgreenFanModeSelect(CoordinatorEntity, SelectEntity):
     @property
     def current_option(self) -> str | None:
         """Return the current fan mode."""
-        raw = (self.coordinator.data or {}).get("fans_system_mode")
+        raw = (self.coordinator.data or {}).get("fan_mode")
 
         try:
             self._current = FAN_MODE_STATE.get(int(raw), self._current)

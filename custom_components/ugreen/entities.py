@@ -367,8 +367,8 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
     ### FANS (overall system setting)
     UgreenEntity(
         description=EntityDescription(
-            key="fans_system_mode",
-            name="Fans (system mode)",
+            key="fan_mode",
+            name="Fan Mode",
             icon="mdi:fan",
             unit_of_measurement=None,
         ),
@@ -548,8 +548,8 @@ ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
 
     UgreenEntity(
         description=EntityDescription(
-            key="shutdown",
-            name="Shutdown",
+            key="power_action_shutdown",
+            name="Power Action: Shutdown",
             icon="mdi:power",
         ),
         endpoint="/ugreen/v1/desktop/poweroff",
@@ -559,8 +559,8 @@ ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
     ),
     UgreenEntity(
         description=EntityDescription(
-            key="reboot",
-            name="Reboot",
+            key="power_action_reboot",
+            name="Power Action: Reboot",
             icon="mdi:restart",
         ),
         endpoint="/ugreen/v1/desktop/reboot",
@@ -603,8 +603,8 @@ ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
     ),
     UgreenEntity(
         description=EntityDescription(
-            key="power_high_performance",
-            name="Power: High Performance",
+            key="power_mode_high_performance",
+            name="Power Mode: High Performance",
             icon="mdi:speedometer",
         ),
         endpoint="/ugreen/v1/hardware/cpu/frequency?frequency=0",
@@ -614,8 +614,8 @@ ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
     ),
     UgreenEntity(
         description=EntityDescription(
-            key="power_balanced",
-            name="Power: Balanced",
+            key="power_mode_balanced",
+            name="Power Mode: Balanced",
             icon="mdi:speedometer-medium",
         ),
         endpoint="/ugreen/v1/hardware/cpu/frequency?frequency=1",
@@ -625,8 +625,8 @@ ALL_NAS_COMMON_BUTTON_ENTITIES: List[UgreenEntity] = [ # -- buttons --
     ),
     UgreenEntity(
         description=EntityDescription(
-            key="power_energy_saving",
-            name="Power: Energy Saving",
+            key="power_mode_energy_saving",
+            name="Power Mode: Energy Saving",
             icon="mdi:speedometer-slow",
         ),
         endpoint="/ugreen/v1/hardware/cpu/frequency?frequency=2",

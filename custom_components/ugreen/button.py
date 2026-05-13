@@ -103,11 +103,11 @@ class UgreenNasWakeOnLanButton(CoordinatorEntity, ButtonEntity):
         super().__init__(coordinator)
         self.hass = hass
         self._entry_id = entry_id
-        self._key = "wake_on_lan"
+        self._key = "power_action_wake_up"
         entity_prefix = _get_entity_prefix(hass, entry_id)
-        self._attr_name = f"{entity_prefix} Wake Up"
+        self._attr_name = f"{entity_prefix} Power Action: Wake Up"
         self.entity_id = async_generate_entity_id("button.{}", self._attr_name, hass=self.hass)
-        self._attr_unique_id = f"{entry_id}_wake_on_lan"
+        self._attr_unique_id = f"{entry_id}_power_action_wake_up"
         self._attr_icon = "mdi:power"
         self._attr_device_info = build_device_info(hass, entry_id, self._key)
 
