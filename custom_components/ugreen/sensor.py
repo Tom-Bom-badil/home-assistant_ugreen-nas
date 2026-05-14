@@ -460,8 +460,8 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
     def _flatten_states_as_attrs(self, pairs: list[tuple[str, str]]) -> dict[str, object]:
         out: dict[str, object] = {}
         for hint, ent_id in pairs:
-            if ent_id.endswith("_raw"):   # exclude *_raw entities, we only want formatted values
-                continue
+            # if ent_id.endswith("_raw"):   # exclude *_raw entities, we only want formatted values
+            #    continue
             st = self.hass.states.get(ent_id)
             if not st:
                 continue
