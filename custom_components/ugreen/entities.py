@@ -685,11 +685,107 @@ NAS_SPECIFIC_STATUS_TEMPLATES_USB: list[UgreenEntity] = [
 ]
 
 
+# # Blueprint for detected LAN ports and its properties (config 60s, status 5s)
+# NAS_SPECIFIC_CONFIG_TEMPLATES_LAN: List[UgreenEntity] = [ # -- LAN --
+#     # not needed anymore
+#     # changed to custom handler in v2026.04+ due to a change of the UGOS API
+# ]
+
 # Blueprint for detected LAN ports and its properties (config 60s, status 5s)
 NAS_SPECIFIC_CONFIG_TEMPLATES_LAN: List[UgreenEntity] = [ # -- LAN --
-    # not needed anymore
-    # changed to custom handler in v2026.04+ due to a change of the UGOS API
+
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_model",
+            name="{prefix_name} Model",
+            icon="mdi:lan",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.ifaces[{iface_index}].label",
+        nas_part_category="{category}",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_ip",
+            name="{prefix_name} IP",
+            icon="mdi:lan",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.ifaces[{iface_index}].ipv4.ipaddr",
+        nas_part_category="{category}",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_mac",
+            name="{prefix_name} MAC",
+            icon="mdi:lan",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.ifaces[{iface_index}].mac",
+        nas_part_category="{category}",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_speed",
+            name="{prefix_name} Speed",
+            icon="mdi:speedometer",
+            unit_of_measurement="Mb/s",
+        ),
+        endpoint="{endpoint}",
+        path="data.ifaces[{iface_index}].speed",
+        decimal_places=0,
+        nas_part_category="{category}",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_mtu",
+            name="{prefix_name} MTU",
+            icon="mdi:lan",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.ifaces[{iface_index}].mtu",
+        decimal_places=0,
+        nas_part_category="{category}",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_netmask",
+            name="{prefix_name} Netmask",
+            icon="mdi:lan",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.ifaces[{iface_index}].ipv4.netmask",
+        nas_part_category="{category}",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_gateway",
+            name="{prefix_name} Gateway",
+            icon="mdi:lan",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.ifaces[{iface_index}].ipv4.gateway",
+        nas_part_category="{category}",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_dnsserver",
+            name="{prefix_name} DNS Server",
+            icon="mdi:lan",
+            unit_of_measurement=None,
+        ),
+        endpoint="{endpoint}",
+        path="data.ifaces[{iface_index}].ipv4.dns[0]",
+        nas_part_category="{category}",
+    ),
 ]
+
 
 NAS_SPECIFIC_STATUS_TEMPLATES_LAN: List[UgreenEntity] = [
 
