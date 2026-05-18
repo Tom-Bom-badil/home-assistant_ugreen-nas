@@ -15,7 +15,9 @@
 👉 This integration enables **Home Assistant** to monitor settings and operational data of a **UGOS-based UGreen NAS** - *without modifying its operating system in any way*. No extra tools/scripts are installed in UGOS, no ssh access with cryptic shell commands is needed, no difficult container setup is required - we simply use what UGOS already provides.
 <br/><br/>
 <p align="center">
-  <img width=80% alt="img1" src="https://github.com/user-attachments/assets/e40dfa67-93dc-44e4-a023-50e4203dc925" />
+<a href="https://raw.githubusercontent.com/wiki/Tom-Bom-badil/home-assistant_ugreen-nas/images/05/example_dashboard.png">
+  <img width=80% alt="img1" src="https://raw.githubusercontent.com/wiki/Tom-Bom-badil/home-assistant_ugreen-nas/images/05/example_dashboard.png" />
+</a>
 </p>
 <br/>
 The integration automatically retrieves access tokens from the NAS, and frequently queries operational data from the UGOS-builtin API by using those tokens (the same API that the UGOS Web GUI and the UGOS Apps are using).
