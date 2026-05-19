@@ -322,28 +322,11 @@ async def get_entity_data_from_api(
     return data
 
 
-_INDEX_EXPR_RE = re.compile(r"\[(\d+)\s*([+-])\s*(\d+)\]")
-def _simplify_index_expr(s: str) -> str:
-    """Resolve simple integer +/- expressions *inside brackets* of a JSONPath-like string.
-    Example: 'disk[{series_index}-1]' -> starts with 'disk[0]' if '{series_index}' starts with 1.
-    This is needed for a very few endpoints only. +/- with integers are supported."""
-    if not s:
-        return s
-    def repl(m: re.Match) -> str:
-        a = int(m.group(1))
-        op = m.group(2)
-        b = int(m.group(3))
-        val = a + b if op == "+" else a - b
-        val = max(val, 0) # prevent '-1' (Python would interpret this as 'last element')
-        return f"[{val}]"
-    return _INDEX_EXPR_RE.sub(repl, s)
-
-
 def apply_templates(templates: Iterable[UgreenEntity], **fmt: Any) -> List[UgreenEntity]:
     """Create UgreenEntity objects by filling placeholders in templates.
     Supported placeholders: {prefix_key}, {prefix_name}, {i}, {endpoint}, {category}, {series_index}
     Also supported: Simple arithmetics with +/-: {series_index}-1, {series_index}+1"""
-    out: List[UgreenEntity] = []
+    entities: List[UgreenEntity] = []
     for t in templates:
         desc = EntityDescription(
             key=t.description.key.format(**fmt),
@@ -354,7 +337,7 @@ def apply_templates(templates: Iterable[UgreenEntity], **fmt: Any) -> List[Ugree
         filled_endpoint = t.endpoint.format(**fmt)
         filled_path = t.path.format(**fmt)
         filled_path = _simplify_index_expr(filled_path)
-        out.append(UgreenEntity(
+        entities.append(UgreenEntity(
             description=desc,
             endpoint=filled_endpoint,
             path=filled_path,
@@ -363,7 +346,7 @@ def apply_templates(templates: Iterable[UgreenEntity], **fmt: Any) -> List[Ugree
             decimal_places=t.decimal_places,
             nas_part_category=(t.nas_part_category or "").format(**fmt),
         ))
-    return out
+    return entities
 
 
 async def make_entities(
@@ -393,7 +376,7 @@ async def make_entities(
         return []
 
     single = (n == 1) and single_compact
-    out: List[UgreenEntity] = []
+    entities: List[UgreenEntity] = []
 
     for i in range(n):
         idx_num = i + index_start
@@ -401,7 +384,7 @@ async def make_entities(
         prefix_key  = f"{prefix_key_base}{idx_txt}"
         prefix_name = f"{prefix_name_base}{'' if single else f' {idx_num}'}"
 
-        out.extend(apply_templates(
+        entities.extend(apply_templates(
             templates,
             i=i,
             series_index=idx_num,
@@ -410,7 +393,24 @@ async def make_entities(
             endpoint=endpoint,
             category=category,
         ))
-    return out
+    return entities
+
+
+_INDEX_EXPR_RE = re.compile(r"\[(\d+)\s*([+-])\s*(\d+)\]")
+def _simplify_index_expr(s: str) -> str:
+    """Resolve simple integer +/- expressions *inside brackets* of a JSONPath-like string.
+    Example: 'disk[{series_index}-1]' -> starts with 'disk[0]' if '{series_index}' starts with 1.
+    This is needed for a very few endpoints only. +/- with integers are supported."""
+    if not s:
+        return s
+    def repl(m: re.Match) -> str:
+        a = int(m.group(1))
+        op = m.group(2)
+        b = int(m.group(3))
+        val = a + b if op == "+" else a - b
+        val = max(val, 0) # prevent '-1' (Python would interpret this as 'last element')
+        return f"[{val}]"
+    return _INDEX_EXPR_RE.sub(repl, s)
 
 
 # Compile only once for strip_parent_prefix

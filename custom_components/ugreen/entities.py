@@ -43,6 +43,149 @@ class UgreenEntity:
     nas_part_category: str = ""
 
 
+# A registry for 'dynamic' config entities, called by api.py
+def NAS_SPECIFIC_CONFIG_REGISTRY() -> list[dict[str, Any]]:
+    """Registry for CONFIG (60s) entities where the count may vary between models."""
+
+    return [
+        # List-driven sections (fetch + list_path)
+        dict(
+            key="USB",
+            kind="list",
+            templates=NAS_SPECIFIC_CONFIG_TEMPLATES_USB,
+            endpoint="/ugreen/v1/sysinfo/machine/common",
+            list_path="data.hardware.usb",
+            prefix_key_base="USB_device",
+            prefix_name_base="USB Device",
+            category="USB",
+        ),
+        dict(
+            key="UPS",
+            kind="list",
+            templates=NAS_SPECIFIC_CONFIG_TEMPLATES_UPS,
+            endpoint="/ugreen/v1/sysinfo/machine/common",
+            list_path="data.hardware.ups",
+            prefix_key_base="UPS",
+            prefix_name_base="UPS",
+            category="UPS",
+        ),
+        # Count-driven sections (no list_path)
+        dict(
+            key="RAM",
+            kind="count",
+            templates=NAS_SPECIFIC_CONFIG_TEMPLATES_RAM,
+            endpoint="/ugreen/v1/sysinfo/machine/common",
+            count=lambda c: int(c.get("num_rams", 0)),
+            prefix_key_base="RAM",
+            prefix_name_base="RAM Module",
+            category="Hardware",
+            post="ram_total",  # add virtual "Total RAM" sensor after creation
+        ),
+        dict(
+            key="FANS",
+            kind="count",
+            templates=NAS_SPECIFIC_CONFIG_TEMPLATES_FANS,
+            endpoint="/ugreen/v1/sysinfo/machine/common",
+            count=lambda c: int(c.get("num_device_fans", 0)) + (1 if c.get("has_cpu_fan") else 0),
+            prefix_key_base="fan",
+            prefix_name_base="Fan",
+            category="Hardware",
+        ),
+        # Custom builders
+        dict(
+            key="LAN",
+            kind="custom",
+            builder="_get_dynamic_config_entities_lan",
+        ),
+        dict(
+            key="STORAGE",
+            kind="custom",
+            builder="_get_dynamic_config_entities_storage",
+        ),
+    ]
+
+
+# A registry for 'dynamic' status entities, called by api.py
+def NAS_SPECIFIC_STATUS_REGISTRY() -> list[dict[str, Any]]:
+    """Registry for STATUS (5s) entities where the count may vary between models."""
+
+    return [
+        dict(
+            key="LAN",
+            kind="count",
+            templates=NAS_SPECIFIC_STATUS_TEMPLATES_LAN,
+            endpoint="/ugreen/v1/taskmgr/stat/get_all",
+            count=lambda c: int(c.get("num_nics", 0)),
+            prefix_key_base="lan",
+            prefix_name_base="LAN",
+            category="LAN",
+            index_start=1,
+            single_compact=False,
+        ),
+        dict(
+            key="USB",
+            kind="count",
+            templates=NAS_SPECIFIC_STATUS_TEMPLATES_USB,
+            endpoint="/ugreen/v1/taskmgr/stat/get_all",
+            count=lambda c: int(c.get("num_usbs", 0)),
+            prefix_key_base="usb_device",
+            prefix_name_base="USB Device",
+            category="Status",
+        ),
+        dict(
+            key="UPS",
+            kind="count",
+            templates=NAS_SPECIFIC_STATUS_TEMPLATES_UPS,
+            endpoint="/ugreen/v1/taskmgr/stat/get_all",
+            count=lambda c: 1 if c.get("has_ups") else 0,
+            prefix_key_base="ups",
+            prefix_name_base="UPS",
+            category="Status",
+        ),
+        dict(
+            key="RAM",
+            kind="count",
+            templates=NAS_SPECIFIC_STATUS_TEMPLATES_RAM,
+            endpoint="/ugreen/v1/taskmgr/stat/get_all",
+            count=lambda c: int(c.get("num_rams", 0)),
+            prefix_key_base="ram",
+            prefix_name_base="RAM Module",
+            category="Status",
+        ),
+        dict(
+            key="FAN_CPU",
+            kind="count",
+            templates=NAS_SPECIFIC_STATUS_TEMPLATES_FAN_CPU,
+            endpoint="/ugreen/v1/taskmgr/stat/get_all",
+            count=lambda c: 1 if c.get("has_cpu_fan") else 0,
+            prefix_key_base="cpu_fan",
+            prefix_name_base="CPU Fan",
+            category="Status",
+        ),
+        dict(
+            key="FAN_CHASSIS",
+            kind="count",
+            templates=NAS_SPECIFIC_STATUS_TEMPLATES_FANS_CHASSIS,
+            endpoint="/ugreen/v1/taskmgr/stat/get_all",
+            count=lambda c: int(c.get("num_device_fans", 0)),
+            prefix_key_base="device_fan",
+            prefix_name_base="Device Fan",
+            category="Status",
+            single_compact=True, 
+        ),
+        dict(
+            key="STORAGE_DISK",
+            kind="custom",
+            builder="_get_dynamic_status_entities_storage_disks",
+        ),
+        dict(
+            key="STORAGE_CACHE_DISK",
+            kind="custom",
+            builder="_get_dynamic_status_entities_storage_cache_disks",
+        ),
+    ]
+
+
 # Common sensors available in all models - name, serial etc. Updated every 60s.
 ALL_NAS_COMMON_CONFIG_ENTITIES: List[UgreenEntity] = [  # -- common config entities --
 
@@ -684,12 +827,6 @@ NAS_SPECIFIC_STATUS_TEMPLATES_USB: list[UgreenEntity] = [
     # Intentionally empty for now.
 ]
 
-
-# # Blueprint for detected LAN ports and its properties (config 60s, status 5s)
-# NAS_SPECIFIC_CONFIG_TEMPLATES_LAN: List[UgreenEntity] = [ # -- LAN --
-#     # not needed anymore
-#     # changed to custom handler in v2026.04+ due to a change of the UGOS API
-# ]
 
 # Blueprint for detected LAN ports and its properties (config 60s, status 5s)
 NAS_SPECIFIC_CONFIG_TEMPLATES_LAN: List[UgreenEntity] = [ # -- LAN --

@@ -38,6 +38,7 @@ from .const import (
     MANUFACTURER,
 )
 
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -47,20 +48,16 @@ async def async_install_frontend_files(hass: HomeAssistant) -> None:
     def _install() -> None:
         source_dir = hass.config.path("custom_components", DOMAIN, "frontend")
         target_dir = hass.config.path("www", "community", DOMAIN)
-
         if not os.path.isdir(source_dir):
             _LOGGER.debug("[UGREEN NAS] Frontend source folder not found: %s", source_dir)
             return
 
         os.makedirs(target_dir, exist_ok=True)
-
         for entry in os.scandir(source_dir):
             if not entry.is_file():
                 continue
-
             src = entry.path
             dst = os.path.join(target_dir, entry.name)
-
             if os.path.isfile(dst):
                 try:
                     if os.path.getsize(src) == os.path.getsize(dst):
@@ -68,7 +65,6 @@ async def async_install_frontend_files(hass: HomeAssistant) -> None:
                         continue
                 except OSError as err:
                     _LOGGER.debug("[UGREEN NAS] Size check failed for %s: %s", entry.name, err)
-
             shutil.copy2(src, dst)
             _LOGGER.debug("[UGREEN NAS] Installed frontend file: %s", entry.name)
 
@@ -78,12 +74,10 @@ async def async_install_frontend_files(hass: HomeAssistant) -> None:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Setup and start the integration."""
 
-
     ### Preparations
     _LOGGER.debug("[UGREEN NAS] Setting up config entry: %s", entry.entry_id)
     hass.data.setdefault(DOMAIN, {})
     session = async_get_clientsession(hass)
-
 
     # Read configuration from entry (options override data)
     api = UgreenApiClient(
@@ -94,26 +88,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         use_https=bool(entry.options.get(CONF_USE_HTTPS, entry.data.get(CONF_USE_HTTPS, False))),
     )
 
-
     ### Initial authentication
     if not await api.authenticate(session):
         _LOGGER.error("[UGREEN NAS] Initial login failed. Aborting setup.")
         return False
 
-
     ### Side job: Check for and copy picture files for Lovelace Dashboard if needed
     await async_install_frontend_files(hass)
-
 
     ### Create global counters for dynamic entities
     dynamic_entity_counts = await api.count_dynamic_entities(session)
     _LOGGER.debug("[UGREEN NAS] Entity counts done: %s", dynamic_entity_counts)
 
-
     ### Setup configuration entities (never or slowly changing data, 60s polling)
     #   Build the entity list
     config_entities =  list(ALL_NAS_COMMON_CONFIG_ENTITIES)
-    config_entities += await api.DISCOVER_NAS_SPECIFIC_CONFIG_ENTITIES(session)
+    config_entities += await api.get_nas_specific_config_entities(session)
     #   Group entities by endpoint to reduce number of API calls
     config_entities_grouped_by_endpoint = defaultdict(list)
     for entity in config_entities:
@@ -142,11 +132,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ),
     )
 
-
     ### Setup state entities (rather quickly changing data, 5s polling)
     #   Build the entity list
     state_entities =  list(ALL_NAS_COMMON_STATE_ENTITIES)
-    state_entities += await api.DISCOVER_NAS_SPECIFIC_STATE_ENTITIES(session)
+    state_entities += await api.get_nas_specific_status_entities(session)
     #   Group entities by endpoint to reduce number of API calls
     state_entities_grouped_by_endpoint = defaultdict(list)
     for entity in state_entities: # reduce number of API calls
@@ -176,7 +165,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ),
     )
 
-
     ### Hand over all runtime objects to HA's data container
     hass.data[DOMAIN][entry.entry_id] = {
         "config_coordinator": config_coordinator,
@@ -190,7 +178,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "api": api,
     }
 
-
     ### Initial entities refresh and start of keep-alive websocket
     await config_coordinator.async_config_entry_first_refresh()
     await state_coordinator.async_config_entry_first_refresh()
@@ -202,7 +189,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry.data.get(CONF_WS_INTERVAL, DEFAULT_SCAN_INTERVAL_WS),
         )),
     )
-
 
     ### Build lightweight meta caches for Device Registry (disks/pools/volumes)
     pools_resp = await api.get(session, "/ugreen/v1/storage/pool/list")
@@ -289,7 +275,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     brand    = "UGREEN"
     model_display = f"{brand} {model}" if model and not model.upper().startswith(brand) else (model or brand)
 
-
     ### Migrate config entry unique_id to stable serial-based format if needed 
     if serial:
         new_unique_id = f"ugreen_{serial}"
@@ -322,7 +307,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     entry,
                     unique_id=new_unique_id,
                 )
-
 
     # MACs as additional device connections (needed for WOL)
     connections = {(CONNECTION_NETWORK_MAC, m.strip().lower()) for m in macs if isinstance(m, str) and m.strip()}
@@ -363,7 +347,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     except Exception as e:
         _LOGGER.warning("[UGREEN NAS] Device registration failed: %s", e)
-
 
     ### Finalize init: Forward the setups to platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

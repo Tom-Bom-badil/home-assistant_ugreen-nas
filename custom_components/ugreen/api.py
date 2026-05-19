@@ -10,8 +10,11 @@ from homeassistant.helpers.entity import EntityDescription
 from homeassistant.const import UnitOfInformation
 
 from .utils import make_entities, apply_templates
+
 from .entities import (
     UgreenEntity,
+    NAS_SPECIFIC_CONFIG_REGISTRY,
+    NAS_SPECIFIC_STATUS_REGISTRY,
     NAS_SPECIFIC_CONFIG_TEMPLATES_USB,
     NAS_SPECIFIC_STATUS_TEMPLATES_USB,
     NAS_SPECIFIC_CONFIG_TEMPLATES_LAN,
@@ -30,7 +33,9 @@ from .entities import (
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_CACHE,
 )
 
+
 _LOGGER = logging.getLogger(__name__)
+
 
 class UgreenApiClient:
 
@@ -79,6 +84,12 @@ class UgreenApiClient:
 
     ### "The API" - public entrypoints (e.g. used by __init__.py) ##############
 
+    @property
+    def nas_online(self) -> bool:
+        """Return current online state derived from heartbeat checks."""
+        return self._nas_online
+
+
     async def authenticate(self, session: aiohttp.ClientSession) -> bool:
         """Call once during setup; afterwards rely on on-demand login in _request()"""
         if self._authed:
@@ -98,14 +109,14 @@ class UgreenApiClient:
         return await self._request(session, "POST", endpoint, payload)
 
 
-    async def DISCOVER_NAS_SPECIFIC_CONFIG_ENTITIES(self, session: aiohttp.ClientSession) -> list[UgreenEntity]:
+    async def get_nas_specific_config_entities(self, session: aiohttp.ClientSession) -> list[UgreenEntity]:
         """Build NAS-specific config entities (volumes, disks, raid levels etc) - 60s read."""
-        return await self._build_from_registry(session, self._config_definitions(), for_status=False)
+        return await self._build_from_registry(session, NAS_SPECIFIC_CONFIG_REGISTRY(), for_status=False)
 
 
-    async def DISCOVER_NAS_SPECIFIC_STATE_ENTITIES(self, session: aiohttp.ClientSession) -> list[UgreenEntity]:
+    async def get_nas_specific_status_entities(self, session: aiohttp.ClientSession) -> list[UgreenEntity]:
         """Build NAS-specific status entities (disk temperatures, fan speeds etc) - 5s read."""
-        return await self._build_from_registry(session, self._status_definitions(), for_status=True)
+        return await self._build_from_registry(session, NAS_SPECIFIC_STATUS_REGISTRY(), for_status=True)
 
 
     async def count_dynamic_entities(self, session: aiohttp.ClientSession) -> dict[str, Any]:
@@ -117,12 +128,8 @@ class UgreenApiClient:
         """Return above counted number of dynamic entities on request."""
         return self._dynamic_entity_counts or {}
 
-    @property
-    def nas_online(self) -> bool:
-        """Return current online state derived from heartbeat checks."""
-        return self._nas_online
 
-    ### Internally used functions ##############################################
+    ### Internal functions ##############################################
 
 
     async def _login(self, session: aiohttp.ClientSession) -> bool:
@@ -290,6 +297,7 @@ class UgreenApiClient:
         self._ws_stop.clear()
         self._ws_task = asyncio.create_task(self._ws_keepalive_loop(session, lang=lang, heartbeat=heartbeat), name="ugreen-ws-keepalive")
 
+
     async def stop_ws_keepalive_task(self) -> None:
         """Stop the background keep-alive task and close the websocket."""
         self._ws_stop.set()
@@ -303,6 +311,7 @@ class UgreenApiClient:
                 await self._ws.close()
         self._ws = None
         self._ws_connected = False
+
 
     def _set_nas_online(self, online: bool, *, reason: str | None = None) -> None:
         """Update online state and emit exactly one log line on state changes."""
@@ -322,6 +331,7 @@ class UgreenApiClient:
         if reason:
             _LOGGER.debug("[UGREEN NAS] Online state change reason: %s", reason)
 
+
     async def _heartbeat_ok(self, session: aiohttp.ClientSession, *, timeout: float = 1.0) -> bool:
         """Unauthenticated heartbeat check; used as online-gate for polling."""
         url = f"{self.base_url}/ugreen/v1/verify/heartbeat"
@@ -339,6 +349,7 @@ class UgreenApiClient:
                 return True
         except Exception:
             return False
+
 
     async def _ws_keepalive_loop(self, session: aiohttp.ClientSession, *, lang: str, heartbeat: int) -> None:
         """Container-like endless WS loop: subscribe, ping periodically, continuously receive, backoff reconnect, re-auth on 401/403."""
@@ -455,150 +466,9 @@ class UgreenApiClient:
         _LOGGER.debug("WS keep-alive task stopped.")
 
 
-    def _config_definitions(self) -> list[dict[str, Any]]:
-        """Registry for dynamic CONFIG entities."""
-        return [
-            # List-driven sections (fetch + list_path)
-            dict(
-                key="USB",
-                kind="list",
-                templates=NAS_SPECIFIC_CONFIG_TEMPLATES_USB,
-                endpoint="/ugreen/v1/sysinfo/machine/common",
-                list_path="data.hardware.usb",
-                prefix_key_base="USB_device",
-                prefix_name_base="USB Device",
-                category="USB",
-            ),
-            dict(
-                key="UPS",
-                kind="list",
-                templates=NAS_SPECIFIC_CONFIG_TEMPLATES_UPS,
-                endpoint="/ugreen/v1/sysinfo/machine/common",
-                list_path="data.hardware.ups",
-                prefix_key_base="UPS",
-                prefix_name_base="UPS",
-                category="UPS",
-            ),
-
-            # Count-driven sections (no list_path)
-            dict(
-                key="RAM",
-                kind="count",
-                templates=NAS_SPECIFIC_CONFIG_TEMPLATES_RAM,
-                endpoint="/ugreen/v1/sysinfo/machine/common",
-                count=lambda c: int(c.get("num_rams", 0)),
-                prefix_key_base="RAM",
-                prefix_name_base="RAM Module",
-                category="Hardware",
-                post="ram_total",  # add virtual total sensor after creation
-            ),
-            dict(
-                key="FANS",
-                kind="count",
-                templates=NAS_SPECIFIC_CONFIG_TEMPLATES_FANS,
-                endpoint="/ugreen/v1/sysinfo/machine/common",
-                count=lambda c: int(c.get("num_device_fans", 0)) + (1 if c.get("has_cpu_fan") else 0),
-                prefix_key_base="fan",
-                prefix_name_base="Fan",
-                category="Hardware",
-            ),
-
-            # Custom builder (special logic for storage tree building)
-            dict(
-                key="LAN",
-                kind="custom",
-                builder="_get_dynamic_config_entities_lan",
-            ),
-            dict(
-                key="STORAGE",
-                kind="custom",
-                builder="_get_dynamic_config_entities_storage",
-            ),
-        ]
-
-
-    def _status_definitions(self) -> list[dict[str, Any]]:
-        """Registry for dynamic STATUS entities."""
-        return [
-            dict(
-                key="LAN",
-                kind="count",
-                templates=NAS_SPECIFIC_STATUS_TEMPLATES_LAN,
-                endpoint="/ugreen/v1/taskmgr/stat/get_all",
-                count=lambda c: int(c.get("num_nics", 0)),
-                prefix_key_base="lan",
-                prefix_name_base="LAN",
-                category="LAN",
-                index_start=1,
-                single_compact=False,
-            ),
-            dict(
-                key="USB",
-                kind="count",
-                templates=NAS_SPECIFIC_STATUS_TEMPLATES_USB,
-                endpoint="/ugreen/v1/taskmgr/stat/get_all",
-                count=lambda c: int(c.get("num_usbs", 0)),
-                prefix_key_base="usb_device",
-                prefix_name_base="USB Device",
-                category="Status",
-            ),
-            dict(
-                key="UPS",
-                kind="count",
-                templates=NAS_SPECIFIC_STATUS_TEMPLATES_UPS,
-                endpoint="/ugreen/v1/taskmgr/stat/get_all",
-                count=lambda c: 1 if c.get("has_ups") else 0,
-                prefix_key_base="ups",
-                prefix_name_base="UPS",
-                category="Status",
-            ),
-            dict(
-                key="RAM",
-                kind="count",
-                templates=NAS_SPECIFIC_STATUS_TEMPLATES_RAM,
-                endpoint="/ugreen/v1/taskmgr/stat/get_all",
-                count=lambda c: int(c.get("num_rams", 0)),
-                prefix_key_base="ram",
-                prefix_name_base="RAM Module",
-                category="Status",
-            ),
-            dict(
-                key="FAN_CPU",
-                kind="count",
-                templates=NAS_SPECIFIC_STATUS_TEMPLATES_FAN_CPU,
-                endpoint="/ugreen/v1/taskmgr/stat/get_all",
-                count=lambda c: 1 if c.get("has_cpu_fan") else 0,
-                prefix_key_base="cpu_fan",
-                prefix_name_base="CPU Fan",
-                category="Status",
-            ),
-            dict(
-                key="FAN_CHASSIS",
-                kind="count",
-                templates=NAS_SPECIFIC_STATUS_TEMPLATES_FANS_CHASSIS,
-                endpoint="/ugreen/v1/taskmgr/stat/get_all",
-                count=lambda c: int(c.get("num_device_fans", 0)),
-                prefix_key_base="device_fan",
-                prefix_name_base="Device Fan",
-                category="Status",
-                single_compact=True, 
-            ),
-            dict(
-                key="STORAGE_DISK",
-                kind="custom",
-                builder="_get_dynamic_status_entities_storage_disks",
-            ),
-            dict(
-                key="STORAGE_CACHE_DISK",
-                kind="custom",
-                builder="_get_dynamic_status_entities_storage_cache_disks",
-            ),
-        ]
-
-
     async def _build_from_registry(self, session: aiohttp.ClientSession, registry: list[dict[str, Any]], *, for_status: bool) -> list[UgreenEntity]:
         """Single loop over registry entries; supports list/count/custom + post hooks."""
-        out: list[UgreenEntity] = []
+        entities: list[UgreenEntity] = []
         counts: dict[str, Any] | None = None
 
         for d in registry:
@@ -607,7 +477,7 @@ class UgreenApiClient:
             if kind == "custom":
                 builder_name = d["builder"]
                 builder = getattr(self, builder_name)
-                out.extend(await builder(session))
+                entities.extend(await builder(session))
                 continue
 
             endpoint = d.get("endpoint") or ("/ugreen/v1/taskmgr/stat/get_all" if for_status else "/ugreen/v1/sysinfo/machine/common")
@@ -615,7 +485,7 @@ class UgreenApiClient:
             if kind == "list":
                 async def _fetch(ep: str) -> dict:
                     return await self.get(session, ep)
-                ents = await make_entities(
+                _entities = await make_entities(
                     fetch=_fetch,
                     templates=d["templates"],
                     endpoint=endpoint,
@@ -631,7 +501,7 @@ class UgreenApiClient:
                 if counts is None:
                     counts = await self.count_dynamic_entities(session) or {}
                 n = int(d["count"](counts)) if callable(d.get("count")) else 0
-                ents = await make_entities(
+                _entities = await make_entities(
                     fetch=None,
                     templates=d["templates"],
                     endpoint=endpoint,
@@ -644,8 +514,8 @@ class UgreenApiClient:
                 )
 
             # optional post-processing (e.g., RAM total)
-            if d.get("post") == "ram_total" and ents:
-                ents.append(UgreenEntity(
+            if d.get("post") == "ram_total" and _entities:
+                _entities.append(UgreenEntity(
                     description=EntityDescription(
                         key="ram_total_size",
                         name="RAM Total Size",
@@ -658,9 +528,9 @@ class UgreenApiClient:
                     nas_part_category="Hardware",
                 ))
 
-            out.extend(ents)
+            entities.extend(_entities)
 
-        return out
+        return entities
 
 
     async def _get_dynamic_config_entities_lan(self, session: aiohttp.ClientSession) -> List[UgreenEntity]:
@@ -745,12 +615,9 @@ class UgreenApiClient:
             else:
                 lan_label = label if label.upper().startswith("LAN") else None
 
-
             prefix_key = f"LAN{i}"
-
             # prefix_name = lan_label or f"LAN Port {i}"
-
-            # fix for naming LAN entities (LANx -> LAN x)
+            # fix for naming LAN entities (LANx -> LAN x):
             if lan_label and lan_label.upper().startswith("LAN") and lan_label[3:].isdigit():
                 prefix_name = f"LAN {int(lan_label[3:])}"
             else:
@@ -768,134 +635,6 @@ class UgreenApiClient:
             ))
 
         return entities
-
-    # moved back to entities.py - delete for release
-    
-    # async def _get_dynamic_config_entities_lan(self, session: aiohttp.ClientSession) -> List[UgreenEntity]:
-    #     """Create LAN config entities from iface/list (UGOS >= 1.14 returns bridges instead of hardware.net ports)."""
-
-    #     endpoint = "/ugreen/v1/network/iface/list"
-    #     resp = await self.get(session, endpoint)
-    #     ifaces = ((resp or {}).get("data", {}) or {}).get("ifaces", []) or []
-    #     if not ifaces:
-    #         _LOGGER.debug("[UGREEN NAS] No ifaces in %s response", endpoint)
-    #         return []
-
-    #     entities: List[UgreenEntity] = []
-
-    #     lan_ifaces = [
-    #         iface for iface in ifaces
-    #         if isinstance(iface, dict)
-    #         and iface.get("type") == 5
-    #         and str(iface.get("interface") or "").startswith("bridge")
-    #     ]
-
-    #     for i, iface in enumerate(lan_ifaces, start=1):
-    #         label = str(iface.get("label") or "").strip()
-    #         slaves = iface.get("slaves") or []
-
-    #         lan_label = None
-    #         for slave in slaves:
-    #             slave_label = str((slave or {}).get("label") or "").strip()
-    #             if slave_label.upper().startswith("LAN"):
-    #                 lan_label = slave_label
-    #                 break
-
-    #         prefix_key = f"LAN{i}"
-    #         prefix_name = lan_label or f"LAN Port {i}"
-
-    #         entities.extend([
-    #             UgreenEntity(
-    #                 description=EntityDescription(
-    #                     key=f"{prefix_key}_model",
-    #                     name=f"{prefix_name} Model",
-    #                     icon="mdi:lan",
-    #                     unit_of_measurement=None,
-    #                 ),
-    #                 endpoint=endpoint,
-    #                 path=f"data.ifaces[{i-1}].label",
-    #                 nas_part_category="Network",
-    #             ),
-    #             UgreenEntity(
-    #                 description=EntityDescription(
-    #                     key=f"{prefix_key}_ip",
-    #                     name=f"{prefix_name} IP",
-    #                     icon="mdi:lan",
-    #                     unit_of_measurement=None,
-    #                 ),
-    #                 endpoint=endpoint,
-    #                 path=f"data.ifaces[{i-1}].ipv4.ipaddr",
-    #                 nas_part_category="Network",
-    #             ),
-    #             UgreenEntity(
-    #                 description=EntityDescription(
-    #                     key=f"{prefix_key}_mac",
-    #                     name=f"{prefix_name} MAC",
-    #                     icon="mdi:lan",
-    #                     unit_of_measurement=None,
-    #                 ),
-    #                 endpoint=endpoint,
-    #                 path=f"data.ifaces[{i-1}].mac",
-    #                 nas_part_category="Network",
-    #             ),
-    #             UgreenEntity(
-    #                 description=EntityDescription(
-    #                     key=f"{prefix_key}_speed",
-    #                     name=f"{prefix_name} Speed",
-    #                     icon="mdi:speedometer",
-    #                     unit_of_measurement="Mb/s",
-    #                 ),
-    #                 endpoint=endpoint,
-    #                 path=f"data.ifaces[{i-1}].speed",
-    #                 nas_part_category="Network",
-    #             ),
-    #             UgreenEntity(
-    #                 description=EntityDescription(
-    #                     key=f"{prefix_key}_mtu",
-    #                     name=f"{prefix_name} MTU",
-    #                     icon="mdi:lan",
-    #                     unit_of_measurement=None,
-    #                 ),
-    #                 endpoint=endpoint,
-    #                 path=f"data.ifaces[{i-1}].mtu",
-    #                 nas_part_category="Network",
-    #             ),
-    #             UgreenEntity(
-    #                 description=EntityDescription(
-    #                     key=f"{prefix_key}_netmask",
-    #                     name=f"{prefix_name} Netmask",
-    #                     icon="mdi:lan",
-    #                     unit_of_measurement=None,
-    #                 ),
-    #                 endpoint=endpoint,
-    #                 path=f"data.ifaces[{i-1}].ipv4.netmask",
-    #                 nas_part_category="Network",
-    #             ),
-    #             UgreenEntity(
-    #                 description=EntityDescription(
-    #                     key=f"{prefix_key}_gateway",
-    #                     name=f"{prefix_name} Gateway",
-    #                     icon="mdi:lan",
-    #                     unit_of_measurement=None,
-    #                 ),
-    #                 endpoint=endpoint,
-    #                 path=f"data.ifaces[{i-1}].ipv4.gateway",
-    #                 nas_part_category="Network",
-    #             ),
-    #             UgreenEntity(
-    #                 description=EntityDescription(
-    #                     key=f"{prefix_key}_dnsserver",
-    #                     name=f"{prefix_name} DNS Server",
-    #                     icon="mdi:lan",
-    #                     unit_of_measurement=None,
-    #                 ),
-    #                 endpoint=endpoint,
-    #                 path=f"data.ifaces[{i-1}].ipv4.dns[0]",
-    #                 nas_part_category="Network",
-    #             ),
-    #         ])
-
-    #     return entities
 
 
     async def _get_dynamic_config_entities_storage(self, session: aiohttp.ClientSession) -> List[UgreenEntity]:
@@ -993,8 +732,7 @@ class UgreenApiClient:
                     prefix_key=f"cache_pool{p_i}",
                     prefix_name=f"(Pool {p_i} | Cache)",
                     endpoint=endpoint_pools,
-                    category="Cache",
-                ))
+                    category="Cache",))
 
                 _add_disk_entities(
                     pool_index=p_i,
