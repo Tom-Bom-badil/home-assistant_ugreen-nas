@@ -1,6 +1,4 @@
-# device_info.py
 import re
-
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from .const import DOMAIN
@@ -15,6 +13,7 @@ _RE_POOL = re.compile(r"^pool(?P<p>\d+)(?:_|$)")
 
 def build_device_info(hass: HomeAssistant, entry_id: str, key: str, model: str | None = None) -> DeviceInfo:
     """Build DeviceInfo anchored to the config entry root device."""
+
     root_id = f"entry:{entry_id}"
     ctx = hass.data.get(DOMAIN, {}).get(entry_id, {})
     root_name = ctx.get("root_device_name") or "UGREEN NAS"

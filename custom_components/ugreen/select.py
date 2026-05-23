@@ -59,6 +59,7 @@ POWER_ACTION_OPTIONS = {
     "Reboot": "power_action_reboot",
 }
 
+
 def _is_owner_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Only the first loaded config entry creates the global dashboard helpers."""
     entries = hass.config_entries.async_entries(DOMAIN)
@@ -154,21 +155,19 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up UGREEN NAS select entities."""
-    data = hass.data[DOMAIN][entry.entry_id]
 
+    data = hass.data[DOMAIN][entry.entry_id]
     entities: list[SelectEntity] = [
         UgreenPowerModeSelect(hass, entry, data["state_coordinator"]),
         UgreenFanModeSelect(hass, entry, data["state_coordinator"]),
     ]
-
     if _is_owner_entry(hass, entry):
         entities.append(UgreenLovelaceDeviceSelect(hass, data["config_coordinator"]))
-
     async_add_entities(entities)
 
 
 class UgreenLovelaceDeviceSelect(CoordinatorEntity, RestoreEntity, SelectEntity):
-    """Global NAS selector for the example dashboard."""
+    """Select for choosing one from all knwon NASes (e.g. example dashboard)."""
 
     def __init__(
         self,
@@ -179,7 +178,6 @@ class UgreenLovelaceDeviceSelect(CoordinatorEntity, RestoreEntity, SelectEntity)
         self.hass = hass
         self._devices: list[dict[str, object]] = []
         self._selected_slug: str = ""
-
         self._attr_name = LOVELACE_DEVICE_SELECT_NAME
         self._attr_unique_id = LOVELACE_DEVICE_SELECT_UNIQUE_ID
         self._attr_icon = "mdi:nas"
@@ -187,10 +185,9 @@ class UgreenLovelaceDeviceSelect(CoordinatorEntity, RestoreEntity, SelectEntity)
 
     async def async_added_to_hass(self) -> None:
         """Restore the previous selection and build the initial list."""
+
         await super().async_added_to_hass()
-
         self._rebuild_devices()
-
         if last_state := await self.async_get_last_state():
             restored_slug = (last_state.attributes or {}).get("selected_slug")
             if isinstance(restored_slug, str) and restored_slug:
@@ -199,16 +196,17 @@ class UgreenLovelaceDeviceSelect(CoordinatorEntity, RestoreEntity, SelectEntity)
                 selected = self._device_by_label(last_state.state)
                 if selected:
                     self._selected_slug = str(selected["slug"])
-
         self._ensure_valid_selection()
         self.async_write_ha_state()
 
     def _rebuild_devices(self) -> None:
         """Rebuild the NAS mapping from current config entries."""
+
         self._devices = _build_devices(self.hass)
 
     def _ensure_valid_selection(self) -> None:
         """Keep the current selection valid after list changes."""
+
         if self._device_by_slug(self._selected_slug):
             return
         self._selected_slug = str(self._devices[0]["slug"]) if self._devices else ""
@@ -304,7 +302,7 @@ class UgreenLovelaceDeviceSelect(CoordinatorEntity, RestoreEntity, SelectEntity)
 
 
 class UgreenPowerModeSelect(CoordinatorEntity, SelectEntity):
-    """Compact select entity that triggers existing UGREEN NAS power mode buttons."""
+    """Select for triggering power mode buttons."""
 
     def __init__(
         self,
@@ -364,7 +362,7 @@ class UgreenPowerModeSelect(CoordinatorEntity, SelectEntity):
 
 
 class UgreenFanModeSelect(CoordinatorEntity, SelectEntity):
-    """Compact select entity that triggers existing UGREEN NAS fan mode buttons."""
+    """Select for triggering fan mode buttons."""
 
     def __init__(
         self,

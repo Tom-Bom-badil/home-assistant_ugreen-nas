@@ -1,9 +1,10 @@
-import logging, contextlib, os, shutil
+import logging
+_LOGGER = logging.getLogger(__name__)
 
+import contextlib, os, shutil
 from datetime import timedelta
 from typing import Any
 from collections import defaultdict
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -12,7 +13,6 @@ from homeassistant.helpers.device_registry import (
     async_get as async_get_device_registry,
     CONNECTION_NETWORK_MAC,
 )
-
 from .utils import get_entity_data_from_api
 from .api import UgreenApiClient
 from .entities import (
@@ -39,11 +39,8 @@ from .const import (
 )
 
 
-_LOGGER = logging.getLogger(__name__)
-
-
 async def async_install_frontend_files(hass: HomeAssistant) -> None:
-    """Copy dashboard frontend files to /www/community/ugreen if needed."""
+    """Copy frontend files to /www/community/ugreen (if needed)."""
 
     def _install() -> None:
         source_dir = hass.config.path("custom_components", DOMAIN, "frontend")
@@ -51,7 +48,6 @@ async def async_install_frontend_files(hass: HomeAssistant) -> None:
         if not os.path.isdir(source_dir):
             _LOGGER.debug("[UGREEN NAS] Frontend source folder not found: %s", source_dir)
             return
-
         os.makedirs(target_dir, exist_ok=True)
         for entry in os.scandir(source_dir):
             if not entry.is_file():
@@ -275,7 +271,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     brand    = "UGREEN"
     model_display = f"{brand} {model}" if model and not model.upper().startswith(brand) else (model or brand)
 
-    ### Migrate config entry unique_id to stable serial-based format if needed 
+    ### Migrate config entry unique_id to stable serial-based format if needed
     if serial:
         new_unique_id = f"ugreen_{serial}"
 

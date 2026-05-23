@@ -1,6 +1,7 @@
 import logging
-import re
+_LOGGER = logging.getLogger(__name__)
 
+import re
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.button import ButtonEntity
@@ -9,14 +10,11 @@ from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-
-
 from .device_info import build_device_info
 from .const import DOMAIN, DEFAULT_ENTITY_PREFIX
 from .api import UgreenApiClient
 from .entities import UgreenEntity
 
-_LOGGER = logging.getLogger(__name__)
 _MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
 
 
@@ -33,21 +31,20 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up UGREEN NAS buttons.."""
+    """Set up UGREEN NAS buttons."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["config_coordinator"]
     entities: list[UgreenEntity] = hass.data[DOMAIN][entry.entry_id]["button_entities"]
     api = hass.data[DOMAIN][entry.entry_id]["api"]
-    # general (see entities.py)
     button_entities = [
-        UgreenNasButton(hass, entry.entry_id, coordinator, entity, api)
+        UgreenNasGenericButton(hass, entry.entry_id, coordinator, entity, api)
         for entity in entities
     ]
-    # specific (see below)
+    # special treatment (see below)
     button_entities.append(UgreenNasWakeOnLanButton(hass, entry.entry_id, coordinator))
     async_add_entities(button_entities)
 
 
-class UgreenNasButton(CoordinatorEntity, ButtonEntity):
+class UgreenNasGenericButton(CoordinatorEntity, ButtonEntity):
     """UGREEN NAS action button backed by UGOS API calls - defined in entities.py."""
 
     def __init__(
