@@ -268,6 +268,15 @@ def scale_bytes_per_second(raw: Any) -> Optional[str]:
         return None
 
 
+def megabits_to_gigabits(raw: Any) -> Decimal | str | None:
+    """Convert link speed from Mbit/s to Gbit/s; hide disconnected ports."""
+    try:
+        speed = Decimal(str(raw).replace(",", "."))
+        return "" if speed == 0 else speed / Decimal(1000)
+    except (ArithmeticError, TypeError, ValueError):
+        return None
+
+
 def extract_value_from_path(data: dict[str, Any], path: str) -> Any:
     """Extract a value from nested dictionary/list structure using dot and index notation."""
     try:
@@ -288,39 +297,63 @@ def extract_value_from_path(data: dict[str, Any], path: str) -> Any:
 async def get_entity_data_from_api(
     api: Any,
     session: Any,
-    endpoint_to_entities: Mapping[str, Iterable[UgreenEntity]]
+    endpoint_to_entities: Mapping[str, Iterable[UgreenEntity]],
 ) -> dict[str, Any]:
     """Fetch data per endpoint and extract values for the given entities."""
     data: dict[str, Any] = {}
+
     for endpoint_str, entities in endpoint_to_entities.items():
         try:
             response = await api.get(session, endpoint_str)
-        except Exception as e:
-            _LOGGER.warning("[UGREEN NAS] Failed to fetch '%s': %s", endpoint_str, e)
+        except Exception as err:
+            _LOGGER.warning(
+                "[UGREEN NAS] Failed to fetch '%s': %s",
+                endpoint_str,
+                err,
+            )
             for entity in entities:
                 data[entity.description.key] = None
             continue
+
         for entity in entities:
             try:
-                value = None  # Ensure value is always defined
-                path = getattr(entity, "path", None)
-                if isinstance(path, str) and not path.startswith("calculated:"):
-                    value = extract_value_from_path(response, path)
-                elif isinstance(path, str):  # 'virtual' endpoints handling
-                    if path.startswith("calculated:ram_total_size"):
-                        value = sum(v for k, v in data.items() if k.startswith("RAM") and k.endswith("_size"))
-                    elif path.startswith("calculated:scale_bytes_per_second:"):
-                        value = scale_bytes_per_second(
-                            extract_value_from_path(response, path.split(":", 2)[2])
-                        )
-                    else:
-                        value = None  # fallback for unknown 'calculated' identifiers
-                data[entity.description.key] = value
-            except Exception as e:
-                _LOGGER.warning("[UGREEN NAS] Failed to extract '%s': %s", entity.description.key, e)
-                data[entity.description.key] = None
-    return data
+                path = entity.path
 
+                if not path.startswith("calculated:"):
+                    value = extract_value_from_path(response, path)
+                elif path.startswith("calculated:ram_total_size"):
+                    value = sum(
+                        value
+                        for key, value in data.items()
+                        if key.startswith("RAM") and key.endswith("_size")
+                    )
+                elif path.startswith("calculated:scale_bytes_per_second:"):
+                    value = scale_bytes_per_second(
+                        extract_value_from_path(response, path.split(":", 2)[2])
+                    )
+                elif path.startswith("calculated:megabits_to_gigabits:"):
+                    value = megabits_to_gigabits(
+                        extract_value_from_path(response, path.split(":", 2)[2])
+                    )
+                elif path.startswith("calculated:empty_if_missing:"):
+                    value = extract_value_from_path(
+                        response,
+                        path.split(":", 2)[2],
+                    )
+                    value = "" if value is None else value
+                else:
+                    value = None # fallback for unknown 'calculated' identifiers
+
+                data[entity.description.key] = value
+            except Exception as err:
+                _LOGGER.warning(
+                    "[UGREEN NAS] Failed to extract '%s': %s",
+                    entity.description.key,
+                    err,
+                )
+                data[entity.description.key] = None
+
+    return data
 
 def apply_templates(templates: Iterable[UgreenEntity], **fmt: Any) -> List[UgreenEntity]:
     """Create UgreenEntity objects by filling placeholders in templates.

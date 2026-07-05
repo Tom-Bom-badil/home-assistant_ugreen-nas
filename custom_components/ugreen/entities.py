@@ -114,7 +114,7 @@ def NAS_SPECIFIC_STATUS_REGISTRY() -> list[dict[str, Any]]:
             key="LAN",
             kind="count",
             templates=NAS_SPECIFIC_STATUS_TEMPLATES_LAN,
-            endpoint="/ugreen/v1/taskmgr/stat/get_all",
+            endpoint="/ugreen/v1/taskmgr/stat/net",
             count=lambda c: int(c.get("num_nics", 0)),
             prefix_key_base="lan",
             prefix_name_base="LAN",
@@ -547,7 +547,7 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
         nas_part_category="Hardware",
     ),
 
-    ### LAN (net.overview = first element, overall)
+    ### LAN (taskmgr/stat/net series[0] = overview)
     UgreenEntity(
         description=EntityDescription(
             key="overall_lan_upload_raw",
@@ -555,8 +555,8 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
             icon="mdi:upload-network",
             unit_of_measurement=UnitOfDataRate.BYTES_PER_SECOND,
         ),
-        endpoint="/ugreen/v1/taskmgr/stat/get_all",
-        path="data.net.series[0].send_rate",
+        endpoint="/ugreen/v1/taskmgr/stat/net",
+        path="data.series[0].send_rate",
         nas_part_category="Status",
     ),
     UgreenEntity(
@@ -566,8 +566,8 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
             icon="mdi:upload-network",
             unit_of_measurement=None,
         ),
-        endpoint="/ugreen/v1/taskmgr/stat/get_all",
-        path="calculated:scale_bytes_per_second:data.net.series[0].send_rate",
+        endpoint="/ugreen/v1/taskmgr/stat/net",
+        path="calculated:scale_bytes_per_second:data.series[0].send_rate",
         nas_part_category="Status",
     ),
     UgreenEntity(
@@ -577,8 +577,8 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
             icon="mdi:download-network",
             unit_of_measurement=UnitOfDataRate.BYTES_PER_SECOND,
         ),
-        endpoint="/ugreen/v1/taskmgr/stat/get_all",
-        path="data.net.series[0].recv_rate",
+        endpoint="/ugreen/v1/taskmgr/stat/net",
+        path="data.series[0].recv_rate",
         nas_part_category="Status",
     ),
     UgreenEntity(
@@ -588,8 +588,8 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
             icon="mdi:download-network",
             unit_of_measurement=None,
         ),
-        endpoint="/ugreen/v1/taskmgr/stat/get_all",
-        path="calculated:scale_bytes_per_second:data.net.series[0].recv_rate",
+        endpoint="/ugreen/v1/taskmgr/stat/net",
+        path="calculated:scale_bytes_per_second:data.series[0].recv_rate",
         nas_part_category="Status",
     ),
 
@@ -869,11 +869,14 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_LAN: List[UgreenEntity] = [ # -- LAN --
             key="{prefix_key}_speed",
             name="{prefix_name} Speed",
             icon="mdi:speedometer",
-            unit_of_measurement="Mb/s",
+            unit_of_measurement="Gb/s",
         ),
         endpoint="{endpoint}",
-        path="data.ifaces[{iface_index}].speed",
-        decimal_places=0,
+        path=(
+            "calculated:megabits_to_gigabits:"
+            "data.ifaces[{iface_index}].speed"
+        ),
+        decimal_places=1,
         nas_part_category="{category}",
     ),
     UgreenEntity(
@@ -918,7 +921,7 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_LAN: List[UgreenEntity] = [ # -- LAN --
             unit_of_measurement=None,
         ),
         endpoint="{endpoint}",
-        path="data.ifaces[{iface_index}].ipv4.dns[0]",
+        path="calculated:empty_if_missing:data.ifaces[{iface_index}].ipv4.dns[0]",
         nas_part_category="{category}",
     ),
 ]
@@ -935,7 +938,7 @@ NAS_SPECIFIC_STATUS_TEMPLATES_LAN: List[UgreenEntity] = [
             unit_of_measurement="B/s",
         ),
         endpoint="{endpoint}",
-        path="data.net.series[{series_index}].send_rate",
+        path="data.series[{series_index}].send_rate",
         decimal_places=0,
         nas_part_category="Status",
     ),
@@ -947,7 +950,7 @@ NAS_SPECIFIC_STATUS_TEMPLATES_LAN: List[UgreenEntity] = [
             unit_of_measurement="B/s",
         ),
         endpoint="{endpoint}",
-        path="data.net.series[{series_index}].recv_rate",
+        path="data.series[{series_index}].recv_rate",
         decimal_places=0,
         nas_part_category="Status",
     ),
@@ -960,7 +963,7 @@ NAS_SPECIFIC_STATUS_TEMPLATES_LAN: List[UgreenEntity] = [
             unit_of_measurement=None,
         ),
         endpoint="{endpoint}",
-        path="calculated:scale_bytes_per_second:data.net.series[{series_index}].send_rate",
+        path="calculated:scale_bytes_per_second:data.series[{series_index}].send_rate",
         decimal_places=0,
         nas_part_category="Status",
     ),
@@ -972,7 +975,7 @@ NAS_SPECIFIC_STATUS_TEMPLATES_LAN: List[UgreenEntity] = [
             unit_of_measurement=None,
         ),
         endpoint="{endpoint}",
-        path="calculated:scale_bytes_per_second:data.net.series[{series_index}].recv_rate",
+        path="calculated:scale_bytes_per_second:data.series[{series_index}].recv_rate",
         decimal_places=0,
         nas_part_category="Status",
     ),
