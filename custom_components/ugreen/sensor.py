@@ -252,31 +252,6 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
         })
         return base_attrs
 
-    # @property
-    # def native_unit_of_measurement(self) -> str | None:
-    #     """Return the unit, keeping raw unscaled and leaving calculated values unitless."""
-    #     raw = self.coordinator.data.get(self._key)
-    #     unit = self._endpoint.description.unit_of_measurement
-    #     name = self._endpoint.description.name or ""
-    #     path = getattr(self._endpoint, "path", "")
-
-    #     # 1) Explicit RAW sensors: keep declared unit (e.g., "B/s")
-    #     if isinstance(name, str) and "(raw)" in name.lower():
-    #         return unit
-
-    #     # 2) Calculated, human-readable strings (unit embedded in state): no unit attribute
-    #     if isinstance(path, str) and path.startswith("calculated:scale_bytes_per_second"):
-    #         return None
-
-    #     # 3) Dynamic scaling for real numeric units (non-calculated)
-    #     if unit in ("B/s", "kB/s", "MB/s", "GB/s", "TB/s", "PB/s"):
-    #         return determine_unit(raw, str(unit), True)
-    #     if unit in ("B", "kB", "MB", "GB", "TB", "PB"):
-    #         return determine_unit(raw, str(unit), False)
-
-    #     # 4) Everything else: keep as-is (including None for text attributes)
-    #     return unit
-
 
     @property
     def native_unit_of_measurement(self) -> str | None:

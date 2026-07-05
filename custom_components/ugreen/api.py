@@ -37,6 +37,32 @@ from .entities import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def _find_disk_index(
+    disk: dict[str, Any],
+    disk_list: list[dict[str, Any]],
+) -> int | None:
+    """Return the matching global disk index by slot, device name, or label."""
+
+    def _normalize(key: str, value: Any) -> str:
+        value = str(value or "").strip().casefold()
+        return value.removeprefix("/dev/") if key in ("dev_name", "name") else value
+
+    for keys in (("slot",), ("dev_name", "name"), ("label",)):
+        expected = {_normalize(key, disk.get(key)) for key in keys} - {""}
+        if not expected:
+            continue
+
+        for index, candidate in enumerate(disk_list):
+            actual = {
+                _normalize(key, (candidate or {}).get(key))
+                for key in keys
+            } - {""}
+            if expected & actual:
+                return index
+
+    return None
+
+
 class UgreenApiClient:
 
     ### Initialization
@@ -667,11 +693,6 @@ class UgreenApiClient:
 
         disk_resp = await self.get(session, endpoint_disk)
         disk_list = ((disk_resp or {}).get("data", {}) or {}).get("result", []) or []
-        dev_index: dict[str, int] = {}
-        for idx, d in enumerate(disk_list):
-            name = (d or {}).get("dev_name") or (d or {}).get("name")
-            if isinstance(name, str) and name:
-                dev_index[name] = idx
 
         # 3) Create entities for disks (pool + optional cache) and volumes
         def _add_disk_entities(
@@ -683,12 +704,15 @@ class UgreenApiClient:
             category: str,
         ) -> None:
             for d_i, disk in enumerate(disks or []):
-                dev_name = (disk or {}).get("dev_name") or (disk or {}).get("name")
-                if not dev_name:
-                    continue
-                global_idx = dev_index.get(dev_name)
+                global_idx = _find_disk_index(disk, disk_list)
                 if global_idx is None:
-                    _LOGGER.debug("[UGREEN NAS] dev_name '%s' not found in global disk list", dev_name)
+                    _LOGGER.debug(
+                        "[UGREEN NAS] Disk '%s' not found in global disk list",
+                        (disk or {}).get("slot")
+                        or (disk or {}).get("dev_name")
+                        or (disk or {}).get("name")
+                        or (disk or {}).get("label"),
+                    )
                     continue
 
                 entities.extend(apply_templates(
@@ -771,24 +795,24 @@ class UgreenApiClient:
             _LOGGER.debug("[UGREEN NAS] No pools in %s response", endpoint_pools)
             return []
 
-        # Global disk list to map dev_name -> global index (matches series order)
+        # Global disk list defines the series order used by status endpoints.
         disk_resp = await self.get(session, endpoint_disks)
         disk_list = ((disk_resp or {}).get("data", {}) or {}).get("result", []) or []
-        dev_index: dict[str, int] = {}
-        for idx, d in enumerate(disk_list):
-            name = (d or {}).get("dev_name") or (d or {}).get("name")
-            if isinstance(name, str) and name:
-                dev_index[name] = idx  # 0-based
 
         entities: list[UgreenEntity] = []
         # Iterate pools and their member disks to get (p_i, d_i) for the key and global_idx for series_index
         for p_i, pool in enumerate(pools, start=1):
             for d_i, d in enumerate((pool or {}).get("disks") or [], start=1):
-                dev_name = (d or {}).get("dev_name") or (d or {}).get("name")
-                if dev_name not in dev_index:
-                    _LOGGER.debug("[UGREEN NAS] dev_name '%s' not found in global disk list", dev_name)
+                global_idx = _find_disk_index(d, disk_list)
+                if global_idx is None:
+                    _LOGGER.debug(
+                        "[UGREEN NAS] Disk '%s' not found in global disk list",
+                        (d or {}).get("slot")
+                        or (d or {}).get("dev_name")
+                        or (d or {}).get("name")
+                        or (d or {}).get("label"),
+                    )
                     continue
-                global_idx = dev_index[dev_name]
 
                 entities.extend(apply_templates(
                     NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK,
@@ -814,11 +838,6 @@ class UgreenApiClient:
 
         disk_resp = await self.get(session, endpoint_disk)
         disk_list = ((disk_resp or {}).get("data", {}) or {}).get("result", []) or []
-        dev_index: dict[str, int] = {}
-        for idx, d in enumerate(disk_list):
-            name = (d or {}).get("dev_name") or (d or {}).get("name")
-            if isinstance(name, str) and name:
-                dev_index[name] = idx
 
         entities: List[UgreenEntity] = []
 
@@ -828,11 +847,9 @@ class UgreenApiClient:
                 continue
 
             for cd_i, cd in enumerate(cache.get("disks") or [], start=1):
-                dev_name = (cd or {}).get("dev_name") or (cd or {}).get("name")
-                if dev_name not in dev_index:
+                global_idx = _find_disk_index(cd, disk_list)
+                if global_idx is None:
                     continue
-
-                global_idx = dev_index[dev_name]
                 global_series_index = global_idx + 1
 
                 entities.extend(apply_templates(
