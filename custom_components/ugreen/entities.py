@@ -593,7 +593,7 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
         nas_part_category="Status",
     ),
 
-    ### Disks (disk.series only = first element, overall)
+    ### Disks (storage/disk/iops result[0] = overview)
     UgreenEntity(
         description=EntityDescription(
             key="overall_disk_read_rate_raw",
@@ -601,8 +601,8 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
             icon="mdi:harddisk",
             unit_of_measurement=UnitOfDataRate.BYTES_PER_SECOND,
         ),
-        endpoint="/ugreen/v1/taskmgr/stat/get_all",
-        path="data.disk.series[0].read_rate",
+        endpoint="/ugreen/v1/storage/disk/iops?type=1",
+        path="data.result[0].read_speed",
         nas_part_category="Status",
     ),
     UgreenEntity(
@@ -612,8 +612,8 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
             icon="mdi:harddisk",
             unit_of_measurement=None,
         ),
-        endpoint="/ugreen/v1/taskmgr/stat/get_all",
-        path="calculated:scale_bytes_per_second:data.disk.series[0].read_rate",
+        endpoint="/ugreen/v1/storage/disk/iops?type=1",
+        path="calculated:scale_bytes_per_second:data.result[0].read_speed",
         nas_part_category="Status",
     ),
     UgreenEntity(
@@ -623,8 +623,8 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
             icon="mdi:harddisk",
             unit_of_measurement=UnitOfDataRate.BYTES_PER_SECOND,
         ),
-        endpoint="/ugreen/v1/taskmgr/stat/get_all",
-        path="data.disk.series[0].write_rate",
+        endpoint="/ugreen/v1/storage/disk/iops?type=1",
+        path="data.result[0].write_speed",
         nas_part_category="Status",
     ),
     UgreenEntity(
@@ -634,12 +634,12 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
             icon="mdi:harddisk",
             unit_of_measurement=None,
         ),
-        endpoint="/ugreen/v1/taskmgr/stat/get_all",
-        path="calculated:scale_bytes_per_second:data.disk.series[0].write_rate",
+        endpoint="/ugreen/v1/storage/disk/iops?type=1",
+        path="calculated:scale_bytes_per_second:data.result[0].write_speed",
         nas_part_category="Status",
     ),
 
-    ### Volumes (volume.series only = first element, overall)
+    ### Volumes (storage/volume/iops result[0] = overview)
     UgreenEntity(
         description=EntityDescription(
             key="overall_volume_read_rate_raw",
@@ -647,8 +647,8 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
             icon="mdi:harddisk",
             unit_of_measurement=UnitOfDataRate.BYTES_PER_SECOND,
         ),
-        endpoint="/ugreen/v1/taskmgr/stat/get_all",
-        path="data.volume.series[0].read_rate",
+        endpoint="/ugreen/v1/storage/volume/iops?type=1",
+        path="data.result[0].read_speed",
         nas_part_category="Status",
     ),
     UgreenEntity(
@@ -658,8 +658,8 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
             icon="mdi:harddisk",
             unit_of_measurement=None,
         ),
-        endpoint="/ugreen/v1/taskmgr/stat/get_all",
-        path="calculated:scale_bytes_per_second:data.volume.series[0].read_rate",
+        endpoint="/ugreen/v1/storage/volume/iops?type=1",
+        path="calculated:scale_bytes_per_second:data.result[0].read_speed",
         nas_part_category="Status",
     ),
     UgreenEntity(
@@ -669,8 +669,8 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
             icon="mdi:harddisk",
             unit_of_measurement=UnitOfDataRate.BYTES_PER_SECOND,
         ),
-        endpoint="/ugreen/v1/taskmgr/stat/get_all",
-        path="data.volume.series[0].write_rate",
+        endpoint="/ugreen/v1/storage/volume/iops?type=1",
+        path="data.result[0].write_speed",
         nas_part_category="Status",
     ),
     UgreenEntity(
@@ -680,8 +680,8 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
             icon="mdi:harddisk",
             unit_of_measurement=None,
         ),
-        endpoint="/ugreen/v1/taskmgr/stat/get_all",
-        path="calculated:scale_bytes_per_second:data.volume.series[0].write_rate",
+        endpoint="/ugreen/v1/storage/volume/iops?type=1",
+        path="calculated:scale_bytes_per_second:data.result[0].write_speed",
         nas_part_category="Status",
     ),
 ]
@@ -1566,8 +1566,8 @@ NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [
             icon="mdi:download",
             unit_of_measurement=UnitOfDataRate.BYTES_PER_SECOND,
         ),
-        endpoint="{endpoint}",
-        path="data.disk.series[{series_index}].read_rate",
+        endpoint="/ugreen/v1/storage/disk/iops?type=1",
+        path="data.result[{series_index}].read_speed",
         decimal_places=0,
         nas_part_category="Status",
     ),
@@ -1578,8 +1578,8 @@ NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [
             icon="mdi:download",
             unit_of_measurement=None,
         ),
-        endpoint="{endpoint}",
-        path="calculated:scale_bytes_per_second:data.disk.series[{series_index}].read_rate",
+        endpoint="/ugreen/v1/storage/disk/iops?type=1",
+        path="calculated:scale_bytes_per_second:data.result[{series_index}].read_speed",
         decimal_places=0,
         nas_part_category="Status",
     ),
@@ -1590,8 +1590,8 @@ NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [
             icon="mdi:upload",
             unit_of_measurement=UnitOfDataRate.BYTES_PER_SECOND,
         ),
-        endpoint="{endpoint}",
-        path="data.disk.series[{series_index}].write_rate",
+        endpoint="/ugreen/v1/storage/disk/iops?type=1",
+        path="data.result[{series_index}].write_speed",
         decimal_places=0,
         nas_part_category="Status",
     ),
@@ -1602,8 +1602,8 @@ NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [
             icon="mdi:upload",
             unit_of_measurement=None,
         ),
-        endpoint="{endpoint}",
-        path="calculated:scale_bytes_per_second:data.disk.series[{series_index}].write_rate",
+        endpoint="/ugreen/v1/storage/disk/iops?type=1",
+        path="calculated:scale_bytes_per_second:data.result[{series_index}].write_speed",
         decimal_places=0,
         nas_part_category="Status",
     ),
