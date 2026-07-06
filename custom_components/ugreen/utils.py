@@ -1,7 +1,7 @@
 import logging, re
 
 from typing import Any, Optional, Union, Iterable, List, Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from homeassistant.helpers.entity import EntityDescription
 from .entities import UgreenEntity
@@ -109,6 +109,14 @@ def format_timestamp(raw: Any) -> str:
     except Exception:
         return "Invalid timestamp"
 
+def format_unix_timestamp(raw: Any) -> datetime | None:
+    """Return a timezone-aware UTC datetime for a positive Unix timestamp."""
+    try:
+        timestamp = float(raw)
+        return datetime.fromtimestamp(timestamp, tz=timezone.utc) if timestamp > 0 else None
+    except (TypeError, ValueError, OSError, OverflowError):
+        return None
+
 def format_status_code(raw: Any, status_map: dict[int, str]) -> str:
     """Format a raw status code to a human-readable string."""
     try:
@@ -145,6 +153,9 @@ def convert_string_to_number(value: Union[str, int, float, Decimal], decimal_pla
 def format_sensor_value(raw: Any, endpoint: UgreenEntity) -> Any:
     """Format a raw value based on the endpoint definition."""
     try:
+
+        if endpoint.description.key.endswith(("_smart_last_test", "_smart_next_test")):
+            return format_unix_timestamp(raw)
 
         if isinstance(endpoint.description.name, str) and "Timestamp" in endpoint.description.name:
             return format_timestamp(raw)
@@ -190,10 +201,26 @@ def format_sensor_value(raw: Any, endpoint: UgreenEntity) -> Any:
                 1: "On",
             })
 
-        if "disk" in endpoint.description.key and "status" in endpoint.description.key:
-        # Web GUI .js states: "0":"Normal","1":"Warnung","2":"Gefährlich","3":"Schwerwiegend"
+        if endpoint.description.key.endswith("_smart_last_result"):
             return format_status_code(raw, {
-                1: "Normal",   # Note: Normal operation is always returning "1" here - different to Web GUI???!!!
+                0: "Unsupported",
+                1: "Normal",
+                2: "Warning",
+                3: "Critical",
+                4: "Not tested",
+                5: "Test failed",
+                6: "Test interrupted",
+                7: "Corrupted",
+            })
+
+        if "disk" in endpoint.description.key and "status" in endpoint.description.key:
+            return format_status_code(raw, {
+                0: "Undetectable",
+                1: "Normal",
+                2: "Warning",
+                3: "Critical",
+                4: "Failure",
+                5: "Locked",
             })
 
         if "disk" in endpoint.description.key and not "interface" in endpoint.description.key and "type" in endpoint.description.key:
@@ -294,6 +321,15 @@ def extract_value_from_path(data: dict[str, Any], path: str) -> Any:
         return None
 
 
+def _last_smart_detection(data: dict[str, Any]) -> dict[str, Any]:
+    """Return the latest SMART detection entry selected by the UGOS UI."""
+    results = ((data or {}).get("data", {}) or {}).get("result", []) or []
+    return next(
+        (item for item in results if isinstance(item, dict) and str(item.get("type")) == "0"),
+        {},
+    )
+
+
 async def get_entity_data_from_api(
     api: Any,
     session: Any,
@@ -341,6 +377,8 @@ async def get_entity_data_from_api(
                         path.split(":", 2)[2],
                     )
                     value = "" if value is None else value
+                elif path.startswith("calculated:last_smart_detection:"):
+                    value = _last_smart_detection(response).get(path.rsplit(":", 1)[1])
                 else:
                     value = None # fallback for unknown 'calculated' identifiers
 

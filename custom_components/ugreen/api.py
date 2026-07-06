@@ -29,6 +29,7 @@ from .entities import (
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_POOL,
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_VOLUME,
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK,
+    NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK_DETAILS,
     NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK,
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_CACHE,
 )
@@ -715,12 +716,43 @@ class UgreenApiClient:
                     )
                     continue
 
+                prefix_key = f"{prefix_key_base}{d_i+1}_pool{pool_index}"
+                prefix_name = f"(Pool {pool_index} | {prefix_name_base} {d_i+1})"
                 entities.extend(apply_templates(
                     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK,
                     series_index=global_idx,
-                    prefix_key=f"{prefix_key_base}{d_i+1}_pool{pool_index}",
-                    prefix_name=f"(Pool {pool_index} | {prefix_name_base} {d_i+1})",
+                    pool_index0=pool_index - 1,
+                    prefix_key=prefix_key,
+                    prefix_name=prefix_name,
                     endpoint=endpoint_disk,
+                    pool_endpoint=endpoint_pools,
+                    category=category,
+                ))
+
+                disk_info = disk_list[global_idx] or {}
+                device = str(
+                    disk_info.get("dev_name")
+                    or disk_info.get("name")
+                    or (disk or {}).get("dev_name")
+                    or (disk or {}).get("name")
+                    or ""
+                ).strip()
+                if not device:
+                    _LOGGER.debug(
+                        "[UGREEN NAS] Disk '%s' has no device path; SMART entities skipped",
+                        (disk or {}).get("slot") or (disk or {}).get("label"),
+                    )
+                    continue
+                if not device.startswith("/dev/"):
+                    device = f"/dev/{device}"
+
+                entities.extend(apply_templates(
+                    NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK_DETAILS,
+                    prefix_key=prefix_key,
+                    prefix_name=prefix_name,
+                    attribute_endpoint=f"/ugreen/v1/storage/disk/attribute?disk={device}",
+                    detection_endpoint=f"/ugreen/v1/storage/disk/detection/list?disk={device}",
+                    smart_endpoint=f"/ugreen/v1/storage/disk/smart/info?disk={device}",
                     category=category,
                 ))
 

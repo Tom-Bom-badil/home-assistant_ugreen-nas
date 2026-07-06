@@ -834,7 +834,7 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_LAN: List[UgreenEntity] = [ # -- LAN --
     UgreenEntity(
         description=EntityDescription(
             key="{prefix_key}_model",
-            name="{prefix_name} Model",
+            name="{prefix_name} Mode",
             icon="mdi:lan",
             unit_of_measurement=None,
         ),
@@ -1298,7 +1298,7 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_VOLUME: List[UgreenEntity] = [ # -- vol --
     UgreenEntity(
         description=EntityDescription(
             key="{prefix_key}_poolname",
-            name="{prefix_name} Pool Name",
+            name="{prefix_name} On Pool",
             icon="mdi:database",
             unit_of_measurement=None,
         ),
@@ -1506,12 +1506,12 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [ # -- disks --
     UgreenEntity(
         description=EntityDescription(
             key="{prefix_key}_used_for",
-            name="{prefix_name} Used For",
+            name="{prefix_name} Used In",
             icon="mdi:database-marker",
             unit_of_measurement=None,
         ),
-        endpoint="{endpoint}",
-        path="data.result[{series_index}].used_for",
+        endpoint="{pool_endpoint}",
+        path="data.result[{pool_index0}].name",
         nas_part_category="Disks",
     ),
     UgreenEntity(
@@ -1547,6 +1547,64 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [ # -- disks --
         path="data.result[{series_index}].brand",
         nas_part_category="Disks",
     )
+]
+
+NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK_DETAILS: List[UgreenEntity] = [
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_firmware",
+            name="{prefix_name} Firmware",
+            icon="mdi:chip",
+            unit_of_measurement=None,
+        ),
+        endpoint="{attribute_endpoint}",
+        path="data.firmware",
+        nas_part_category="Disks",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_power_on_count",
+            name="{prefix_name} Power-On Count",
+            icon="mdi:counter",
+            unit_of_measurement=None,
+        ),
+        endpoint="{attribute_endpoint}",
+        path="data.power_on_count",
+        nas_part_category="Disks",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_smart_last_result",
+            name="{prefix_name} SMART Last Result",
+            icon="mdi:check-circle-outline",
+            unit_of_measurement=None,
+        ),
+        endpoint="{detection_endpoint}",
+        path="calculated:last_smart_detection:status",
+        nas_part_category="Disks",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_smart_last_test",
+            name="{prefix_name} SMART Last Date",
+            icon="mdi:calendar-clock",
+            unit_of_measurement=None,
+        ),
+        endpoint="{detection_endpoint}",
+        path="calculated:last_smart_detection:time",
+        nas_part_category="Disks",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_smart_next_test",
+            name="{prefix_name} SMART Next Date",
+            icon="mdi:calendar-clock",
+            unit_of_measurement=None,
+        ),
+        endpoint="{smart_endpoint}",
+        path="data.last.next_time",
+        nas_part_category="Disks",
+    ),
 ]
 
 NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [
