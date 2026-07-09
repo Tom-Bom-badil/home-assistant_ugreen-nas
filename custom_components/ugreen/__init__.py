@@ -32,6 +32,7 @@ from .const import (
     CONF_STATE_INTERVAL,
     CONF_WS_INTERVAL,
     CONF_ENTITY_PREFIX,
+    CONF_STANDALONE_DISKS,
     DEFAULT_SCAN_INTERVAL_STATE,
     DEFAULT_SCAN_INTERVAL_CONFIG,
     DEFAULT_SCAN_INTERVAL_WS,
@@ -74,6 +75,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.debug("[UGREEN NAS] Setting up config entry: %s", entry.entry_id)
     hass.data.setdefault(DOMAIN, {})
     session = async_get_clientsession(hass)
+    standalone_disks = entry.data.get(CONF_STANDALONE_DISKS, [])
+    standalone_disks = standalone_disks if isinstance(standalone_disks, list) else []
 
     # Read configuration from entry (options override data)
     api = UgreenApiClient(
@@ -82,6 +85,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         username=entry.options.get(CONF_USERNAME, entry.data.get(CONF_USERNAME)),
         password=entry.options.get(CONF_PASSWORD, entry.data.get(CONF_PASSWORD)),
         use_https=bool(entry.options.get(CONF_USE_HTTPS, entry.data.get(CONF_USE_HTTPS, False))),
+        standalone_disks=standalone_disks,
     )
 
     ### Initial authentication
@@ -172,6 +176,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "button_entities": ALL_NAS_COMMON_BUTTON_ENTITIES,
         "dynamic_entity_counts": dynamic_entity_counts,
         "api": api,
+        "standalone_disks": standalone_disks,
     }
 
     ### Initial entities refresh and start of keep-alive websocket

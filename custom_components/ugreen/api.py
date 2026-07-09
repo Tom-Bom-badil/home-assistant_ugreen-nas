@@ -38,30 +38,164 @@ from .entities import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def _normalize_disk_value(key: str, value: Any) -> str:
+    """Normalize a disk identifier for cross-endpoint matching."""
+    value = str(value or "").strip().casefold()
+    return value.removeprefix("/dev/") if key in ("dev_name", "name") else value
+
+
 def _find_disk_index(
     disk: dict[str, Any],
     disk_list: list[dict[str, Any]],
 ) -> int | None:
     """Return the matching global disk index by slot, device name, or label."""
-
-    def _normalize(key: str, value: Any) -> str:
-        value = str(value or "").strip().casefold()
-        return value.removeprefix("/dev/") if key in ("dev_name", "name") else value
-
     for keys in (("slot",), ("dev_name", "name"), ("label",)):
-        expected = {_normalize(key, disk.get(key)) for key in keys} - {""}
+        expected = {_normalize_disk_value(key, disk.get(key)) for key in keys} - {""}
         if not expected:
             continue
 
         for index, candidate in enumerate(disk_list):
             actual = {
-                _normalize(key, (candidate or {}).get(key))
+                _normalize_disk_value(key, (candidate or {}).get(key))
                 for key in keys
             } - {""}
             if expected & actual:
                 return index
 
     return None
+
+
+def _find_standalone_disk_index(
+    disk: dict[str, Any],
+    disk_list: list[dict[str, Any]],
+) -> int | None:
+    """Resolve a stored stand-alone disk without rebinding a replaced drive."""
+    serial = _normalize_disk_value("serial", disk.get("serial"))
+    if serial:
+        return next(
+            (
+                index
+                for index, candidate in enumerate(disk_list)
+                if _normalize_disk_value("serial", (candidate or {}).get("serial")) == serial
+            ),
+            None,
+        )
+    return _find_disk_index(disk, disk_list)
+
+
+def _iter_disk_references(value: Any):
+    """Yield disk-like dictionaries from pool/cache/spare structures."""
+    if isinstance(value, str):
+        if value.strip():
+            yield {"dev_name": value}
+        return
+
+    if isinstance(value, list):
+        for item in value:
+            yield from _iter_disk_references(item)
+        return
+
+    if not isinstance(value, dict):
+        return
+
+    name = str(value.get("name") or "").strip()
+    if value.get("serial") or value.get("slot") or value.get("dev_name") or name.startswith("/dev/"):
+        yield value
+
+    for key in ("disk", "disks"):
+        nested = value.get(key)
+        if nested is not None:
+            yield from _iter_disk_references(nested)
+
+
+def _assigned_disk_indexes(
+    pools: list[dict[str, Any]],
+    disk_list: list[dict[str, Any]],
+) -> set[int]:
+    """Return global indexes of disks assigned to pools, caches, or spares."""
+    indexes: set[int] = set()
+    for pool in pools:
+        pool = pool or {}
+        references: list[Any] = [pool.get("disks")]
+        cache = pool.get("cache")
+        if isinstance(cache, dict):
+            references.append(cache.get("disks"))
+        references.extend(
+            pool.get(key)
+            for key in ("spare", "spares", "hot_spare", "hot_spares")
+        )
+
+        for reference in references:
+            for disk in _iter_disk_references(reference):
+                index = _find_disk_index(disk, disk_list)
+                if index is not None:
+                    indexes.add(index)
+    return indexes
+
+
+_STANDALONE_DISK_FIELDS = (
+    "serial",
+    "slot",
+    "dev_name",
+    "name",
+    "label",
+    "brand",
+    "manufacturer",
+    "model",
+)
+
+
+def _standalone_disk_record(disk: dict[str, Any], number: int) -> dict[str, Any]:
+    """Build a persistent, JSON-safe stand-alone disk record."""
+    record: dict[str, Any] = {"number": number}
+    for field in _STANDALONE_DISK_FIELDS:
+        value = disk.get(field)
+        if value not in (None, ""):
+            record[field] = value
+    return record
+
+
+def merge_standalone_disks(
+    stored: list[dict[str, Any]],
+    detected: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Keep stable numbers and append only newly detected stand-alone disks."""
+    merged: list[dict[str, Any]] = []
+    used_numbers: set[int] = set()
+
+    for item in stored:
+        if not isinstance(item, dict):
+            continue
+        try:
+            number = int(item.get("number"))
+        except (TypeError, ValueError):
+            continue
+        if number < 1 or number in used_numbers:
+            continue
+        used_numbers.add(number)
+        merged.append(_standalone_disk_record(item, number))
+
+    next_number = max(used_numbers, default=0) + 1
+    for disk in detected:
+        if not isinstance(disk, dict):
+            continue
+        existing = next(
+            (
+                record
+                for record in merged
+                if _find_standalone_disk_index(record, [disk]) == 0
+            ),
+            None,
+        )
+        if existing is not None:
+            updated = _standalone_disk_record(disk, int(existing["number"]))
+            existing.update(updated)
+            continue
+
+        merged.append(_standalone_disk_record(disk, next_number))
+        next_number += 1
+
+    return sorted(merged, key=lambda item: int(item["number"]))
 
 
 class UgreenApiClient:
@@ -76,6 +210,7 @@ class UgreenApiClient:
         token: str = "",
         use_https: bool = False,
         otp: bool = False,
+        standalone_disks: list[dict[str, Any]] | None = None,
     ):
 
         # Derived connection attributes for HTTP/WS usage
@@ -89,6 +224,9 @@ class UgreenApiClient:
         self.password = password
         self.token = token
         self.otp = otp
+        self.standalone_disks = [
+            disk for disk in (standalone_disks or []) if isinstance(disk, dict)
+        ]
 
         # Auth state
         self._login_lock = asyncio.Lock()
@@ -154,6 +292,48 @@ class UgreenApiClient:
     def get_dynamic_entity_counts(self) -> dict[str, Any]:
         """Return above counted number of dynamic entities on request."""
         return self._dynamic_entity_counts or {}
+
+
+    async def get_unassigned_disks(
+        self,
+        session: aiohttp.ClientSession,
+    ) -> list[dict[str, Any]]:
+        """Return disks not assigned to a pool, cache, or spare role."""
+        pools_resp = await self.get(session, "/ugreen/v1/storage/pool/list")
+        disks_resp = await self.get(session, "/ugreen/v2/storage/disk/list")
+        if (pools_resp or {}).get("code") != 200:
+            raise RuntimeError("Unable to read storage pools")
+        if (disks_resp or {}).get("code") != 200:
+            raise RuntimeError("Unable to read global disk list")
+
+        pools = ((pools_resp.get("data") or {}).get("result") or [])
+        disks = ((disks_resp.get("data") or {}).get("result") or [])
+        assigned = _assigned_disk_indexes(pools, disks)
+        return [disk for index, disk in enumerate(disks) if index not in assigned]
+
+
+    def _active_standalone_disks(
+        self,
+        pools: list[dict[str, Any]],
+        disk_list: list[dict[str, Any]],
+    ) -> list[tuple[int, int, dict[str, Any]]]:
+        """Return configured stand-alone disks that remain physically unassigned."""
+        assigned = _assigned_disk_indexes(pools, disk_list)
+        active: list[tuple[int, int, dict[str, Any]]] = []
+        used_indexes: set[int] = set()
+
+        for record in self.standalone_disks:
+            try:
+                number = int(record.get("number"))
+            except (TypeError, ValueError):
+                continue
+            index = _find_standalone_disk_index(record, disk_list)
+            if number < 1 or index is None or index in assigned or index in used_indexes:
+                continue
+            used_indexes.add(index)
+            active.append((number, index, disk_list[index] or {}))
+
+        return sorted(active, key=lambda item: item[0])
 
 
     ### Internal functions ##############################################
@@ -665,37 +845,103 @@ class UgreenApiClient:
 
 
     async def _get_dynamic_config_entities_storage(self, session: aiohttp.ClientSession) -> List[UgreenEntity]:
-        """Create STORAGE config entities (templated): Pools, Disks inside Pools, Volumes inside Pools."""
-
+        """Create pool, volume, assigned disk, and opted-in stand-alone disk entities."""
         endpoint_pools = "/ugreen/v1/storage/pool/list"
-        endpoint_disk  = "/ugreen/v2/storage/disk/list"
+        endpoint_disk = "/ugreen/v2/storage/disk/list"
 
         pools_resp = await self.get(session, endpoint_pools)
-        results = ((pools_resp or {}).get("data", {}) or {}).get("result", []) or []
-        if not results:
-            _LOGGER.debug("[UGREEN NAS] No pools in %s response", endpoint_pools)
-            return []
-
+        pools_valid = (pools_resp or {}).get("code") == 200
+        results = (
+            ((pools_resp.get("data") or {}).get("result") or [])
+            if pools_valid else []
+        )
+        disk_resp = await self.get(session, endpoint_disk)
+        disks_valid = (disk_resp or {}).get("code") == 200
+        disk_list = (
+            ((disk_resp.get("data") or {}).get("result") or [])
+            if disks_valid else []
+        )
         entities: List[UgreenEntity] = []
 
-        async def _fetch_cached(_: str) -> dict:
-            return pools_resp
+        if results:
+            async def _fetch_cached(_: str) -> dict:
+                return pools_resp
 
-        entities.extend(await make_entities(
-            fetch=_fetch_cached,
-            templates=NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_POOL,
-            endpoint=endpoint_pools,
-            list_path="data.result",
-            prefix_key_base="pool",
-            prefix_name_base="Pool",
-            category="Pools",
-            single_compact=False,
-        ))
+            entities.extend(await make_entities(
+                fetch=_fetch_cached,
+                templates=NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_POOL,
+                endpoint=endpoint_pools,
+                list_path="data.result",
+                prefix_key_base="pool",
+                prefix_name_base="Pool",
+                category="Pools",
+                single_compact=False,
+            ))
+        elif pools_valid:
+            _LOGGER.debug("[UGREEN NAS] No pools in %s response", endpoint_pools)
+        else:
+            _LOGGER.warning("[UGREEN NAS] Failed to read pools from %s", endpoint_pools)
 
-        disk_resp = await self.get(session, endpoint_disk)
-        disk_list = ((disk_resp or {}).get("data", {}) or {}).get("result", []) or []
+        if not disks_valid:
+            _LOGGER.warning("[UGREEN NAS] Failed to read disks from %s", endpoint_disk)
 
-        # 3) Create entities for disks (pool + optional cache) and volumes
+        standalone_templates = [
+            template
+            for template in NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK
+            if template.description.key != "{prefix_key}_used_for"
+        ]
+
+        def _add_disk_entities_at_index(
+            *,
+            global_idx: int,
+            disk: dict[str, Any],
+            prefix_key: str,
+            prefix_name: str,
+            category: str,
+            templates: list[UgreenEntity] = NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK,
+            pool_index0: int | None = None,
+        ) -> None:
+            template_args: dict[str, Any] = {
+                "series_index": global_idx,
+                "prefix_key": prefix_key,
+                "prefix_name": prefix_name,
+                "endpoint": endpoint_disk,
+                "category": category,
+            }
+            if pool_index0 is not None:
+                template_args.update(
+                    pool_index0=pool_index0,
+                    pool_endpoint=endpoint_pools,
+                )
+            entities.extend(apply_templates(templates, **template_args))
+
+            disk_info = disk_list[global_idx] or {}
+            device = str(
+                disk_info.get("dev_name")
+                or disk_info.get("name")
+                or disk.get("dev_name")
+                or disk.get("name")
+                or ""
+            ).strip()
+            if not device:
+                _LOGGER.debug(
+                    "[UGREEN NAS] Disk '%s' has no device path; SMART entities skipped",
+                    disk.get("slot") or disk.get("label"),
+                )
+                return
+            if not device.startswith("/dev/"):
+                device = f"/dev/{device}"
+
+            entities.extend(apply_templates(
+                NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK_DETAILS,
+                prefix_key=prefix_key,
+                prefix_name=prefix_name,
+                attribute_endpoint=f"/ugreen/v1/storage/disk/attribute?disk={device}",
+                detection_endpoint=f"/ugreen/v1/storage/disk/detection/list?disk={device}",
+                smart_endpoint=f"/ugreen/v1/storage/disk/smart/info?disk={device}",
+                category=category,
+            ))
+
         def _add_disk_entities(
             *,
             pool_index: int,
@@ -705,82 +951,48 @@ class UgreenApiClient:
             category: str,
         ) -> None:
             for d_i, disk in enumerate(disks or []):
+                disk = disk or {}
                 global_idx = _find_disk_index(disk, disk_list)
                 if global_idx is None:
                     _LOGGER.debug(
                         "[UGREEN NAS] Disk '%s' not found in global disk list",
-                        (disk or {}).get("slot")
-                        or (disk or {}).get("dev_name")
-                        or (disk or {}).get("name")
-                        or (disk or {}).get("label"),
+                        disk.get("slot")
+                        or disk.get("dev_name")
+                        or disk.get("name")
+                        or disk.get("label"),
                     )
                     continue
 
-                prefix_key = f"{prefix_key_base}{d_i+1}_pool{pool_index}"
-                prefix_name = f"(Pool {pool_index} | {prefix_name_base} {d_i+1})"
-                entities.extend(apply_templates(
-                    NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK,
-                    series_index=global_idx,
+                _add_disk_entities_at_index(
+                    global_idx=global_idx,
+                    disk=disk,
+                    prefix_key=f"{prefix_key_base}{d_i+1}_pool{pool_index}",
+                    prefix_name=f"(Pool {pool_index} | {prefix_name_base} {d_i+1})",
+                    category=category,
                     pool_index0=pool_index - 1,
-                    prefix_key=prefix_key,
-                    prefix_name=prefix_name,
-                    endpoint=endpoint_disk,
-                    pool_endpoint=endpoint_pools,
-                    category=category,
-                ))
-
-                disk_info = disk_list[global_idx] or {}
-                device = str(
-                    disk_info.get("dev_name")
-                    or disk_info.get("name")
-                    or (disk or {}).get("dev_name")
-                    or (disk or {}).get("name")
-                    or ""
-                ).strip()
-                if not device:
-                    _LOGGER.debug(
-                        "[UGREEN NAS] Disk '%s' has no device path; SMART entities skipped",
-                        (disk or {}).get("slot") or (disk or {}).get("label"),
-                    )
-                    continue
-                if not device.startswith("/dev/"):
-                    device = f"/dev/{device}"
-
-                entities.extend(apply_templates(
-                    NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK_DETAILS,
-                    prefix_key=prefix_key,
-                    prefix_name=prefix_name,
-                    attribute_endpoint=f"/ugreen/v1/storage/disk/attribute?disk={device}",
-                    detection_endpoint=f"/ugreen/v1/storage/disk/detection/list?disk={device}",
-                    smart_endpoint=f"/ugreen/v1/storage/disk/smart/info?disk={device}",
-                    category=category,
-                ))
+                )
 
         for p_i, pool in enumerate(results, start=1):
-
             cache = (pool or {}).get("cache")
             cache_dev_names: set[str] = set()
             if isinstance(cache, dict) and cache:
-                for cd in (cache.get("disks") or []):
+                for cd in cache.get("disks") or []:
                     dn = (cd or {}).get("dev_name") or (cd or {}).get("name")
                     if isinstance(dn, str) and dn:
                         cache_dev_names.add(dn)
 
-            # Disks (in pool)
             _add_disk_entities(
                 pool_index=p_i,
-                # disks=(pool or {}).get("disks") or [],
                 disks=[
                     d for d in ((pool or {}).get("disks") or [])
-                    if ((d or {}).get("dev_name") or (d or {}).get("name")) not in cache_dev_names
+                    if ((d or {}).get("dev_name") or (d or {}).get("name"))
+                    not in cache_dev_names
                 ],
                 prefix_key_base="disk",
                 prefix_name_base="Disk",
                 category="Disks",
             )
 
-            # Cache
-            cache = (pool or {}).get("cache")
             if isinstance(cache, dict) and cache:
                 entities.extend(apply_templates(
                     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_CACHE,
@@ -788,19 +1000,18 @@ class UgreenApiClient:
                     prefix_key=f"cache_pool{p_i}",
                     prefix_name=f"(Pool {p_i} | Cache)",
                     endpoint=endpoint_pools,
-                    category="Cache",))
+                    category="Cache",
+                ))
 
                 _add_disk_entities(
                     pool_index=p_i,
-                    disks=(cache or {}).get("disks") or [],
+                    disks=cache.get("disks") or [],
                     prefix_key_base="cache_disk",
                     prefix_name_base="Cache Disk",
                     category="Disks",
                 )
 
-            # Volumes
-            volumes = (pool or {}).get("volumes") or []
-            for v_i, _ in enumerate(volumes):
+            for v_i, _ in enumerate((pool or {}).get("volumes") or []):
                 entities.extend(apply_templates(
                     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_VOLUME,
                     pool_index=p_i - 1,
@@ -811,38 +1022,61 @@ class UgreenApiClient:
                     category="Volumes",
                 ))
 
+        active_standalone = (
+            self._active_standalone_disks(results, disk_list)
+            if pools_valid and disks_valid else []
+        )
+        for number, global_idx, disk in active_standalone:
+            _add_disk_entities_at_index(
+                global_idx=global_idx,
+                disk=disk,
+                prefix_key=f"standalone_disk{number}",
+                prefix_name=f"(Stand-alone Disk {number})",
+                category="Disks",
+                templates=standalone_templates,
+            )
+
         return entities
 
 
     async def _get_dynamic_status_entities_storage_disks(self, session: aiohttp.ClientSession) -> list[UgreenEntity]:
-        """Create STORAGE disk status entities (templated) - pool-aware keys so they attach to the disk device."""
-        endpoint_stat  = "/ugreen/v1/taskmgr/stat/get_all"
+        """Create status entities for pool disks and opted-in stand-alone disks."""
+        endpoint_stat = "/ugreen/v1/taskmgr/stat/get_all"
         endpoint_pools = "/ugreen/v1/storage/pool/list"
         endpoint_disks = "/ugreen/v2/storage/disk/list"
 
-        # Pools (for pool↔disk relation)
         pools_resp = await self.get(session, endpoint_pools)
-        pools = ((pools_resp or {}).get("data", {}) or {}).get("result", []) or []
-        if not pools:
-            _LOGGER.debug("[UGREEN NAS] No pools in %s response", endpoint_pools)
-            return []
-
-        # Global disk list defines the series order used by status endpoints.
+        pools_valid = (pools_resp or {}).get("code") == 200
+        pools = (
+            ((pools_resp.get("data") or {}).get("result") or [])
+            if pools_valid else []
+        )
         disk_resp = await self.get(session, endpoint_disks)
-        disk_list = ((disk_resp or {}).get("data", {}) or {}).get("result", []) or []
-
+        disks_valid = (disk_resp or {}).get("code") == 200
+        disk_list = (
+            ((disk_resp.get("data") or {}).get("result") or [])
+            if disks_valid else []
+        )
         entities: list[UgreenEntity] = []
-        # Iterate pools and their member disks to get (p_i, d_i) for the key and global_idx for series_index
+
+        if pools_valid and not pools:
+            _LOGGER.debug("[UGREEN NAS] No pools in %s response", endpoint_pools)
+        elif not pools_valid:
+            _LOGGER.warning("[UGREEN NAS] Failed to read pools from %s", endpoint_pools)
+        if not disks_valid:
+            _LOGGER.warning("[UGREEN NAS] Failed to read disks from %s", endpoint_disks)
+
         for p_i, pool in enumerate(pools, start=1):
-            for d_i, d in enumerate((pool or {}).get("disks") or [], start=1):
-                global_idx = _find_disk_index(d, disk_list)
+            for d_i, disk in enumerate((pool or {}).get("disks") or [], start=1):
+                disk = disk or {}
+                global_idx = _find_disk_index(disk, disk_list)
                 if global_idx is None:
                     _LOGGER.debug(
                         "[UGREEN NAS] Disk '%s' not found in global disk list",
-                        (d or {}).get("slot")
-                        or (d or {}).get("dev_name")
-                        or (d or {}).get("name")
-                        or (d or {}).get("label"),
+                        disk.get("slot")
+                        or disk.get("dev_name")
+                        or disk.get("name")
+                        or disk.get("label"),
                     )
                     continue
 
@@ -855,6 +1089,22 @@ class UgreenApiClient:
                     endpoint=endpoint_stat,
                     category="Disks",
                 ))
+
+        active_standalone = (
+            self._active_standalone_disks(pools, disk_list)
+            if pools_valid and disks_valid else []
+        )
+        for number, global_idx, _ in active_standalone:
+            entities.extend(apply_templates(
+                NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK,
+                series_index=global_idx + 1,
+                series_index_base0=global_idx,
+                prefix_key=f"standalone_disk{number}",
+                prefix_name=f"(Stand-alone Disk {number})",
+                endpoint=endpoint_stat,
+                category="Disks",
+            ))
+
         return entities
 
 
