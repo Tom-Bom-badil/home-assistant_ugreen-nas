@@ -4,11 +4,12 @@ from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.helpers.entity import EntityCategory, async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
 from homeassistant.util import slugify
+from .api import backup_task_key, backup_task_name
 from .device_info import build_device_info
 
 from .const import (
@@ -16,6 +17,7 @@ from .const import (
     CONF_DASHBOARD_IMAGE_FILE,
     CONF_DASHBOARD_POOL_COLUMNS,
     CONF_DASHBOARD_VOLUME_COLUMNS,
+    BACKUP_ENTITY_CATEGORY,
     CONF_ENTITY_PREFIX,
     DEFAULT_DASHBOARD_DISK_COLUMNS,
     DEFAULT_DASHBOARD_IMAGE_FILE,
@@ -161,9 +163,152 @@ async def async_setup_entry(
         UgreenPowerModeSelect(hass, entry, data["state_coordinator"]),
         UgreenFanModeSelect(hass, entry, data["state_coordinator"]),
     ]
+    if data.get("backup_tasks"):
+        entities.append(UgreenBackupTaskSelect(hass, entry, data["backup_coordinator"]))
     if _is_owner_entry(hass, entry):
         entities.append(UgreenLovelaceDeviceSelect(hass, data["config_coordinator"]))
     async_add_entities(entities)
+
+
+class UgreenBackupTaskSelect(CoordinatorEntity, RestoreEntity, SelectEntity):
+    """Select one configured UGOS backup task for global backup controls."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        coordinator: DataUpdateCoordinator,
+    ) -> None:
+        super().__init__(coordinator)
+        self.hass = hass
+        self._entry = entry
+        self._entry_id = entry.entry_id
+        self._selected_key = ""
+
+        self._attr_name = f"{_get_entry_label(entry)} Backup Task"
+        self.entity_id = async_generate_entity_id(
+            "select.{}", self._attr_name, hass=self.hass
+        )
+        self._attr_unique_id = f"{entry.entry_id}_backup_task_select"
+        self._attr_icon = "mdi:backup-restore"
+        self._attr_device_info = build_device_info(hass, entry.entry_id, "backup_task_select")
+
+    async def async_added_to_hass(self) -> None:
+        """Restore the previous backup task selection."""
+        await super().async_added_to_hass()
+        if last_state := await self.async_get_last_state():
+            restored_key = (last_state.attributes or {}).get("selected_task_key")
+            if isinstance(restored_key, str) and restored_key:
+                self._selected_key = restored_key
+            elif isinstance(last_state.state, str):
+                task = self._task_by_option(last_state.state)
+                if task:
+                    self._selected_key = backup_task_key(task)
+        self._ensure_valid_selection()
+        self._store_selection()
+        self.async_write_ha_state()
+
+    def _tasks(self) -> list[dict[str, object]]:
+        """Return current backup tasks from the coordinator or setup cache."""
+        data = self.coordinator.data or {}
+        tasks = data.get("tasks") or self.hass.data[DOMAIN][self._entry_id].get("backup_tasks") or []
+        return [task for task in tasks if isinstance(task, dict)]
+
+    def _option_map(self) -> dict[str, dict[str, object]]:
+        """Return visible option labels mapped to tasks."""
+        tasks = self._tasks()
+        names = [backup_task_name(task) for task in tasks]
+        duplicate_names = {name for name in names if names.count(name) > 1}
+        options: dict[str, dict[str, object]] = {}
+
+        for task in tasks:
+            name = backup_task_name(task)
+            key = backup_task_key(task)
+            label = f"{name} ({key})" if name in duplicate_names else name
+            options[label] = task
+        return options
+
+    def _task_by_key(self, key: str) -> dict[str, object] | None:
+        """Find a backup task by stable key."""
+        for task in self._tasks():
+            if backup_task_key(task) == key:
+                return task
+        return None
+
+    def _task_by_option(self, option: str) -> dict[str, object] | None:
+        """Find a backup task by visible option label."""
+        return self._option_map().get(option)
+
+    def _option_for_key(self, key: str) -> str | None:
+        """Return the visible option label for a stable key."""
+        for option, task in self._option_map().items():
+            if backup_task_key(task) == key:
+                return option
+        return None
+
+    def _ensure_valid_selection(self) -> None:
+        """Keep the selected task valid after task list changes."""
+        if self._task_by_key(self._selected_key):
+            return
+        tasks = self._tasks()
+        self._selected_key = backup_task_key(tasks[0]) if tasks else ""
+
+    def _store_selection(self) -> None:
+        """Store the selected task key for global backup buttons."""
+        self.hass.data[DOMAIN][self._entry_id]["selected_backup_task_key"] = self._selected_key
+
+    @property
+    def options(self) -> list[str]:
+        """Return selectable backup task names."""
+        return list(self._option_map())
+
+    @property
+    def current_option(self) -> str | None:
+        """Return the currently selected backup task name."""
+        self._ensure_valid_selection()
+        return self._option_for_key(self._selected_key)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        """Expose selected backup task metadata."""
+        selected = self._task_by_key(self._selected_key)
+        attrs: dict[str, object] = {
+            "UGNAS_global_id": "UGREEN NAS",
+            "UGNAS_device_id": _get_entry_slug(self._entry),
+            "UGNAS_part_category": BACKUP_ENTITY_CATEGORY,
+            "selected_task_key": self._selected_key,
+            "available_tasks": [
+                {
+                    "name": backup_task_name(task),
+                    "task_id": task.get("id"),
+                    "protocol": task.get("protocol"),
+                }
+                for task in self._tasks()
+            ],
+        }
+        if selected:
+            attrs.update({
+                "selected_task_id": selected.get("id"),
+                "selected_protocol": selected.get("protocol"),
+            })
+        return attrs
+
+    async def async_select_option(self, option: str) -> None:
+        """Handle manual backup task selection from the UI."""
+        task = self._task_by_option(option)
+        if not task:
+            _LOGGER.warning("[UGREEN NAS] Invalid backup task selection: %s", option)
+            return
+
+        self._selected_key = backup_task_key(task)
+        self._store_selection()
+        self.async_write_ha_state()
+
+    def _handle_coordinator_update(self) -> None:
+        """Refresh the task list and keep the selection valid."""
+        self._ensure_valid_selection()
+        self._store_selection()
+        super()._handle_coordinator_update()
 
 
 class UgreenLovelaceDeviceSelect(CoordinatorEntity, RestoreEntity, SelectEntity):

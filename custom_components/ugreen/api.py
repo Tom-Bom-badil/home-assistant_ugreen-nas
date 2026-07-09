@@ -38,6 +38,26 @@ from .entities import (
 _LOGGER = logging.getLogger(__name__)
 
 
+BACKUP_TASK_LIST_ENDPOINT = "/ugreen/v2/web/syncbackup/task/list?page=1&size=1000"
+BACKUP_OPERATION_LOG_ENDPOINT = (
+    "/ugreen/v1/web/sync/log/operation/search?page=1&size=50&event_main_type=5"
+)
+BACKUP_TASK_START_ENDPOINT = "/ugreen/v2/web/syncbackup/task/action/start"
+BACKUP_TASK_STOP_ENDPOINT = "/ugreen/v2/web/syncbackup/task/action/stop"
+
+
+def backup_task_key(task: dict[str, Any]) -> str:
+    """Return the stable technical key for a backup task."""
+    protocol = str((task or {}).get("protocol") or "unknown").strip() or "unknown"
+    task_id = str((task or {}).get("id") or "").strip()
+    return f"{protocol}:{task_id}"
+
+
+def backup_task_name(task: dict[str, Any]) -> str:
+    """Return the visible backup task name."""
+    return str((task or {}).get("task_name") or "Backup Task").strip() or "Backup Task"
+
+
 def _normalize_disk_value(key: str, value: Any) -> str:
     """Normalize a disk identifier for cross-endpoint matching."""
     value = str(value or "").strip().casefold()
@@ -272,6 +292,78 @@ class UgreenApiClient:
     async def post(self, session: aiohttp.ClientSession, endpoint: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         """HTTP POST wrapper, uses _request."""
         return await self._request(session, "POST", endpoint, payload)
+
+
+    async def get_backup_tasks(
+        self,
+        session: aiohttp.ClientSession,
+    ) -> list[dict[str, Any]]:
+        """Return configured UGOS backup tasks."""
+        resp = await self.get(session, BACKUP_TASK_LIST_ENDPOINT)
+        if (resp or {}).get("code") != 200:
+            _LOGGER.debug(
+                "[UGREEN NAS] Backup task list unavailable: code=%s msg=%s",
+                (resp or {}).get("code"),
+                (resp or {}).get("msg"),
+            )
+            return []
+
+        tasks = ((resp.get("data") or {}).get("list") or [])
+        return [task for task in tasks if isinstance(task, dict)]
+
+
+    async def get_backup_operation_logs(
+        self,
+        session: aiohttp.ClientSession,
+    ) -> list[dict[str, Any]]:
+        """Return recent UGOS backup operation log entries."""
+        resp = await self.get(session, BACKUP_OPERATION_LOG_ENDPOINT)
+        if (resp or {}).get("code") != 200:
+            _LOGGER.debug(
+                "[UGREEN NAS] Backup operation log unavailable: code=%s msg=%s",
+                (resp or {}).get("code"),
+                (resp or {}).get("msg"),
+            )
+            return []
+
+        logs = ((resp.get("data") or {}).get("list") or [])
+        return [log for log in logs if isinstance(log, dict)]
+
+
+    async def get_backup_runtime_data(
+        self,
+        session: aiohttp.ClientSession,
+    ) -> dict[str, Any]:
+        """Return all data needed by backup sensors and controls."""
+        tasks = await self.get_backup_tasks(session)
+        logs = await self.get_backup_operation_logs(session) if tasks else []
+        return {"tasks": tasks, "logs": logs}
+
+
+    async def start_backup_task(
+        self,
+        session: aiohttp.ClientSession,
+        task: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Start one UGOS backup task immediately."""
+        payload = {
+            "protocol": str((task or {}).get("protocol") or ""),
+            "task_id": int((task or {}).get("id") or 0),
+        }
+        return await self.post(session, BACKUP_TASK_START_ENDPOINT, payload)
+
+
+    async def stop_backup_task(
+        self,
+        session: aiohttp.ClientSession,
+        task: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Stop one running UGOS backup task."""
+        payload = {
+            "protocol": str((task or {}).get("protocol") or ""),
+            "task_id": int((task or {}).get("id") or 0),
+        }
+        return await self.post(session, BACKUP_TASK_STOP_ENDPOINT, payload)
 
 
     async def get_nas_specific_config_entities(self, session: aiohttp.ClientSession) -> list[UgreenEntity]:

@@ -10,8 +10,8 @@ from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
 
-from .api import UgreenApiClient, merge_standalone_disks
-from .const import CONF_STANDALONE_DISKS, DEFAULT_ENTITY_PREFIX, DOMAIN
+from .api import UgreenApiClient, backup_task_key, backup_task_name, merge_standalone_disks
+from .const import BACKUP_ENTITY_CATEGORY, CONF_STANDALONE_DISKS, DEFAULT_ENTITY_PREFIX, DOMAIN
 from .device_info import build_device_info
 from .entities import UgreenEntity
 
@@ -56,6 +56,16 @@ async def async_setup_entry(
         )
         for disk_number in _get_standalone_disk_numbers(entry)
     )
+    if hass.data[DOMAIN][entry.entry_id].get("backup_tasks"):
+        backup_coordinator = hass.data[DOMAIN][entry.entry_id]["backup_coordinator"]
+        button_entities.extend((
+            UgreenNasBackupTaskActionButton(
+                hass, entry, backup_coordinator, api, action="start"
+            ),
+            UgreenNasBackupTaskActionButton(
+                hass, entry, backup_coordinator, api, action="stop"
+            ),
+        ))
 
     _remove_legacy_global_forget_button(hass, entry.entry_id)
     async_add_entities(button_entities)
@@ -312,6 +322,121 @@ class UgreenNasStandaloneDiskForgetButton(CoordinatorEntity, ButtonEntity):
             _LOGGER.error(
                 "[UGREEN NAS] Failed to clean up stand-alone disk %d: %s",
                 self._disk_number,
+                e,
+            )
+
+    def _handle_coordinator_update(self) -> None:
+        self._attr_press = self.async_press
+        super()._handle_coordinator_update()
+
+
+class UgreenNasBackupTaskActionButton(CoordinatorEntity, ButtonEntity):
+    """Start or stop the currently selected UGOS backup task."""
+
+    _ACTIONS = {
+        "start": ("backup_task_start", "Backup: Start", "mdi:play-circle"),
+        "stop": ("backup_task_stop", "Backup: Stop", "mdi:stop-circle"),
+    }
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        coordinator: DataUpdateCoordinator,
+        api: UgreenApiClient,
+        *,
+        action: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self.hass = hass
+        self._entry = entry
+        self._entry_id = entry.entry_id
+        self._api = api
+        self._action = action
+        self._key, label, icon = self._ACTIONS[action]
+
+        self._attr_name = f"{_get_entity_prefix(hass, entry.entry_id)} {label}"
+        self.entity_id = async_generate_entity_id(
+            "button.{}", self._attr_name, hass=self.hass
+        )
+        self._attr_unique_id = f"{entry.entry_id}_{self._key}"
+        self._attr_icon = icon
+        self._attr_device_info = build_device_info(hass, entry.entry_id, self._key)
+
+    def _tasks(self) -> list[dict[str, object]]:
+        """Return current backup tasks from the coordinator or setup cache."""
+        data = self.coordinator.data or {}
+        tasks = data.get("tasks") or self.hass.data[DOMAIN][self._entry_id].get("backup_tasks") or []
+        return [task for task in tasks if isinstance(task, dict)]
+
+    def _selected_task(self) -> dict[str, object] | None:
+        """Return the selected backup task, falling back to the first task."""
+        tasks = self._tasks()
+        selected_key = self.hass.data[DOMAIN][self._entry_id].get("selected_backup_task_key")
+        for task in tasks:
+            if backup_task_key(task) == selected_key:
+                return task
+        return tasks[0] if tasks else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        """Expose selected backup task metadata."""
+        task = self._selected_task()
+        attrs: dict[str, object] = {
+            "UGNAS_global_id": "UGREEN NAS",
+            "UGNAS_device_id": _get_entity_prefix(self.hass, self._entry_id),
+            "UGNAS_part_category": BACKUP_ENTITY_CATEGORY,
+        }
+        if task:
+            attrs.update({
+                "selected_task": backup_task_name(task),
+                "selected_task_key": backup_task_key(task),
+                "selected_task_id": task.get("id"),
+                "selected_protocol": task.get("protocol"),
+            })
+        return attrs
+
+    async def async_press(self) -> None:
+        """Start or stop the selected backup task."""
+        task = self._selected_task()
+        if not task:
+            _LOGGER.warning("[UGREEN NAS] No backup task selected for %s", self._action)
+            return
+
+        try:
+            session = async_get_clientsession(self.hass)
+            if not await self._api.authenticate(session):
+                _LOGGER.error(
+                    "[UGREEN NAS] Backup task %s failed: authentication failed",
+                    self._action,
+                )
+                return
+
+            if self._action == "start":
+                resp = await self._api.start_backup_task(session, task)
+            else:
+                resp = await self._api.stop_backup_task(session, task)
+
+            if (resp or {}).get("code") != 200:
+                _LOGGER.warning(
+                    "[UGREEN NAS] Backup task %s returned code=%s msg=%s",
+                    self._action,
+                    (resp or {}).get("code"),
+                    (resp or {}).get("msg"),
+                )
+                return
+
+            _LOGGER.info(
+                "[UGREEN NAS] Backup task %s requested for '%s'",
+                self._action,
+                backup_task_name(task),
+            )
+            await self.coordinator.async_request_refresh()
+        except Exception as e:
+            _LOGGER.error(
+                "[UGREEN NAS] Backup task %s failed for '%s': %s",
+                self._action,
+                backup_task_name(task),
                 e,
             )
 

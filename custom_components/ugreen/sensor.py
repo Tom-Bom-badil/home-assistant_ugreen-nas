@@ -1,7 +1,7 @@
 import logging, re
 
-from typing import List, Tuple
-from datetime import date, datetime
+from typing import Any, List, Tuple
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from homeassistant.core import HomeAssistant
@@ -22,7 +22,8 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
 )
 
-from .const import DOMAIN, DEFAULT_ENTITY_PREFIX
+from .api import backup_task_key, backup_task_name
+from .const import BACKUP_ENTITY_CATEGORY, DOMAIN, DEFAULT_ENTITY_PREFIX
 from .device_info import build_device_info
 from .entities import UgreenEntity
 from .utils import (
@@ -152,7 +153,16 @@ async def async_setup_entry(
         for entity in state_entities
     ]
 
-    async_add_entities(config_sensors + state_sensors)
+    # Backup sensors (one sensor per configured UGOS backup task)
+    backup_coordinator = hass.data[DOMAIN][entry.entry_id]["backup_coordinator"]
+    backup_tasks = hass.data[DOMAIN][entry.entry_id].get("backup_tasks") or []
+    backup_sensors = [
+        UgreenNasBackupTaskSensor(hass, entry.entry_id, backup_coordinator, task)
+        for task in backup_tasks
+        if isinstance(task, dict)
+    ]
+
+    async_add_entities(config_sensors + state_sensors + backup_sensors)
 
     # --------------------------------------------------------------------------
     # One summary entity per Pool / Volume / Disk / Cache under NAS root
@@ -221,6 +231,309 @@ async def async_setup_entry(
 
     if summary_entities:
         async_add_entities(summary_entities, update_before_add=False)
+
+
+# --------------------------------------------------------------------------------------
+# Backup sensors
+# --------------------------------------------------------------------------------------
+
+_BACKUP_START_RE = re.compile(r'^Start to perform "(?P<name>.+?)"$', re.IGNORECASE)
+_BACKUP_DONE_RE = re.compile(r'^"(?P<name>.+?)" completed$', re.IGNORECASE)
+_BACKUP_FAILED_RE = re.compile(
+    r'^"(?P<name>.+?)" (?P<result>failed|aborted|cancelled|canceled|stopped|error.*)$',
+    re.IGNORECASE,
+)
+
+
+def _as_int(value: Any, default: int = 0) -> int:
+    """Return value as int or the supplied default."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _unix_to_iso(value: Any) -> str | None:
+    """Convert UGOS timestamps in seconds or milliseconds to UTC ISO strings."""
+    timestamp = _as_int(value)
+    if timestamp <= 0:
+        return None
+    if timestamp > 10_000_000_000:
+        timestamp = timestamp // 1000
+    return datetime.fromtimestamp(timestamp, timezone.utc).isoformat()
+
+
+def _log_time_ms(log: dict[str, Any]) -> int:
+    """Return a log timestamp in milliseconds."""
+    value = _as_int((log or {}).get("time"))
+    return value if value > 10_000_000_000 else value * 1000
+
+
+def _task_by_key(tasks: list[dict[str, Any]], key: str) -> dict[str, Any] | None:
+    """Find a task by its stable backup task key."""
+    for task in tasks:
+        if isinstance(task, dict) and backup_task_key(task) == key:
+            return task
+    return None
+
+
+def _backup_task_source(task: dict[str, Any]) -> list[str] | str | None:
+    """Return the configured backup source paths."""
+    local_paths = task.get("local_paths")
+    if isinstance(local_paths, list) and local_paths:
+        return [str(path) for path in local_paths if str(path or "").strip()]
+    local_path = str(task.get("local_path") or "").strip()
+    return local_path or None
+
+
+def _backup_task_destination(task: dict[str, Any]) -> str | None:
+    """Return a human-readable backup destination."""
+    remote_path = str(task.get("remote_path") or "").strip()
+    connect_name = str(task.get("connect_name") or "").strip()
+    if connect_name and remote_path:
+        return f"{connect_name}: {remote_path}"
+    return remote_path or connect_name or None
+
+
+def _backup_task_enabled(task: dict[str, Any]) -> bool:
+    """Return whether this backup task is enabled for scheduled execution."""
+    if "start_backup_schedule" in task:
+        return bool(task.get("start_backup_schedule"))
+    return bool(task.get("is_schedule"))
+
+
+def _backup_task_running(task: dict[str, Any]) -> bool:
+    """Return whether UGOS currently reports this task as running."""
+    status = _as_int(task.get("status"), -1)
+    return (
+        bool(task.get("execute_now"))
+        or _as_int(task.get("progress")) > 0
+        or status in {2, 3, 6, 7}
+    )
+
+
+def _backup_task_schedule(task: dict[str, Any]) -> str | None:
+    """Return a compact schedule description."""
+    if not _backup_task_enabled(task):
+        return None
+
+    hour = str(task.get("hour") or "").zfill(2)
+    minute = str(task.get("minute") or "").zfill(2)
+    if not hour.strip("0") and hour != "00":
+        return None
+    if not minute.strip("0") and minute != "00":
+        return None
+
+    when = f"{hour}:{minute}"
+    interval_type = _as_int(task.get("interval_type"), -1)
+    if interval_type == 1:
+        return f"Daily at {when}"
+
+    week_list = task.get("week_list")
+    if interval_type == 2 and isinstance(week_list, list) and week_list:
+        return f"Weekly at {when}"
+
+    return f"Scheduled at {when}"
+
+
+def _parse_backup_log_event(log: dict[str, Any]) -> dict[str, Any] | None:
+    """Parse one UGOS backup operation log entry."""
+    content = str((log or {}).get("content") or "").strip()
+    timestamp = _log_time_ms(log)
+    if not content or timestamp <= 0:
+        return None
+
+    if match := _BACKUP_START_RE.match(content):
+        return {
+            "name": match.group("name"),
+            "event": "start",
+            "time": timestamp,
+            "message": content,
+        }
+
+    if match := _BACKUP_DONE_RE.match(content):
+        return {
+            "name": match.group("name"),
+            "event": "finish",
+            "result": "successful",
+            "time": timestamp,
+            "message": content,
+        }
+
+    if match := _BACKUP_FAILED_RE.match(content):
+        return {
+            "name": match.group("name"),
+            "event": "finish",
+            "result": "failed",
+            "time": timestamp,
+            "message": content,
+        }
+
+    return None
+
+
+def _backup_runs_for_task(
+    task: dict[str, Any],
+    logs: list[dict[str, Any]],
+    *,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    """Return recent completed backup runs reconstructed from operation logs."""
+    task_name = backup_task_name(task)
+    events = [event for log in logs if (event := _parse_backup_log_event(log))]
+    events = [event for event in events if event["name"] == task_name]
+    events.sort(key=lambda item: int(item["time"]))
+
+    starts: list[dict[str, Any]] = []
+    runs: list[dict[str, Any]] = []
+
+    for event in events:
+        if event["event"] == "start":
+            starts.append(event)
+            continue
+
+        started = starts.pop() if starts else None
+        finished_ms = int(event["time"])
+        started_ms = int(started["time"]) if started else None
+        duration = (
+            max(0, (finished_ms - started_ms) // 1000)
+            if started_ms is not None
+            else None
+        )
+        run = {
+            "result": event.get("result", "failed"),
+            "finished": _unix_to_iso(finished_ms),
+            "message": event.get("message"),
+        }
+        if started_ms is not None:
+            run["started"] = _unix_to_iso(started_ms)
+        if duration is not None:
+            run["duration"] = duration
+        runs.append(run)
+
+    runs.sort(key=lambda item: str(item.get("finished") or ""), reverse=True)
+    return runs[:limit]
+
+
+def _latest_backup_event(task: dict[str, Any], logs: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Return the newest parsed operation log event for a backup task."""
+    task_name = backup_task_name(task)
+    events = [event for log in logs if (event := _parse_backup_log_event(log))]
+    events = [event for event in events if event["name"] == task_name]
+    return max(events, key=lambda item: int(item["time"]), default=None)
+
+
+def _latest_backup_message(task: dict[str, Any], logs: list[dict[str, Any]]) -> str | None:
+    """Return the newest operation log message for a backup task."""
+    event = _latest_backup_event(task, logs)
+    return str((event or {}).get("message") or "") or None
+
+
+def _backup_state(
+    task: dict[str, Any],
+    runs: list[dict[str, Any]],
+    latest_event: dict[str, Any] | None,
+) -> str:
+    """Return the compact Home Assistant backup state."""
+    if _backup_task_running(task) or (latest_event or {}).get("event") == "start":
+        return "running"
+    if not _backup_task_enabled(task):
+        return "disabled"
+    if _as_int(task.get("last_sync_time")) <= 0 and not runs:
+        return "never_run"
+    if _as_int(task.get("failed_num")) > 0 or str(task.get("last_error_info") or "").strip():
+        return "failed"
+    if runs:
+        return "failed" if runs[0].get("result") == "failed" else "successful"
+    return "successful"
+
+
+class UgreenNasBackupTaskSensor(CoordinatorEntity, SensorEntity):
+    """One compact sensor per configured UGOS backup task."""
+
+    _attr_icon = "mdi:backup-restore"
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry_id: str,
+        coordinator: DataUpdateCoordinator,
+        task: dict[str, Any],
+    ) -> None:
+        super().__init__(coordinator)
+        self.hass = hass
+        self._entry_id = entry_id
+        self._task_key = backup_task_key(task)
+        self._fallback_task = task
+
+        entity_prefix = _get_entity_prefix(hass, entry_id)
+        self._attr_name = f"{entity_prefix} {backup_task_name(task)}"
+        self.entity_id = async_generate_entity_id("sensor.{}", self._attr_name, hass=self.hass)
+        self._attr_unique_id = f"{entry_id}_backup_task_{slugify(self._task_key)}"
+        self._attr_device_info = build_device_info(hass, entry_id, "backup_task")
+
+    def _tasks(self) -> list[dict[str, Any]]:
+        """Return current backup tasks from the coordinator."""
+        data = self.coordinator.data or {}
+        tasks = data.get("tasks") or []
+        return [task for task in tasks if isinstance(task, dict)]
+
+    def _task(self) -> dict[str, Any]:
+        """Return the current task data or the setup-time fallback."""
+        return _task_by_key(self._tasks(), self._task_key) or self._fallback_task
+
+    def _logs(self) -> list[dict[str, Any]]:
+        """Return current backup operation logs from the coordinator."""
+        data = self.coordinator.data or {}
+        logs = data.get("logs") or []
+        return [log for log in logs if isinstance(log, dict)]
+
+    @property
+    def native_value(self) -> StateType:
+        task = self._task()
+        logs = self._logs()
+        runs = _backup_runs_for_task(task, logs, limit=5)
+        latest_event = _latest_backup_event(task, logs)
+        return _backup_state(task, runs, latest_event)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        task = self._task()
+        logs = self._logs()
+        runs = _backup_runs_for_task(task, logs, limit=5)
+        latest_run = runs[0] if runs else {}
+        latest_event = _latest_backup_event(task, logs)
+        last_message = (
+            str((latest_event or {}).get("message") or "").strip()
+            or str(task.get("last_error_info") or "").strip()
+            or str(latest_run.get("message") or "").strip()
+        )
+
+        attrs: dict[str, object] = {
+            "UGNAS_global_id": "UGREEN NAS",
+            "UGNAS_device_id": _get_entity_prefix_slug(self.hass, self._entry_id),
+            "UGNAS_part_category": BACKUP_ENTITY_CATEGORY,
+            "task_id": task.get("id"),
+            "protocol": task.get("protocol"),
+            "raw_status": task.get("status"),
+            "enabled": _backup_task_enabled(task),
+            "backup_type": task.get("backup_type"),
+            "progress": _as_int(task.get("progress")),
+            "source": _backup_task_source(task),
+            "destination": _backup_task_destination(task),
+            "schedule": _backup_task_schedule(task),
+            "last_backup": latest_run.get("finished") or _unix_to_iso(task.get("last_sync_time")),
+            "next_backup": _unix_to_iso(task.get("schedule_time")) if _backup_task_enabled(task) else None,
+            "last_duration": latest_run.get("duration"),
+            "last_message": last_message,
+            "history": runs,
+        }
+        return {key: value for key, value in attrs.items() if value not in (None, "")}
+
+    def _handle_coordinator_update(self) -> None:
+        self._attr_native_value = self.native_value
+        self._attr_extra_state_attributes = self.extra_state_attributes
+        super()._handle_coordinator_update()
 
 
 # --------------------------------------------------------------------------------------

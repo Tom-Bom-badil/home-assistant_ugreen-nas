@@ -5,6 +5,7 @@ PLATFORMS = ["sensor", "button", "select", "text"]
 
 STORAGE_TECHNOLOGY = "Linux mdadm"
 CACHE_TECHNOLOGY = "Linux lvm-v1"
+BACKUP_ENTITY_CATEGORY = "Backup"
 
 CONF_UGREEN_HOST = "ugreen_host"
 CONF_UGREEN_PORT = "ugreen_port"
