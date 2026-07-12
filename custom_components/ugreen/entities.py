@@ -174,6 +174,11 @@ def NAS_SPECIFIC_STATUS_REGISTRY() -> list[dict[str, Any]]:
             single_compact=True, 
         ),
         dict(
+            key="STORAGE_VOLUME",
+            kind="custom",
+            builder="_get_dynamic_status_entities_storage_volumes",
+        ),
+        dict(
             key="STORAGE_DISK",
             kind="custom",
             builder="_get_dynamic_status_entities_storage_disks",
@@ -1397,7 +1402,42 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_VOLUME: List[UgreenEntity] = [ # -- vol --
 ]
 
 NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_VOLUME: list[UgreenEntity] = [
-    # Intentionally empty for now.
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_read_iops",
+            name="{prefix_name} Read IOPS",
+            icon="mdi:counter",
+            unit_of_measurement="IOPS",
+        ),
+        endpoint="/ugreen/v1/storage/volume/iops?type=2&interval=5",
+        path="data.result[{series_index}].read_speed",
+        decimal_places=0,
+        nas_part_category="Status",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_write_iops",
+            name="{prefix_name} Write IOPS",
+            icon="mdi:counter",
+            unit_of_measurement="IOPS",
+        ),
+        endpoint="/ugreen/v1/storage/volume/iops?type=2&interval=5",
+        path="data.result[{series_index}].write_speed",
+        decimal_places=0,
+        nas_part_category="Status",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_utilization",
+            name="{prefix_name} Utilization",
+            icon="mdi:gauge",
+            unit_of_measurement=PERCENTAGE,
+        ),
+        endpoint="/ugreen/v1/storage/volume/iops?type=3&interval=5",
+        path="data.result[{series_index}].total_speed",
+        decimal_places=0,
+        nas_part_category="Status",
+    ),
 ]
 
 
@@ -1665,6 +1705,42 @@ NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [
         ),
         endpoint="/ugreen/v1/storage/disk/iops?type=1",
         path="calculated:scale_bytes_per_second:data.result[{series_index}].write_speed",
+        decimal_places=0,
+        nas_part_category="Status",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_read_iops",
+            name="{prefix_name} Read IOPS",
+            icon="mdi:counter",
+            unit_of_measurement="IOPS",
+        ),
+        endpoint="/ugreen/v1/storage/disk/iops?type=2&interval=5",
+        path="data.result[{series_index}].read_speed",
+        decimal_places=0,
+        nas_part_category="Status",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_write_iops",
+            name="{prefix_name} Write IOPS",
+            icon="mdi:counter",
+            unit_of_measurement="IOPS",
+        ),
+        endpoint="/ugreen/v1/storage/disk/iops?type=2&interval=5",
+        path="data.result[{series_index}].write_speed",
+        decimal_places=0,
+        nas_part_category="Status",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="{prefix_key}_utilization",
+            name="{prefix_name} Utilization",
+            icon="mdi:gauge",
+            unit_of_measurement=PERCENTAGE,
+        ),
+        endpoint="/ugreen/v1/storage/disk/iops?type=3&interval=5",
+        path="data.result[{series_index}].total_speed",
         decimal_places=0,
         nas_part_category="Status",
     ),

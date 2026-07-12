@@ -22,7 +22,7 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
 )
 
-from .api import backup_task_key, backup_task_name
+from .api import UgreenApiClient
 from .const import BACKUP_ENTITY_CATEGORY, DOMAIN, DEFAULT_ENTITY_PREFIX
 from .device_info import build_device_info
 from .entities import UgreenEntity
@@ -107,11 +107,23 @@ def _get_statistics_meta(
     ):
         return SensorStateClass.MEASUREMENT, None
 
+    # Storage operation and utilization values.
+    if key.endswith(("_read_iops", "_write_iops", "_utilization")):
+        return SensorStateClass.MEASUREMENT, None
+
     # Raw transfer rates only, not formatted "123 MB/s" string sensors.
     if key.endswith("_raw") and unit in _DATA_RATE_UNITS:
         return SensorStateClass.MEASUREMENT, SensorDeviceClass.DATA_RATE
 
     return None, None
+
+
+def _as_int_measurement(raw: object) -> int | None:
+    """Return a rounded integer measurement or None for missing values."""
+    try:
+        return int(round(float(raw))) if raw not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
 
 
 # --------------------------------------------------------------------------------------
@@ -272,7 +284,7 @@ def _log_time_ms(log: dict[str, Any]) -> int:
 def _task_by_key(tasks: list[dict[str, Any]], key: str) -> dict[str, Any] | None:
     """Find a task by its stable backup task key."""
     for task in tasks:
-        if isinstance(task, dict) and backup_task_key(task) == key:
+        if isinstance(task, dict) and UgreenApiClient.backup_task_key(task) == key:
             return task
     return None
 
@@ -379,7 +391,7 @@ def _backup_runs_for_task(
     limit: int = 5,
 ) -> list[dict[str, Any]]:
     """Return recent completed backup runs reconstructed from operation logs."""
-    task_name = backup_task_name(task)
+    task_name = UgreenApiClient.backup_task_name(task)
     events = [event for log in logs if (event := _parse_backup_log_event(log))]
     events = [event for event in events if event["name"] == task_name]
     events.sort(key=lambda item: int(item["time"]))
@@ -417,7 +429,7 @@ def _backup_runs_for_task(
 
 def _latest_backup_event(task: dict[str, Any], logs: list[dict[str, Any]]) -> dict[str, Any] | None:
     """Return the newest parsed operation log event for a backup task."""
-    task_name = backup_task_name(task)
+    task_name = UgreenApiClient.backup_task_name(task)
     events = [event for log in logs if (event := _parse_backup_log_event(log))]
     events = [event for event in events if event["name"] == task_name]
     return max(events, key=lambda item: int(item["time"]), default=None)
@@ -463,11 +475,11 @@ class UgreenNasBackupTaskSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self.hass = hass
         self._entry_id = entry_id
-        self._task_key = backup_task_key(task)
+        self._task_key = UgreenApiClient.backup_task_key(task)
         self._fallback_task = task
 
         entity_prefix = _get_entity_prefix(hass, entry_id)
-        self._attr_name = f"{entity_prefix} {backup_task_name(task)}"
+        self._attr_name = f"{entity_prefix} {UgreenApiClient.backup_task_name(task)}"
         self.entity_id = async_generate_entity_id("sensor.{}", self._attr_name, hass=self.hass)
         self._attr_unique_id = f"{entry_id}_backup_task_{slugify(self._task_key)}"
         self._attr_device_info = build_device_info(hass, entry_id, "backup_task")
@@ -564,6 +576,9 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
     def native_value(self) -> StateType | date | datetime | Decimal:
         raw = self.coordinator.data.get(self._key)
 
+        if self._key.endswith("_utilization"):
+            return _as_int_measurement(raw)
+
         if self._attr_device_class == SensorDeviceClass.TIMESTAMP:
             return format_unix_timestamp(raw)
 
@@ -621,12 +636,25 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
 # Summary sensors: one per pool / volume / disk / cache, attached to NAS root device
 # --------------------------------------------------------------------------------------
 
-_TRANSFER_RATE_SUFFIXES = (
+_SUMMARY_EXCLUDED_SUFFIXES = (
     "_read_rate",
     "_read_rate_raw",
     "_write_rate",
     "_write_rate_raw",
+    "_read_iops",
+    "_write_iops",
+    "_utilization",
 )
+
+_SUMMARY_EXCLUDED_NAMES = {
+    "read rate",
+    "read rate (raw)",
+    "write rate",
+    "write rate (raw)",
+    "read iops",
+    "write iops",
+    "utilization",
+}
 
 
 def _disk_display_name(slot: object, fallback: object = None) -> str | None:
@@ -934,12 +962,7 @@ class UgreenNasRootObjectSummary(CoordinatorEntity, SensorEntity):
             ) or hint or ent_id
             clean = strip_parent_prefix(str(friendly)).strip()
 
-            if key.endswith(_TRANSFER_RATE_SUFFIXES) or clean.lower() in {
-                "read rate",
-                "read rate (raw)",
-                "write rate",
-                "write rate (raw)",
-            }:
+            if key.endswith(_SUMMARY_EXCLUDED_SUFFIXES) or clean.lower() in _SUMMARY_EXCLUDED_NAMES:
                 continue
 
             handled, capacity_name = self._capacity_attribute(key)

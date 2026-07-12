@@ -28,197 +28,34 @@ from .entities import (
     NAS_SPECIFIC_STATUS_TEMPLATES_FAN_CPU,
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_POOL,
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_VOLUME,
+    NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_VOLUME,
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK,
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK_DETAILS,
     NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK,
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_CACHE,
 )
 
-
 _LOGGER = logging.getLogger(__name__)
 
-
-BACKUP_TASK_LIST_ENDPOINT = "/ugreen/v2/web/syncbackup/task/list?page=1&size=1000"
-BACKUP_OPERATION_LOG_ENDPOINT = (
-    "/ugreen/v1/web/sync/log/operation/search?page=1&size=50&event_main_type=5"
-)
-BACKUP_TASK_START_ENDPOINT = "/ugreen/v2/web/syncbackup/task/action/start"
-BACKUP_TASK_STOP_ENDPOINT = "/ugreen/v2/web/syncbackup/task/action/stop"
-
-
-def backup_task_key(task: dict[str, Any]) -> str:
-    """Return the stable technical key for a backup task."""
-    protocol = str((task or {}).get("protocol") or "unknown").strip() or "unknown"
-    task_id = str((task or {}).get("id") or "").strip()
-    return f"{protocol}:{task_id}"
-
-
-def backup_task_name(task: dict[str, Any]) -> str:
-    """Return the visible backup task name."""
-    return str((task or {}).get("task_name") or "Backup Task").strip() or "Backup Task"
-
-
-def _normalize_disk_value(key: str, value: Any) -> str:
-    """Normalize a disk identifier for cross-endpoint matching."""
-    value = str(value or "").strip().casefold()
-    return value.removeprefix("/dev/") if key in ("dev_name", "name") else value
-
-
-def _find_disk_index(
-    disk: dict[str, Any],
-    disk_list: list[dict[str, Any]],
-) -> int | None:
-    """Return the matching global disk index by slot, device name, or label."""
-    for keys in (("slot",), ("dev_name", "name"), ("label",)):
-        expected = {_normalize_disk_value(key, disk.get(key)) for key in keys} - {""}
-        if not expected:
-            continue
-
-        for index, candidate in enumerate(disk_list):
-            actual = {
-                _normalize_disk_value(key, (candidate or {}).get(key))
-                for key in keys
-            } - {""}
-            if expected & actual:
-                return index
-
-    return None
-
-
-def _find_standalone_disk_index(
-    disk: dict[str, Any],
-    disk_list: list[dict[str, Any]],
-) -> int | None:
-    """Resolve a stored stand-alone disk without rebinding a replaced drive."""
-    serial = _normalize_disk_value("serial", disk.get("serial"))
-    if serial:
-        return next(
-            (
-                index
-                for index, candidate in enumerate(disk_list)
-                if _normalize_disk_value("serial", (candidate or {}).get("serial")) == serial
-            ),
-            None,
-        )
-    return _find_disk_index(disk, disk_list)
-
-
-def _iter_disk_references(value: Any):
-    """Yield disk-like dictionaries from pool/cache/spare structures."""
-    if isinstance(value, str):
-        if value.strip():
-            yield {"dev_name": value}
-        return
-
-    if isinstance(value, list):
-        for item in value:
-            yield from _iter_disk_references(item)
-        return
-
-    if not isinstance(value, dict):
-        return
-
-    name = str(value.get("name") or "").strip()
-    if value.get("serial") or value.get("slot") or value.get("dev_name") or name.startswith("/dev/"):
-        yield value
-
-    for key in ("disk", "disks"):
-        nested = value.get(key)
-        if nested is not None:
-            yield from _iter_disk_references(nested)
-
-
-def _assigned_disk_indexes(
-    pools: list[dict[str, Any]],
-    disk_list: list[dict[str, Any]],
-) -> set[int]:
-    """Return global indexes of disks assigned to pools, caches, or spares."""
-    indexes: set[int] = set()
-    for pool in pools:
-        pool = pool or {}
-        references: list[Any] = [pool.get("disks")]
-        cache = pool.get("cache")
-        if isinstance(cache, dict):
-            references.append(cache.get("disks"))
-        references.extend(
-            pool.get(key)
-            for key in ("spare", "spares", "hot_spare", "hot_spares")
-        )
-
-        for reference in references:
-            for disk in _iter_disk_references(reference):
-                index = _find_disk_index(disk, disk_list)
-                if index is not None:
-                    indexes.add(index)
-    return indexes
-
-
-_STANDALONE_DISK_FIELDS = (
-    "serial",
-    "slot",
-    "dev_name",
-    "name",
-    "label",
-    "brand",
-    "manufacturer",
-    "model",
-)
-
-
-def _standalone_disk_record(disk: dict[str, Any], number: int) -> dict[str, Any]:
-    """Build a persistent, JSON-safe stand-alone disk record."""
-    record: dict[str, Any] = {"number": number}
-    for field in _STANDALONE_DISK_FIELDS:
-        value = disk.get(field)
-        if value not in (None, ""):
-            record[field] = value
-    return record
-
-
-def merge_standalone_disks(
-    stored: list[dict[str, Any]],
-    detected: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Keep stable numbers and append only newly detected stand-alone disks."""
-    merged: list[dict[str, Any]] = []
-    used_numbers: set[int] = set()
-
-    for item in stored:
-        if not isinstance(item, dict):
-            continue
-        try:
-            number = int(item.get("number"))
-        except (TypeError, ValueError):
-            continue
-        if number < 1 or number in used_numbers:
-            continue
-        used_numbers.add(number)
-        merged.append(_standalone_disk_record(item, number))
-
-    next_number = max(used_numbers, default=0) + 1
-    for disk in detected:
-        if not isinstance(disk, dict):
-            continue
-        existing = next(
-            (
-                record
-                for record in merged
-                if _find_standalone_disk_index(record, [disk]) == 0
-            ),
-            None,
-        )
-        if existing is not None:
-            updated = _standalone_disk_record(disk, int(existing["number"]))
-            existing.update(updated)
-            continue
-
-        merged.append(_standalone_disk_record(disk, next_number))
-        next_number += 1
-
-    return sorted(merged, key=lambda item: int(item["number"]))
-
-
 class UgreenApiClient:
+
+    _BACKUP_TASK_LIST_ENDPOINT = "/ugreen/v2/web/syncbackup/task/list?page=1&size=1000"
+    _BACKUP_OPERATION_LOG_ENDPOINT = (
+        "/ugreen/v1/web/sync/log/operation/search?page=1&size=50&event_main_type=5"
+    )
+    _BACKUP_TASK_START_ENDPOINT = "/ugreen/v2/web/syncbackup/task/action/start"
+    _BACKUP_TASK_STOP_ENDPOINT = "/ugreen/v2/web/syncbackup/task/action/stop"
+
+    _STANDALONE_DISK_FIELDS = (
+        "serial",
+        "slot",
+        "dev_name",
+        "name",
+        "label",
+        "brand",
+        "manufacturer",
+        "model",
+    )
 
     ### Initialization
     def __init__(
@@ -269,11 +106,11 @@ class UgreenApiClient:
 
     ### "The API" - public entrypoints (e.g. used by __init__.py) ##############
 
+
     @property
     def nas_online(self) -> bool:
         """Return current online state derived from heartbeat checks."""
         return self._nas_online
-
 
     async def authenticate(self, session: aiohttp.ClientSession) -> bool:
         """Call once during setup; afterwards rely on on-demand login in _request()"""
@@ -283,23 +120,270 @@ class UgreenApiClient:
         self._authed = ok
         return ok
 
-
     async def get(self, session: aiohttp.ClientSession, endpoint: str) -> dict[str, Any]:
         """HTTP GET wrapper, uses _request."""
         return await self._request(session, "GET", endpoint)
 
-
     async def post(self, session: aiohttp.ClientSession, endpoint: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         """HTTP POST wrapper, uses _request."""
         return await self._request(session, "POST", endpoint, payload)
-
 
     async def get_backup_tasks(
         self,
         session: aiohttp.ClientSession,
     ) -> list[dict[str, Any]]:
         """Return configured UGOS backup tasks."""
-        resp = await self.get(session, BACKUP_TASK_LIST_ENDPOINT)
+        return await self._get_backup_tasks(session)
+
+    async def get_backup_operation_logs(
+        self,
+        session: aiohttp.ClientSession,
+    ) -> list[dict[str, Any]]:
+        """Return recent UGOS backup operation log entries."""
+        return await self._get_backup_operation_logs(session)
+
+    async def get_backup_runtime_data(
+        self,
+        session: aiohttp.ClientSession,
+    ) -> dict[str, Any]:
+        """Return all data needed by backup sensors and controls."""
+        return await self._get_backup_runtime_data(session)
+
+    async def start_backup_task(
+        self,
+        session: aiohttp.ClientSession,
+        task: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Start one UGOS backup task immediately."""
+        return await self._start_backup_task(session, task)
+
+    async def stop_backup_task(
+        self,
+        session: aiohttp.ClientSession,
+        task: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Stop one running UGOS backup task."""
+        return await self._stop_backup_task(session, task)
+
+    async def get_nas_specific_config_entities(self, session: aiohttp.ClientSession) -> list[UgreenEntity]:
+        """Build NAS-specific config entities (volumes, disks, raid levels etc) - 60s read."""
+        return await self._build_from_registry(session, NAS_SPECIFIC_CONFIG_REGISTRY(), for_status=False)
+
+    async def get_nas_specific_status_entities(self, session: aiohttp.ClientSession) -> list[UgreenEntity]:
+        """Build NAS-specific status entities (disk temperatures, fan speeds etc) - 5s read."""
+        return await self._build_from_registry(session, NAS_SPECIFIC_STATUS_REGISTRY(), for_status=True)
+
+    async def count_dynamic_entities(self, session: aiohttp.ClientSession) -> dict[str, Any]:
+        """Return counted numbers of dynamic, NAS-specific entities."""
+        return await self._count_dynamic_entities(session)
+
+    def get_dynamic_entity_counts(self) -> dict[str, Any]:
+        """Return above counted number of dynamic entities on request."""
+        return self._dynamic_entity_counts or {}
+
+    async def get_unassigned_disks(
+        self,
+        session: aiohttp.ClientSession,
+    ) -> list[dict[str, Any]]:
+        """Return disks not assigned to a pool, cache, or spare role."""
+        return await self._get_unassigned_disks(session)
+
+
+    ### Static helpers #####################################################
+
+
+    @staticmethod
+    def backup_task_key(task: dict[str, Any]) -> str:
+        """Return the stable technical key for a backup task."""
+        protocol = str((task or {}).get("protocol") or "unknown").strip() or "unknown"
+        task_id = str((task or {}).get("id") or "").strip()
+        return f"{protocol}:{task_id}"
+
+    @staticmethod
+    def backup_task_name(task: dict[str, Any]) -> str:
+        """Return the visible backup task name."""
+        return str((task or {}).get("task_name") or "Backup Task").strip() or "Backup Task"
+
+    @classmethod
+    def merge_standalone_disks(
+        cls,
+        stored: list[dict[str, Any]],
+        detected: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Keep stable numbers and append only newly detected stand-alone disks."""
+        merged: list[dict[str, Any]] = []
+        used_numbers: set[int] = set()
+
+        for item in stored:
+            if not isinstance(item, dict):
+                continue
+            try:
+                number = int(item.get("number"))
+            except (TypeError, ValueError):
+                continue
+            if number < 1 or number in used_numbers:
+                continue
+            used_numbers.add(number)
+            merged.append(cls._standalone_disk_record(item, number))
+
+        next_number = max(used_numbers, default=0) + 1
+        for disk in detected:
+            if not isinstance(disk, dict):
+                continue
+            existing = next(
+                (
+                    record
+                    for record in merged
+                    if cls._find_standalone_disk_index(record, [disk]) == 0
+                ),
+                None,
+            )
+            if existing is not None:
+                updated = cls._standalone_disk_record(disk, int(existing["number"]))
+                existing.update(updated)
+                continue
+
+            merged.append(cls._standalone_disk_record(disk, next_number))
+            next_number += 1
+
+        return sorted(merged, key=lambda item: int(item["number"]))
+
+
+    ### Internal functions ##############################################
+
+
+    @staticmethod
+    def _normalize_disk_value(key: str, value: Any) -> str:
+        """Normalize a disk identifier for cross-endpoint matching."""
+        value = str(value or "").strip().casefold()
+        return value.removeprefix("/dev/") if key in ("dev_name", "name") else value
+
+    @classmethod
+    def _find_disk_index(
+        cls,
+        disk: dict[str, Any],
+        disk_list: list[dict[str, Any]],
+    ) -> int | None:
+        """Return the matching global disk index by slot, device name, or label."""
+        for keys in (("slot",), ("dev_name", "name"), ("label",)):
+            expected = {cls._normalize_disk_value(key, disk.get(key)) for key in keys} - {""}
+            if not expected:
+                continue
+
+            for index, candidate in enumerate(disk_list):
+                actual = {
+                    cls._normalize_disk_value(key, (candidate or {}).get(key))
+                    for key in keys
+                } - {""}
+                if expected & actual:
+                    return index
+
+        return None
+
+    @staticmethod
+    def _find_volume_index(
+        volume: dict[str, Any],
+        volume_list: list[dict[str, Any]],
+    ) -> int | None:
+        """Return the matching global volume index by name or label."""
+        for key in ("name", "label"):
+            expected = str((volume or {}).get(key) or "").strip().casefold()
+            if not expected:
+                continue
+
+            for index, candidate in enumerate(volume_list):
+                actual = str((candidate or {}).get(key) or "").strip().casefold()
+                if expected == actual:
+                    return index
+
+        return None
+
+    @classmethod
+    def _find_standalone_disk_index(
+        cls,
+        disk: dict[str, Any],
+        disk_list: list[dict[str, Any]],
+    ) -> int | None:
+        """Resolve a stored stand-alone disk without rebinding a replaced drive."""
+        serial = cls._normalize_disk_value("serial", disk.get("serial"))
+        if serial:
+            return next(
+                (
+                    index
+                    for index, candidate in enumerate(disk_list)
+                    if cls._normalize_disk_value("serial", (candidate or {}).get("serial")) == serial
+                ),
+                None,
+            )
+        return cls._find_disk_index(disk, disk_list)
+
+    @classmethod
+    def _iter_disk_references(cls, value: Any):
+        """Yield disk-like dictionaries from pool/cache/spare structures."""
+        if isinstance(value, str):
+            if value.strip():
+                yield {"dev_name": value}
+            return
+
+        if isinstance(value, list):
+            for item in value:
+                yield from cls._iter_disk_references(item)
+            return
+
+        if not isinstance(value, dict):
+            return
+
+        name = str(value.get("name") or "").strip()
+        if value.get("serial") or value.get("slot") or value.get("dev_name") or name.startswith("/dev/"):
+            yield value
+
+        for key in ("disk", "disks"):
+            nested = value.get(key)
+            if nested is not None:
+                yield from cls._iter_disk_references(nested)
+
+    @classmethod
+    def _assigned_disk_indexes(
+        cls,
+        pools: list[dict[str, Any]],
+        disk_list: list[dict[str, Any]],
+    ) -> set[int]:
+        """Return global indexes of disks assigned to pools, caches, or spares."""
+        indexes: set[int] = set()
+        for pool in pools:
+            pool = pool or {}
+            references: list[Any] = [pool.get("disks")]
+            cache = pool.get("cache")
+            if isinstance(cache, dict):
+                references.append(cache.get("disks"))
+            references.extend(
+                pool.get(key)
+                for key in ("spare", "spares", "hot_spare", "hot_spares")
+            )
+
+            for reference in references:
+                for disk in cls._iter_disk_references(reference):
+                    index = cls._find_disk_index(disk, disk_list)
+                    if index is not None:
+                        indexes.add(index)
+        return indexes
+
+    @classmethod
+    def _standalone_disk_record(cls, disk: dict[str, Any], number: int) -> dict[str, Any]:
+        """Build a persistent, JSON-safe stand-alone disk record."""
+        record: dict[str, Any] = {"number": number}
+        for field in cls._STANDALONE_DISK_FIELDS:
+            value = disk.get(field)
+            if value not in (None, ""):
+                record[field] = value
+        return record
+
+    async def _get_backup_tasks(
+        self,
+        session: aiohttp.ClientSession,
+    ) -> list[dict[str, Any]]:
+        """Return configured UGOS backup tasks."""
+        resp = await self.get(session, self._BACKUP_TASK_LIST_ENDPOINT)
         if (resp or {}).get("code") != 200:
             _LOGGER.debug(
                 "[UGREEN NAS] Backup task list unavailable: code=%s msg=%s",
@@ -311,13 +395,12 @@ class UgreenApiClient:
         tasks = ((resp.get("data") or {}).get("list") or [])
         return [task for task in tasks if isinstance(task, dict)]
 
-
-    async def get_backup_operation_logs(
+    async def _get_backup_operation_logs(
         self,
         session: aiohttp.ClientSession,
     ) -> list[dict[str, Any]]:
         """Return recent UGOS backup operation log entries."""
-        resp = await self.get(session, BACKUP_OPERATION_LOG_ENDPOINT)
+        resp = await self.get(session, self._BACKUP_OPERATION_LOG_ENDPOINT)
         if (resp or {}).get("code") != 200:
             _LOGGER.debug(
                 "[UGREEN NAS] Backup operation log unavailable: code=%s msg=%s",
@@ -329,18 +412,16 @@ class UgreenApiClient:
         logs = ((resp.get("data") or {}).get("list") or [])
         return [log for log in logs if isinstance(log, dict)]
 
-
-    async def get_backup_runtime_data(
+    async def _get_backup_runtime_data(
         self,
         session: aiohttp.ClientSession,
     ) -> dict[str, Any]:
         """Return all data needed by backup sensors and controls."""
-        tasks = await self.get_backup_tasks(session)
-        logs = await self.get_backup_operation_logs(session) if tasks else []
+        tasks = await self._get_backup_tasks(session)
+        logs = await self._get_backup_operation_logs(session) if tasks else []
         return {"tasks": tasks, "logs": logs}
 
-
-    async def start_backup_task(
+    async def _start_backup_task(
         self,
         session: aiohttp.ClientSession,
         task: dict[str, Any],
@@ -350,10 +431,9 @@ class UgreenApiClient:
             "protocol": str((task or {}).get("protocol") or ""),
             "task_id": int((task or {}).get("id") or 0),
         }
-        return await self.post(session, BACKUP_TASK_START_ENDPOINT, payload)
+        return await self.post(session, self._BACKUP_TASK_START_ENDPOINT, payload)
 
-
-    async def stop_backup_task(
+    async def _stop_backup_task(
         self,
         session: aiohttp.ClientSession,
         task: dict[str, Any],
@@ -363,30 +443,9 @@ class UgreenApiClient:
             "protocol": str((task or {}).get("protocol") or ""),
             "task_id": int((task or {}).get("id") or 0),
         }
-        return await self.post(session, BACKUP_TASK_STOP_ENDPOINT, payload)
+        return await self.post(session, self._BACKUP_TASK_STOP_ENDPOINT, payload)
 
-
-    async def get_nas_specific_config_entities(self, session: aiohttp.ClientSession) -> list[UgreenEntity]:
-        """Build NAS-specific config entities (volumes, disks, raid levels etc) - 60s read."""
-        return await self._build_from_registry(session, NAS_SPECIFIC_CONFIG_REGISTRY(), for_status=False)
-
-
-    async def get_nas_specific_status_entities(self, session: aiohttp.ClientSession) -> list[UgreenEntity]:
-        """Build NAS-specific status entities (disk temperatures, fan speeds etc) - 5s read."""
-        return await self._build_from_registry(session, NAS_SPECIFIC_STATUS_REGISTRY(), for_status=True)
-
-
-    async def count_dynamic_entities(self, session: aiohttp.ClientSession) -> dict[str, Any]:
-        """Return counted numbers of dynamic, NAS-specific entities."""
-        return await self._count_dynamic_entities(session)
-
-
-    def get_dynamic_entity_counts(self) -> dict[str, Any]:
-        """Return above counted number of dynamic entities on request."""
-        return self._dynamic_entity_counts or {}
-
-
-    async def get_unassigned_disks(
+    async def _get_unassigned_disks(
         self,
         session: aiohttp.ClientSession,
     ) -> list[dict[str, Any]]:
@@ -400,9 +459,8 @@ class UgreenApiClient:
 
         pools = ((pools_resp.get("data") or {}).get("result") or [])
         disks = ((disks_resp.get("data") or {}).get("result") or [])
-        assigned = _assigned_disk_indexes(pools, disks)
+        assigned = self._assigned_disk_indexes(pools, disks)
         return [disk for index, disk in enumerate(disks) if index not in assigned]
-
 
     def _active_standalone_disks(
         self,
@@ -410,7 +468,7 @@ class UgreenApiClient:
         disk_list: list[dict[str, Any]],
     ) -> list[tuple[int, int, dict[str, Any]]]:
         """Return configured stand-alone disks that remain physically unassigned."""
-        assigned = _assigned_disk_indexes(pools, disk_list)
+        assigned = self._assigned_disk_indexes(pools, disk_list)
         active: list[tuple[int, int, dict[str, Any]]] = []
         used_indexes: set[int] = set()
 
@@ -419,17 +477,13 @@ class UgreenApiClient:
                 number = int(record.get("number"))
             except (TypeError, ValueError):
                 continue
-            index = _find_standalone_disk_index(record, disk_list)
+            index = self._find_standalone_disk_index(record, disk_list)
             if number < 1 or index is None or index in assigned or index in used_indexes:
                 continue
             used_indexes.add(index)
             active.append((number, index, disk_list[index] or {}))
 
         return sorted(active, key=lambda item: item[0])
-
-
-    ### Internal functions ##############################################
-
 
     async def _login(self, session: aiohttp.ClientSession) -> bool:
         """Fetch RSA pubkey from header, encrypt password, request token"""
@@ -492,7 +546,6 @@ class UgreenApiClient:
                 _LOGGER.error("[UGREEN] login error: %s", e)
                 return False
 
-
     async def _request(self, session: aiohttp.ClientSession, method: str, endpoint: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         """Single request helper with 1024-refresh; keeps noise low"""
         payload = payload or {}
@@ -523,7 +576,6 @@ class UgreenApiClient:
         except Exception as e:
             _LOGGER.error("[UGREEN] %s error on %s: %s", method, endpoint, e)
             return {}
-
 
     async def _count_dynamic_entities(self, session: aiohttp.ClientSession) -> dict[str, Any]:
         """Counts number of dynamic entities for central accessibility"""
@@ -587,7 +639,6 @@ class UgreenApiClient:
                 self._dynamic_entity_counts = {}
             return self._dynamic_entity_counts
 
-
     async def start_ws_keepalive_task(self, session: aiohttp.ClientSession, *, lang: str = "de-DE", heartbeat: int = 15) -> None:
         """Add a permanent web socket - without, some entities stop updating after several minutes (UGOS bug???)"""
 
@@ -595,7 +646,6 @@ class UgreenApiClient:
             return
         self._ws_stop.clear()
         self._ws_task = asyncio.create_task(self._ws_keepalive_loop(session, lang=lang, heartbeat=heartbeat), name="ugreen-ws-keepalive")
-
 
     async def stop_ws_keepalive_task(self) -> None:
         """Stop the background keep-alive task and close the websocket."""
@@ -610,7 +660,6 @@ class UgreenApiClient:
                 await self._ws.close()
         self._ws = None
         self._ws_connected = False
-
 
     def _set_nas_online(self, online: bool, *, reason: str | None = None) -> None:
         """Update online state and emit exactly one log line on state changes."""
@@ -630,7 +679,6 @@ class UgreenApiClient:
         if reason:
             _LOGGER.debug("[UGREEN NAS] Online state change reason: %s", reason)
 
-
     async def _heartbeat_ok(self, session: aiohttp.ClientSession, *, timeout: float = 1.0) -> bool:
         """Unauthenticated heartbeat check; used as online-gate for polling."""
         url = f"{self.base_url}/ugreen/v1/verify/heartbeat"
@@ -648,7 +696,6 @@ class UgreenApiClient:
                 return True
         except Exception:
             return False
-
 
     async def _ws_keepalive_loop(self, session: aiohttp.ClientSession, *, lang: str, heartbeat: int) -> None:
         """Container-like endless WS loop: subscribe, ping periodically, continuously receive, backoff reconnect, re-auth on 401/403."""
@@ -764,7 +811,6 @@ class UgreenApiClient:
         self._ws = None
         _LOGGER.debug("WS keep-alive task stopped.")
 
-
     async def _build_from_registry(self, session: aiohttp.ClientSession, registry: list[dict[str, Any]], *, for_status: bool) -> list[UgreenEntity]:
         """Single loop over registry entries; supports list/count/custom + post hooks."""
         entities: list[UgreenEntity] = []
@@ -830,7 +876,6 @@ class UgreenApiClient:
             entities.extend(_entities)
 
         return entities
-
 
     async def _get_dynamic_config_entities_lan(self, session: aiohttp.ClientSession) -> List[UgreenEntity]:
         """Create LAN config entities from iface/list.
@@ -934,7 +979,6 @@ class UgreenApiClient:
             ))
 
         return entities
-
 
     async def _get_dynamic_config_entities_storage(self, session: aiohttp.ClientSession) -> List[UgreenEntity]:
         """Create pool, volume, assigned disk, and opted-in stand-alone disk entities."""
@@ -1044,7 +1088,7 @@ class UgreenApiClient:
         ) -> None:
             for d_i, disk in enumerate(disks or []):
                 disk = disk or {}
-                global_idx = _find_disk_index(disk, disk_list)
+                global_idx = self._find_disk_index(disk, disk_list)
                 if global_idx is None:
                     _LOGGER.debug(
                         "[UGREEN NAS] Disk '%s' not found in global disk list",
@@ -1130,6 +1174,54 @@ class UgreenApiClient:
 
         return entities
 
+    async def _get_dynamic_status_entities_storage_volumes(self, session: aiohttp.ClientSession) -> list[UgreenEntity]:
+        """Create status entities for volume IOPS and utilization."""
+        endpoint_pools = "/ugreen/v1/storage/pool/list"
+        endpoint_volume_iops = "/ugreen/v1/storage/volume/iops?type=1&interval=5"
+
+        pools_resp = await self.get(session, endpoint_pools)
+        pools_valid = (pools_resp or {}).get("code") == 200
+        pools = (
+            ((pools_resp.get("data") or {}).get("result") or [])
+            if pools_valid else []
+        )
+        volume_resp = await self.get(session, endpoint_volume_iops)
+        volumes_valid = (volume_resp or {}).get("code") == 200
+        volume_list = (
+            ((volume_resp.get("data") or {}).get("result") or [])
+            if volumes_valid else []
+        )
+        if volume_list and str((volume_list[0] or {}).get("name") or "").casefold() == "overview":
+            volume_list = volume_list[1:]
+        entities: list[UgreenEntity] = []
+
+        if pools_valid and not pools:
+            _LOGGER.debug("[UGREEN NAS] No pools in %s response", endpoint_pools)
+        elif not pools_valid:
+            _LOGGER.warning("[UGREEN NAS] Failed to read pools from %s", endpoint_pools)
+        if not volumes_valid:
+            _LOGGER.warning("[UGREEN NAS] Failed to read volumes from %s", endpoint_volume_iops)
+
+        for p_i, pool in enumerate(pools, start=1):
+            for v_i, volume in enumerate((pool or {}).get("volumes") or [], start=1):
+                volume = volume or {}
+                global_idx = self._find_volume_index(volume, volume_list)
+                if global_idx is None:
+                    _LOGGER.debug(
+                        "[UGREEN NAS] Volume '%s' not found in global volume list",
+                        volume.get("name") or volume.get("label") or f"{p_i}:{v_i}",
+                    )
+                    continue
+
+                entities.extend(apply_templates(
+                    NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_VOLUME,
+                    series_index=global_idx + 1,
+                    prefix_key=f"volume{v_i}_pool{p_i}",
+                    prefix_name=f"(Pool {p_i} | Volume {v_i})",
+                    category="Volumes",
+                ))
+
+        return entities
 
     async def _get_dynamic_status_entities_storage_disks(self, session: aiohttp.ClientSession) -> list[UgreenEntity]:
         """Create status entities for pool disks and opted-in stand-alone disks."""
@@ -1161,7 +1253,7 @@ class UgreenApiClient:
         for p_i, pool in enumerate(pools, start=1):
             for d_i, disk in enumerate((pool or {}).get("disks") or [], start=1):
                 disk = disk or {}
-                global_idx = _find_disk_index(disk, disk_list)
+                global_idx = self._find_disk_index(disk, disk_list)
                 if global_idx is None:
                     _LOGGER.debug(
                         "[UGREEN NAS] Disk '%s' not found in global disk list",
@@ -1199,7 +1291,6 @@ class UgreenApiClient:
 
         return entities
 
-
     async def _get_dynamic_status_entities_storage_cache_disks(self, session: aiohttp.ClientSession) -> List[UgreenEntity]:
         endpoint_pools = "/ugreen/v1/storage/pool/list"
         endpoint_disk = "/ugreen/v2/storage/disk/list"
@@ -1221,7 +1312,7 @@ class UgreenApiClient:
                 continue
 
             for cd_i, cd in enumerate(cache.get("disks") or [], start=1):
-                global_idx = _find_disk_index(cd, disk_list)
+                global_idx = self._find_disk_index(cd, disk_list)
                 if global_idx is None:
                     continue
                 global_series_index = global_idx + 1
@@ -1237,8 +1328,6 @@ class UgreenApiClient:
                 ))
 
         return entities
-
-
 
 # undecided - any use for this?
     # async def get_dynamic_status_entities_storage_pool(self, session) -> list[UgreenEntity]:

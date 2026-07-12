@@ -9,7 +9,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
 from homeassistant.util import slugify
-from .api import backup_task_key, backup_task_name
+from .api import UgreenApiClient
 from .device_info import build_device_info
 
 from .const import (
@@ -203,7 +203,7 @@ class UgreenBackupTaskSelect(CoordinatorEntity, RestoreEntity, SelectEntity):
             elif isinstance(last_state.state, str):
                 task = self._task_by_option(last_state.state)
                 if task:
-                    self._selected_key = backup_task_key(task)
+                    self._selected_key = UgreenApiClient.backup_task_key(task)
         self._ensure_valid_selection()
         self._store_selection()
         self.async_write_ha_state()
@@ -217,13 +217,13 @@ class UgreenBackupTaskSelect(CoordinatorEntity, RestoreEntity, SelectEntity):
     def _option_map(self) -> dict[str, dict[str, object]]:
         """Return visible option labels mapped to tasks."""
         tasks = self._tasks()
-        names = [backup_task_name(task) for task in tasks]
+        names = [UgreenApiClient.backup_task_name(task) for task in tasks]
         duplicate_names = {name for name in names if names.count(name) > 1}
         options: dict[str, dict[str, object]] = {}
 
         for task in tasks:
-            name = backup_task_name(task)
-            key = backup_task_key(task)
+            name = UgreenApiClient.backup_task_name(task)
+            key = UgreenApiClient.backup_task_key(task)
             label = f"{name} ({key})" if name in duplicate_names else name
             options[label] = task
         return options
@@ -231,7 +231,7 @@ class UgreenBackupTaskSelect(CoordinatorEntity, RestoreEntity, SelectEntity):
     def _task_by_key(self, key: str) -> dict[str, object] | None:
         """Find a backup task by stable key."""
         for task in self._tasks():
-            if backup_task_key(task) == key:
+            if UgreenApiClient.backup_task_key(task) == key:
                 return task
         return None
 
@@ -242,7 +242,7 @@ class UgreenBackupTaskSelect(CoordinatorEntity, RestoreEntity, SelectEntity):
     def _option_for_key(self, key: str) -> str | None:
         """Return the visible option label for a stable key."""
         for option, task in self._option_map().items():
-            if backup_task_key(task) == key:
+            if UgreenApiClient.backup_task_key(task) == key:
                 return option
         return None
 
@@ -251,7 +251,7 @@ class UgreenBackupTaskSelect(CoordinatorEntity, RestoreEntity, SelectEntity):
         if self._task_by_key(self._selected_key):
             return
         tasks = self._tasks()
-        self._selected_key = backup_task_key(tasks[0]) if tasks else ""
+        self._selected_key = UgreenApiClient.backup_task_key(tasks[0]) if tasks else ""
 
     def _store_selection(self) -> None:
         """Store the selected task key for global backup buttons."""
@@ -279,7 +279,7 @@ class UgreenBackupTaskSelect(CoordinatorEntity, RestoreEntity, SelectEntity):
             "selected_task_key": self._selected_key,
             "available_tasks": [
                 {
-                    "name": backup_task_name(task),
+                    "name": UgreenApiClient.backup_task_name(task),
                     "task_id": task.get("id"),
                     "protocol": task.get("protocol"),
                 }
@@ -300,7 +300,7 @@ class UgreenBackupTaskSelect(CoordinatorEntity, RestoreEntity, SelectEntity):
             _LOGGER.warning("[UGREEN NAS] Invalid backup task selection: %s", option)
             return
 
-        self._selected_key = backup_task_key(task)
+        self._selected_key = UgreenApiClient.backup_task_key(task)
         self._store_selection()
         self.async_write_ha_state()
 

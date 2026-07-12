@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import re
 
@@ -10,7 +11,7 @@ from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
 
-from .api import UgreenApiClient, backup_task_key, backup_task_name, merge_standalone_disks
+from .api import UgreenApiClient
 from .const import BACKUP_ENTITY_CATEGORY, CONF_STANDALONE_DISKS, DEFAULT_ENTITY_PREFIX, DOMAIN
 from .device_info import build_device_info
 from .entities import UgreenEntity
@@ -192,7 +193,7 @@ class UgreenNasStandaloneDiskAdoptButton(CoordinatorEntity, ButtonEntity):
             detected = await self._api.get_unassigned_disks(session)
             stored = self._entry.data.get(CONF_STANDALONE_DISKS, [])
             stored = stored if isinstance(stored, list) else []
-            merged = merge_standalone_disks(stored, detected)
+            merged = UgreenApiClient.merge_standalone_disks(stored, detected)
 
             if merged == stored:
                 _LOGGER.info(
@@ -353,6 +354,7 @@ class UgreenNasBackupTaskActionButton(CoordinatorEntity, ButtonEntity):
         self._entry_id = entry.entry_id
         self._api = api
         self._action = action
+        self._press_lock = asyncio.Lock()
         self._key, label, icon = self._ACTIONS[action]
 
         self._attr_name = f"{_get_entity_prefix(hass, entry.entry_id)} {label}"
@@ -374,9 +376,22 @@ class UgreenNasBackupTaskActionButton(CoordinatorEntity, ButtonEntity):
         tasks = self._tasks()
         selected_key = self.hass.data[DOMAIN][self._entry_id].get("selected_backup_task_key")
         for task in tasks:
-            if backup_task_key(task) == selected_key:
+            if UgreenApiClient.backup_task_key(task) == selected_key:
                 return task
         return tasks[0] if tasks else None
+
+    @staticmethod
+    def _task_running(task: dict[str, object]) -> bool:
+        """Return whether UGOS currently reports this task as running."""
+        try:
+            status = int(task.get("status", -1))
+        except (TypeError, ValueError):
+            status = -1
+        try:
+            progress = int(task.get("progress") or 0)
+        except (TypeError, ValueError):
+            progress = 0
+        return bool(task.get("execute_now")) or progress > 0 or status in {2, 3, 6, 7}
 
     @property
     def extra_state_attributes(self) -> dict[str, object]:
@@ -389,8 +404,8 @@ class UgreenNasBackupTaskActionButton(CoordinatorEntity, ButtonEntity):
         }
         if task:
             attrs.update({
-                "selected_task": backup_task_name(task),
-                "selected_task_key": backup_task_key(task),
+                "selected_task": UgreenApiClient.backup_task_name(task),
+                "selected_task_key": UgreenApiClient.backup_task_key(task),
                 "selected_task_id": task.get("id"),
                 "selected_protocol": task.get("protocol"),
             })
@@ -398,47 +413,52 @@ class UgreenNasBackupTaskActionButton(CoordinatorEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Start or stop the selected backup task."""
-        task = self._selected_task()
-        if not task:
-            _LOGGER.warning("[UGREEN NAS] No backup task selected for %s", self._action)
-            return
-
-        try:
-            session = async_get_clientsession(self.hass)
-            if not await self._api.authenticate(session):
-                _LOGGER.error(
-                    "[UGREEN NAS] Backup task %s failed: authentication failed",
-                    self._action,
-                )
-                return
-
-            if self._action == "start":
-                resp = await self._api.start_backup_task(session, task)
-            else:
-                resp = await self._api.stop_backup_task(session, task)
-
-            if (resp or {}).get("code") != 200:
+        async with self._press_lock:
+            task = self._selected_task()
+            if not task:
                 _LOGGER.warning(
-                    "[UGREEN NAS] Backup task %s returned code=%s msg=%s",
-                    self._action,
-                    (resp or {}).get("code"),
-                    (resp or {}).get("msg"),
+                    "[UGREEN NAS] No backup task selected for %s", self._action
                 )
                 return
+            if self._action == "start" and self._task_running(task):
+                return
 
-            _LOGGER.info(
-                "[UGREEN NAS] Backup task %s requested for '%s'",
-                self._action,
-                backup_task_name(task),
-            )
-            await self.coordinator.async_request_refresh()
-        except Exception as e:
-            _LOGGER.error(
-                "[UGREEN NAS] Backup task %s failed for '%s': %s",
-                self._action,
-                backup_task_name(task),
-                e,
-            )
+            try:
+                session = async_get_clientsession(self.hass)
+                if not await self._api.authenticate(session):
+                    _LOGGER.error(
+                        "[UGREEN NAS] Backup task %s failed: authentication failed",
+                        self._action,
+                    )
+                    return
+
+                if self._action == "start":
+                    resp = await self._api.start_backup_task(session, task)
+                else:
+                    resp = await self._api.stop_backup_task(session, task)
+
+                if (resp or {}).get("code") != 200:
+                    _LOGGER.warning(
+                        "[UGREEN NAS] Backup task %s returned code=%s msg=%s",
+                        self._action,
+                        (resp or {}).get("code"),
+                        (resp or {}).get("msg"),
+                    )
+                    return
+
+                _LOGGER.info(
+                    "[UGREEN NAS] Backup task %s requested for '%s'",
+                    self._action,
+                    UgreenApiClient.backup_task_name(task),
+                )
+                await self.coordinator.async_request_refresh()
+            except Exception as e:
+                _LOGGER.error(
+                    "[UGREEN NAS] Backup task %s failed for '%s': %s",
+                    self._action,
+                    UgreenApiClient.backup_task_name(task),
+                    e,
+                )
 
     def _handle_coordinator_update(self) -> None:
         self._attr_press = self.async_press
