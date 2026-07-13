@@ -5,6 +5,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 
 from .const import DOMAIN
 
+
 _RE_STANDALONE_DISK = re.compile(r"^standalone_disk(?P<d>\d+)(?:_|$)")
 _RE_DISK = re.compile(r"^disk(?P<d>\d+)_pool(?P<p>\d+)(?:_|$)")
 _RE_CACHE_DISK = re.compile(r"^cache_disk(?P<d>\d+)_pool(?P<p>\d+)(?:_|$)")

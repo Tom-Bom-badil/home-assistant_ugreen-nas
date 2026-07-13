@@ -1,14 +1,13 @@
-import logging
-_LOGGER = logging.getLogger(__name__)
-
-import aiohttp
+import logging, aiohttp
 import voluptuous as vol
+from typing import Any, Optional
+
 from homeassistant import config_entries
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import NumberSelector, NumberSelectorConfig
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from homeassistant.util import slugify
-from typing import Any, Optional
+
 from .api import UgreenApiClient
 from .const import (
     DOMAIN,
@@ -36,6 +35,8 @@ from .const import (
     DEFAULT_DASHBOARD_IMAGE_FILE,
 )
 
+
+_LOGGER = logging.getLogger(__name__)
 HEARTBEAT_PATH = "/ugreen/v1/verify/heartbeat"
 
 

@@ -1,10 +1,16 @@
+import logging
+
 from homeassistant.components.text import TextEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
+
 from .const import DOMAIN, LOVELACE_ENTITY_FILTER_NAME, LOVELACE_ENTITY_FILTER_UNIQUE_ID
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _is_owner_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

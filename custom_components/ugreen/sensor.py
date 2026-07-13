@@ -1,5 +1,4 @@
 import logging, re
-
 from typing import Any, List, Tuple
 from datetime import date, datetime, timezone
 from decimal import Decimal

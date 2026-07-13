@@ -26,11 +26,13 @@
 
 from dataclasses import dataclass
 from typing import Any, List
+
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.const import (
     PERCENTAGE, REVOLUTIONS_PER_MINUTE, UnitOfDataRate, UnitOfTemperature,
     UnitOfInformation, UnitOfTime, UnitOfFrequency
 )
+
 
 @dataclass
 class UgreenEntity:

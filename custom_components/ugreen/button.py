@@ -1,6 +1,4 @@
-import asyncio
-import logging
-import re
+import asyncio, logging, re
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
@@ -16,8 +14,8 @@ from .const import BACKUP_ENTITY_CATEGORY, CONF_STANDALONE_DISKS, DEFAULT_ENTITY
 from .device_info import build_device_info
 from .entities import UgreenEntity
 
-_LOGGER = logging.getLogger(__name__)
 
+_LOGGER = logging.getLogger(__name__)
 _MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
 
 
