@@ -46,6 +46,8 @@ ugreen_nas_template:
                 return '#5DADE2';
               case 'Cache':
                 return '#708090';
+              case 'Backup':
+                return '#8c8c73';
               default:
                 return '#8B0000';
             }
@@ -82,14 +84,14 @@ ugreen_nas_template:
       - white-space: normal
       - word-break: break-word
       - overflow-wrap: break-word
-      - margin-top: '-1.75vh'
+      - margin-top: "-1.75vh"
       - width: 100%
       - padding: 0 4px
       - height: 7vh
       - overflow: hidden
       - text-overflow: ellipsis
-      - '-webkit-line-clamp': 2
-      - '-webkit-box-orient': vertical
+      - "-webkit-line-clamp": 2
+      - "-webkit-box-orient": vertical
       - font-size: |
           [[[
             const len = entity.state.length;
