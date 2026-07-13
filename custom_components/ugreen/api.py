@@ -1,5 +1,4 @@
 import logging, ssl, asyncio, base64, time, contextlib, aiohttp, async_timeout
-
 from typing import List, Any
 from uuid import uuid4
 from cryptography.hazmat.primitives import serialization
@@ -35,7 +34,9 @@ from .entities import (
     NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_CACHE,
 )
 
+
 _LOGGER = logging.getLogger(__name__)
+
 
 class UgreenApiClient:
 
