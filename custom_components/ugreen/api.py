@@ -11,7 +11,9 @@ from homeassistant.const import UnitOfInformation
 from .utils import make_entities, apply_templates
 
 from .entities import (
+    UgreenBackupTaskEntity,
     UgreenEntity,
+    make_backup_task_entity,
     NAS_SPECIFIC_CONFIG_REGISTRY,
     NAS_SPECIFIC_STATUS_REGISTRY,
     NAS_SPECIFIC_CONFIG_TEMPLATES_USB,
@@ -150,6 +152,13 @@ class UgreenApiClient:
         """Return all data needed by backup sensors and controls."""
         return await self._get_backup_runtime_data(session)
 
+    async def get_dynamic_backup_entities(
+        self,
+        session: aiohttp.ClientSession,
+    ) -> list[UgreenBackupTaskEntity]:
+        """Build one dynamic entity description per configured backup task."""
+        return await self._get_dynamic_backup_entities(session)
+
     async def start_backup_task(
         self,
         session: aiohttp.ClientSession,
@@ -204,6 +213,33 @@ class UgreenApiClient:
     def backup_task_name(task: dict[str, Any]) -> str:
         """Return the visible backup task name."""
         return str((task or {}).get("task_name") or "Backup Task").strip() or "Backup Task"
+
+    @staticmethod
+    def backup_task_running(task: dict[str, Any]) -> bool:
+        """Return whether UGOS currently reports a backup task as running."""
+        try:
+            status = int((task or {}).get("status", -1))
+        except (TypeError, ValueError):
+            status = -1
+        try:
+            progress = int((task or {}).get("progress") or 0)
+        except (TypeError, ValueError):
+            progress = 0
+        return bool((task or {}).get("execute_now")) or progress > 0 or status in {2, 3, 6, 7}
+
+    @staticmethod
+    def backup_tasks_from_data(data: dict[str, Any] | None) -> list[dict[str, Any]]:
+        """Return normalized backup tasks from shared coordinator data."""
+        backup = (data or {}).get("backup")
+        tasks = (backup or {}).get("tasks") if isinstance(backup, dict) else []
+        return [task for task in (tasks or []) if isinstance(task, dict)]
+
+    @staticmethod
+    def backup_logs_from_data(data: dict[str, Any] | None) -> list[dict[str, Any]]:
+        """Return normalized backup logs from shared coordinator data."""
+        backup = (data or {}).get("backup")
+        logs = (backup or {}).get("logs") if isinstance(backup, dict) else []
+        return [log for log in (logs or []) if isinstance(log, dict)]
 
     @classmethod
     def merge_standalone_disks(
@@ -379,6 +415,25 @@ class UgreenApiClient:
                 record[field] = value
         return record
 
+    @staticmethod
+    def _extract_response_items(
+        response: dict[str, Any] | None,
+        *keys: str,
+    ) -> list[dict[str, Any]]:
+        """Return a dictionary list from common UGOS response layouts."""
+        value: Any = (response or {}).get("data")
+
+        for _ in range(4):
+            if isinstance(value, list):
+                return [item for item in value if isinstance(item, dict)]
+            if not isinstance(value, dict):
+                return []
+            value = next(
+                (value[key] for key in keys if value.get(key) is not None),
+                None,
+            )
+        return []
+
     async def _get_backup_tasks(
         self,
         session: aiohttp.ClientSession,
@@ -386,15 +441,27 @@ class UgreenApiClient:
         """Return configured UGOS backup tasks."""
         resp = await self.get(session, self._BACKUP_TASK_LIST_ENDPOINT)
         if (resp or {}).get("code") != 200:
-            _LOGGER.debug(
+            _LOGGER.warning(
                 "[UGREEN NAS] Backup task list unavailable: code=%s msg=%s",
                 (resp or {}).get("code"),
                 (resp or {}).get("msg"),
             )
             return []
 
-        tasks = ((resp.get("data") or {}).get("list") or [])
-        return [task for task in tasks if isinstance(task, dict)]
+        keys = ("list", "result", "tasks", "items", "rows")
+        tasks = self._extract_response_items(resp, *keys)
+        data = resp.get("data")
+        if (
+            not tasks
+            and isinstance(data, dict)
+            and data
+            and not any(data.get(key) is not None for key in keys)
+        ):
+            _LOGGER.warning(
+                "[UGREEN NAS] Unsupported backup task response structure: data_keys=%s",
+                sorted(data),
+            )
+        return tasks
 
     async def _get_backup_operation_logs(
         self,
@@ -403,15 +470,40 @@ class UgreenApiClient:
         """Return recent UGOS backup operation log entries."""
         resp = await self.get(session, self._BACKUP_OPERATION_LOG_ENDPOINT)
         if (resp or {}).get("code") != 200:
-            _LOGGER.debug(
+            _LOGGER.warning(
                 "[UGREEN NAS] Backup operation log unavailable: code=%s msg=%s",
                 (resp or {}).get("code"),
                 (resp or {}).get("msg"),
             )
             return []
 
-        logs = ((resp.get("data") or {}).get("list") or [])
-        return [log for log in logs if isinstance(log, dict)]
+        keys = ("list", "result", "logs", "items", "rows")
+        logs = self._extract_response_items(resp, *keys)
+        data = resp.get("data")
+        if (
+            not logs
+            and isinstance(data, dict)
+            and data
+            and not any(data.get(key) is not None for key in keys)
+        ):
+            _LOGGER.warning(
+                "[UGREEN NAS] Unsupported backup log response structure: data_keys=%s",
+                sorted(data),
+            )
+        return logs
+
+    async def _get_dynamic_backup_entities(
+        self,
+        session: aiohttp.ClientSession,
+    ) -> list[UgreenBackupTaskEntity]:
+        """Create dynamic entity descriptions for configured backup tasks."""
+        return [
+            make_backup_task_entity(
+                self.backup_task_key(task),
+                self.backup_task_name(task),
+            )
+            for task in await self._get_backup_tasks(session)
+        ]
 
     async def _get_backup_runtime_data(
         self,
