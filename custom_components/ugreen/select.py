@@ -12,6 +12,7 @@ from homeassistant.util import slugify
 
 from .api import UgreenApiClient
 from .device_info import build_device_info
+from .entities import BACKUP_TASK_SELECT_ENTITY
 from .const import (
     CONF_DASHBOARD_DISK_COLUMNS,
     CONF_DASHBOARD_IMAGE_FILE,
@@ -163,8 +164,8 @@ async def async_setup_entry(
         UgreenPowerModeSelect(hass, entry, data["state_coordinator"]),
         UgreenFanModeSelect(hass, entry, data["state_coordinator"]),
     ]
-    if data.get("backup_tasks"):
-        entities.append(UgreenBackupTaskSelect(hass, entry, data["backup_coordinator"]))
+    if data.get("backup_entities"):
+        entities.append(UgreenBackupTaskSelect(hass, entry, data["config_coordinator"]))
     if _is_owner_entry(hass, entry):
         entities.append(UgreenLovelaceDeviceSelect(hass, data["config_coordinator"]))
     async_add_entities(entities)
@@ -185,13 +186,14 @@ class UgreenBackupTaskSelect(CoordinatorEntity, RestoreEntity, SelectEntity):
         self._entry_id = entry.entry_id
         self._selected_key = ""
 
-        self._attr_name = f"{_get_entry_label(entry)} Backup Task"
+        description = BACKUP_TASK_SELECT_ENTITY
+        self._attr_name = f"{_get_entry_label(entry)} {description.name}"
         self.entity_id = async_generate_entity_id(
             "select.{}", self._attr_name, hass=self.hass
         )
-        self._attr_unique_id = f"{entry.entry_id}_backup_task_select"
-        self._attr_icon = "mdi:backup-restore"
-        self._attr_device_info = build_device_info(hass, entry.entry_id, "backup_task_select")
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        self._attr_icon = description.icon
+        self._attr_device_info = build_device_info(hass, entry.entry_id, description.key)
 
     async def async_added_to_hass(self) -> None:
         """Restore the previous backup task selection."""
@@ -209,10 +211,8 @@ class UgreenBackupTaskSelect(CoordinatorEntity, RestoreEntity, SelectEntity):
         self.async_write_ha_state()
 
     def _tasks(self) -> list[dict[str, object]]:
-        """Return current backup tasks from the coordinator or setup cache."""
-        data = self.coordinator.data or {}
-        tasks = data.get("tasks") or self.hass.data[DOMAIN][self._entry_id].get("backup_tasks") or []
-        return [task for task in tasks if isinstance(task, dict)]
+        """Return current backup tasks from the shared coordinator."""
+        return UgreenApiClient.backup_tasks_from_data(self.coordinator.data)
 
     def _option_map(self) -> dict[str, dict[str, object]]:
         """Return visible option labels mapped to tasks."""
