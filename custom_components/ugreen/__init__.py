@@ -104,6 +104,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     #   Build the entity list
     config_entities =  list(ALL_NAS_COMMON_CONFIG_ENTITIES)
     config_entities += await api.get_nas_specific_config_entities(session)
+    backup_entities = await api.get_dynamic_backup_entities(session)
     #   Group entities by endpoint to reduce number of API calls
     config_entities_grouped_by_endpoint = defaultdict(list)
     for entity in config_entities:
@@ -115,7 +116,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             _LOGGER.debug("[UGREEN NAS] Updating configuration data...")
             endpoint_to_entities = hass.data[DOMAIN][entry.entry_id]["config_entities_grouped_by_endpoint"]
-            return await get_entity_data_from_api(api, session, endpoint_to_entities)
+            data = await get_entity_data_from_api(api, session, endpoint_to_entities)
+            data["backup"] = await api.get_backup_runtime_data(session)
+            return data
         except Exception as err:
             raise UpdateFailed(f"[UGREEN NAS] Configuration entities update error: {err}") from err
     #   Create the coordinator
@@ -165,32 +168,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ),
     )
 
-    ### Setup backup entities (configured UGOS backup jobs)
-    backup_tasks = await api.get_backup_tasks(session)
-
-    async def update_backup_data() -> dict[str, Any]:
-        if not api.nas_online:
-            return {"tasks": [], "logs": []}
-        try:
-            _LOGGER.debug("[UGREEN NAS] Updating backup data...")
-            return await api.get_backup_runtime_data(session)
-        except Exception as err:
-            raise UpdateFailed(f"[UGREEN NAS] Backup entities update error: {err}") from err
-
-    backup_coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name="ugreen_backup",
-        update_method=update_backup_data,
-        update_interval=timedelta(
-            seconds=int(entry.options.get(
-                CONF_CONFIG_INTERVAL,
-                entry.data.get(CONF_CONFIG_INTERVAL, DEFAULT_SCAN_INTERVAL_CONFIG),
-            ))
-        ),
-    )
-
-
     ### Hand over all runtime objects to HA's data container
     hass.data[DOMAIN][entry.entry_id] = {
         "config_coordinator": config_coordinator,
@@ -199,8 +176,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "state_coordinator": state_coordinator,
         "state_entities": state_entities,
         "state_entities_grouped_by_endpoint": state_entities_grouped_by_endpoint,
-        "backup_coordinator": backup_coordinator,
-        "backup_tasks": backup_tasks,
+        "backup_entities": backup_entities,
         "selected_backup_task_key": "",
         "button_entities": ALL_NAS_COMMON_BUTTON_ENTITIES,
         "dynamic_entity_counts": dynamic_entity_counts,
@@ -211,7 +187,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     ### Initial entities refresh and start of keep-alive websocket
     await config_coordinator.async_config_entry_first_refresh()
     await state_coordinator.async_config_entry_first_refresh()
-    await backup_coordinator.async_config_entry_first_refresh()
     await api.start_ws_keepalive_task(
         session,
         lang="de-DE",
@@ -392,7 +367,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     data = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
 
     ### Stop update intervals to prevent any further background work
-    for key in ("ws_coordinator", "backup_coordinator", "state_coordinator", "config_coordinator"):
+    for key in ("ws_coordinator", "state_coordinator", "config_coordinator"):
         coord = data.get(key)
         if coord:
             coord.update_interval = None
