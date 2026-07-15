@@ -33,6 +33,8 @@ from homeassistant.const import (
     UnitOfInformation, UnitOfTime, UnitOfFrequency
 )
 
+from .const import BACKUP_ENTITY_CATEGORY
+
 
 @dataclass
 class UgreenEntity:
@@ -43,6 +45,50 @@ class UgreenEntity:
     payload: dict[str, Any] | None = None
     decimal_places: int = 2
     nas_part_category: str = ""
+
+
+@dataclass(frozen=True)
+class UgreenBackupTaskEntity:
+    """Description of one dynamically discovered UGOS backup task."""
+
+    description: EntityDescription
+    task_key: str
+    nas_part_category: str = BACKUP_ENTITY_CATEGORY
+
+
+def make_backup_task_entity(
+    task_key: str,
+    task_name: str,
+) -> UgreenBackupTaskEntity:
+    """Build the entity description for one configured backup task."""
+    return UgreenBackupTaskEntity(
+        description=EntityDescription(
+            key=f"backup_task_{task_key}",
+            name=task_name,
+            icon="mdi:backup-restore",
+        ),
+        task_key=task_key,
+    )
+
+
+BACKUP_TASK_SELECT_ENTITY = EntityDescription(
+    key="backup_task_select",
+    name="Backup Task",
+    icon="mdi:backup-restore",
+)
+
+BACKUP_TASK_ACTION_ENTITIES = {
+    "start": EntityDescription(
+        key="backup_task_start",
+        name="Backup: Start",
+        icon="mdi:play-circle",
+    ),
+    "stop": EntityDescription(
+        key="backup_task_stop",
+        name="Backup: Stop",
+        icon="mdi:stop-circle",
+    ),
+}
 
 
 # A registry for 'dynamic' config entities, called by api.py
