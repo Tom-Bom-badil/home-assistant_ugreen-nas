@@ -106,6 +106,9 @@ class UgreenApiClient:
         self._ws_connected: bool = False
         self._nas_online: bool = True
 
+        # Remove for release - Log the discovery request and first coordinator refresh at startup.
+        self._backup_runtime_startup_logged = False
+
 
     ### "The API" - public entrypoints (e.g. used by __init__.py) ##############
 
@@ -434,23 +437,83 @@ class UgreenApiClient:
             )
         return []
 
+    # async def _get_backup_tasks(
+    #     self,
+    #     session: aiohttp.ClientSession,
+    # ) -> list[dict[str, Any]]:
+    #     """Return configured UGOS backup tasks."""
+    #     resp = await self.get(session, self._BACKUP_TASK_LIST_ENDPOINT)
+    #     if (resp or {}).get("code") != 200:
+    #         _LOGGER.warning(
+    #             "[UGREEN NAS] Backup task list unavailable: code=%s msg=%s",
+    #             (resp or {}).get("code"),
+    #             (resp or {}).get("msg"),
+    #         )
+    #         return []
+
+    #     keys = ("list", "result", "tasks", "items", "rows")
+    #     tasks = self._extract_response_items(resp, *keys)
+    #     data = resp.get("data")
+    #     if (
+    #         not tasks
+    #         and isinstance(data, dict)
+    #         and data
+    #         and not any(data.get(key) is not None for key in keys)
+    #     ):
+    #         _LOGGER.warning(
+    #             "[UGREEN NAS] Unsupported backup task response structure: data_keys=%s",
+    #             sorted(data),
+    #         )
+    #     return tasks
+
+
+
+
+    #### testing only - delete for release
+
     async def _get_backup_tasks(
         self,
         session: aiohttp.ClientSession,
+        *,
+        phase: str | None = None,
     ) -> list[dict[str, Any]]:
         """Return configured UGOS backup tasks."""
         resp = await self.get(session, self._BACKUP_TASK_LIST_ENDPOINT)
-        if (resp or {}).get("code") != 200:
+        code = (resp or {}).get("code")
+        data = (resp or {}).get("data")
+        keys = ("list", "result", "tasks", "items", "rows")
+        tasks = self._extract_response_items(resp, *keys) if code == 200 else []
+
+        if phase:
+            task_keys = [self.backup_task_key(task) for task in tasks]
+            raw_list = data.get("list") if isinstance(data, dict) else None
+
+            _LOGGER.warning(
+                "[UGREEN NAS] Backup startup query (%s): code=%s msg=%s "
+                "api_time=%s data_type=%s data_keys=%s all_count=%s "
+                "raw_list_count=%s parsed_tasks=%s unique_task_keys=%s "
+                "duplicate_task_keys=%s",
+                phase,
+                code,
+                (resp or {}).get("msg"),
+                (resp or {}).get("time"),
+                type(data).__name__,
+                sorted(data) if isinstance(data, dict) else [],
+                data.get("all_count") if isinstance(data, dict) else None,
+                len(raw_list) if isinstance(raw_list, list) else None,
+                len(tasks),
+                len(set(task_keys)),
+                len(task_keys) - len(set(task_keys)),
+            )
+
+        if code != 200:
             _LOGGER.warning(
                 "[UGREEN NAS] Backup task list unavailable: code=%s msg=%s",
-                (resp or {}).get("code"),
+                code,
                 (resp or {}).get("msg"),
             )
             return []
 
-        keys = ("list", "result", "tasks", "items", "rows")
-        tasks = self._extract_response_items(resp, *keys)
-        data = resp.get("data")
         if (
             not tasks
             and isinstance(data, dict)
@@ -461,7 +524,115 @@ class UgreenApiClient:
                 "[UGREEN NAS] Unsupported backup task response structure: data_keys=%s",
                 sorted(data),
             )
+
         return tasks
+
+    ### end
+
+
+    # async def _get_dynamic_backup_entities(
+    #     self,
+    #     session: aiohttp.ClientSession,
+    # ) -> list[UgreenBackupTaskEntity]:
+    #     """Create dynamic entity descriptions for configured backup tasks."""
+    #     return [
+    #         make_backup_task_entity(
+    #             self.backup_task_key(task),
+    #             self.backup_task_name(task),
+    #         )
+    #         for task in await self._get_backup_tasks(session)
+    #     ]
+
+
+    async def _get_dynamic_backup_entities(
+        self,
+        session: aiohttp.ClientSession,
+    ) -> list[UgreenBackupTaskEntity]:
+        """Create dynamic entity descriptions for configured backup tasks."""
+        tasks: list[dict[str, Any]] = []
+        attempts_used = 0
+
+        for attempts_used, delay in enumerate((0, 1, 3), start=1):
+            if delay:
+                await asyncio.sleep(delay)
+
+            tasks = await self._get_backup_tasks(
+                session,
+                phase=f"entity_discovery_attempt_{attempts_used}",
+            )
+            if tasks:
+                break
+
+            if attempts_used == 1:
+                general = await self.get(
+                    session,
+                    "/ugreen/v1/web/sync/general/get",
+                )
+                general_data = (general or {}).get("data")
+                _LOGGER.warning(
+                    "[UGREEN NAS] Backup discovery warm-up: code=%s msg=%s "
+                    "api_time=%s data_type=%s data_keys=%s uid=%s "
+                    "user_present=%s is_admin=%s",
+                    (general or {}).get("code"),
+                    (general or {}).get("msg"),
+                    (general or {}).get("time"),
+                    type(general_data).__name__,
+                    sorted(general_data) if isinstance(general_data, dict) else [],
+                    general_data.get("uid") if isinstance(general_data, dict) else None,
+                    bool(general_data.get("user"))
+                    if isinstance(general_data, dict)
+                    else False,
+                    general_data.get("is_admin")
+                    if isinstance(general_data, dict)
+                    else None,
+                )
+
+        if not tasks:
+            _LOGGER.warning(
+                "[UGREEN NAS] Backup entity discovery remained empty after %s "
+                "attempts; no backup sensors can be created during this setup",
+                attempts_used,
+            )
+
+        task_keys = [self.backup_task_key(task) for task in tasks]
+        task_names = [self.backup_task_name(task) for task in tasks]
+        entities = [
+            make_backup_task_entity(
+                self.backup_task_key(task),
+                self.backup_task_name(task),
+            )
+            for task in tasks
+        ]
+        entity_keys = [entity.description.key for entity in entities]
+
+        _LOGGER.warning(
+            "[UGREEN NAS] Backup entity discovery: attempts=%s tasks=%s "
+            "entities=%s task_ids=%s connection_ids=%s protocols=%s "
+            "task_keys=%s missing_task_ids=%s duplicate_task_keys=%s "
+            "duplicate_task_names=%s duplicate_entity_keys=%s",
+            attempts_used,
+            len(tasks),
+            len(entities),
+            [task.get("id") for task in tasks],
+            [
+                task.get("connection_id") or task.get("connect_id")
+                for task in tasks
+            ],
+            sorted(
+                {
+                    str(task.get("protocol") or "")
+                    for task in tasks
+                }
+            ),
+            task_keys,
+            sum(not str(task.get("id") or "").strip() for task in tasks),
+            len(task_keys) - len(set(task_keys)),
+            len(task_names) - len(set(task_names)),
+            len(entity_keys) - len(set(entity_keys)),
+        )
+
+        return entities
+
 
     async def _get_backup_operation_logs(
         self,
@@ -492,27 +663,33 @@ class UgreenApiClient:
             )
         return logs
 
-    async def _get_dynamic_backup_entities(
-        self,
-        session: aiohttp.ClientSession,
-    ) -> list[UgreenBackupTaskEntity]:
-        """Create dynamic entity descriptions for configured backup tasks."""
-        return [
-            make_backup_task_entity(
-                self.backup_task_key(task),
-                self.backup_task_name(task),
-            )
-            for task in await self._get_backup_tasks(session)
-        ]
+    # async def _get_backup_runtime_data(
+    #     self,
+    #     session: aiohttp.ClientSession,
+    # ) -> dict[str, Any]:
+    #     """Return all data needed by backup sensors and controls."""
+    #     tasks = await self._get_backup_tasks(session)
+    #     logs = await self._get_backup_operation_logs(session) if tasks else []
+    #     return {"tasks": tasks, "logs": logs}
+
 
     async def _get_backup_runtime_data(
         self,
         session: aiohttp.ClientSession,
     ) -> dict[str, Any]:
         """Return all data needed by backup sensors and controls."""
-        tasks = await self._get_backup_tasks(session)
+        phase = (
+            None
+            if self._backup_runtime_startup_logged
+            else "initial_coordinator_refresh"
+        )
+        tasks = await self._get_backup_tasks(session, phase=phase)
+        self._backup_runtime_startup_logged = True
+
         logs = await self._get_backup_operation_logs(session) if tasks else []
         return {"tasks": tasks, "logs": logs}
+
+
 
     async def _start_backup_task(
         self,
