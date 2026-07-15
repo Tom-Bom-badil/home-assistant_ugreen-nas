@@ -12,7 +12,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpda
 from .api import UgreenApiClient
 from .const import BACKUP_ENTITY_CATEGORY, CONF_STANDALONE_DISKS, DEFAULT_ENTITY_PREFIX, DOMAIN
 from .device_info import build_device_info
-from .entities import UgreenEntity
+from .entities import BACKUP_TASK_ACTION_ENTITIES, UgreenEntity
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,14 +55,13 @@ async def async_setup_entry(
         )
         for disk_number in _get_standalone_disk_numbers(entry)
     )
-    if hass.data[DOMAIN][entry.entry_id].get("backup_tasks"):
-        backup_coordinator = hass.data[DOMAIN][entry.entry_id]["backup_coordinator"]
+    if hass.data[DOMAIN][entry.entry_id].get("backup_entities"):
         button_entities.extend((
             UgreenNasBackupTaskActionButton(
-                hass, entry, backup_coordinator, api, action="start"
+                hass, entry, coordinator, api, action="start"
             ),
             UgreenNasBackupTaskActionButton(
-                hass, entry, backup_coordinator, api, action="stop"
+                hass, entry, coordinator, api, action="stop"
             ),
         ))
 
@@ -332,11 +331,6 @@ class UgreenNasStandaloneDiskForgetButton(CoordinatorEntity, ButtonEntity):
 class UgreenNasBackupTaskActionButton(CoordinatorEntity, ButtonEntity):
     """Start or stop the currently selected UGOS backup task."""
 
-    _ACTIONS = {
-        "start": ("backup_task_start", "Backup: Start", "mdi:play-circle"),
-        "stop": ("backup_task_stop", "Backup: Stop", "mdi:stop-circle"),
-    }
-
     def __init__(
         self,
         hass: HomeAssistant,
@@ -353,21 +347,20 @@ class UgreenNasBackupTaskActionButton(CoordinatorEntity, ButtonEntity):
         self._api = api
         self._action = action
         self._press_lock = asyncio.Lock()
-        self._key, label, icon = self._ACTIONS[action]
+        description = BACKUP_TASK_ACTION_ENTITIES[action]
+        self._key = description.key
 
-        self._attr_name = f"{_get_entity_prefix(hass, entry.entry_id)} {label}"
+        self._attr_name = f"{_get_entity_prefix(hass, entry.entry_id)} {description.name}"
         self.entity_id = async_generate_entity_id(
             "button.{}", self._attr_name, hass=self.hass
         )
         self._attr_unique_id = f"{entry.entry_id}_{self._key}"
-        self._attr_icon = icon
+        self._attr_icon = description.icon
         self._attr_device_info = build_device_info(hass, entry.entry_id, self._key)
 
     def _tasks(self) -> list[dict[str, object]]:
-        """Return current backup tasks from the coordinator or setup cache."""
-        data = self.coordinator.data or {}
-        tasks = data.get("tasks") or self.hass.data[DOMAIN][self._entry_id].get("backup_tasks") or []
-        return [task for task in tasks if isinstance(task, dict)]
+        """Return current backup tasks from the shared coordinator."""
+        return UgreenApiClient.backup_tasks_from_data(self.coordinator.data)
 
     def _selected_task(self) -> dict[str, object] | None:
         """Return the selected backup task, falling back to the first task."""
@@ -377,19 +370,6 @@ class UgreenNasBackupTaskActionButton(CoordinatorEntity, ButtonEntity):
             if UgreenApiClient.backup_task_key(task) == selected_key:
                 return task
         return tasks[0] if tasks else None
-
-    @staticmethod
-    def _task_running(task: dict[str, object]) -> bool:
-        """Return whether UGOS currently reports this task as running."""
-        try:
-            status = int(task.get("status", -1))
-        except (TypeError, ValueError):
-            status = -1
-        try:
-            progress = int(task.get("progress") or 0)
-        except (TypeError, ValueError):
-            progress = 0
-        return bool(task.get("execute_now")) or progress > 0 or status in {2, 3, 6, 7}
 
     @property
     def extra_state_attributes(self) -> dict[str, object]:
@@ -418,7 +398,7 @@ class UgreenNasBackupTaskActionButton(CoordinatorEntity, ButtonEntity):
                     "[UGREEN NAS] No backup task selected for %s", self._action
                 )
                 return
-            if self._action == "start" and self._task_running(task):
+            if self._action == "start" and UgreenApiClient.backup_task_running(task):
                 return
 
             try:
