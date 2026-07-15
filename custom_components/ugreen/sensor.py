@@ -22,9 +22,9 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .api import UgreenApiClient
-from .const import BACKUP_ENTITY_CATEGORY, DOMAIN, DEFAULT_ENTITY_PREFIX
+from .const import DOMAIN, DEFAULT_ENTITY_PREFIX
 from .device_info import build_device_info
-from .entities import UgreenEntity
+from .entities import UgreenBackupTaskEntity, UgreenEntity
 from .utils import (
     determine_unit,
     format_sensor_value,
@@ -165,12 +165,11 @@ async def async_setup_entry(
     ]
 
     # Backup sensors (one sensor per configured UGOS backup task)
-    backup_coordinator = hass.data[DOMAIN][entry.entry_id]["backup_coordinator"]
-    backup_tasks = hass.data[DOMAIN][entry.entry_id].get("backup_tasks") or []
+    backup_entities = hass.data[DOMAIN][entry.entry_id].get("backup_entities") or []
     backup_sensors = [
-        UgreenNasBackupTaskSensor(hass, entry.entry_id, backup_coordinator, task)
-        for task in backup_tasks
-        if isinstance(task, dict)
+        UgreenNasBackupTaskSensor(hass, entry.entry_id, config_coordinator, entity)
+        for entity in backup_entities
+        if isinstance(entity, UgreenBackupTaskEntity)
     ]
 
     async_add_entities(config_sensors + state_sensors + backup_sensors)
@@ -313,16 +312,6 @@ def _backup_task_enabled(task: dict[str, Any]) -> bool:
     return bool(task.get("is_schedule"))
 
 
-def _backup_task_running(task: dict[str, Any]) -> bool:
-    """Return whether UGOS currently reports this task as running."""
-    status = _as_int(task.get("status"), -1)
-    return (
-        bool(task.get("execute_now"))
-        or _as_int(task.get("progress")) > 0
-        or status in {2, 3, 6, 7}
-    )
-
-
 def _backup_task_schedule(task: dict[str, Any]) -> str | None:
     """Return a compact schedule description."""
     if not _backup_task_enabled(task):
@@ -446,7 +435,7 @@ def _backup_state(
     latest_event: dict[str, Any] | None,
 ) -> str:
     """Return the compact Home Assistant backup state."""
-    if _backup_task_running(task) or (latest_event or {}).get("event") == "start":
+    if UgreenApiClient.backup_task_running(task) or (latest_event or {}).get("event") == "start":
         return "running"
     if not _backup_task_enabled(task):
         return "disabled"
@@ -462,46 +451,48 @@ def _backup_state(
 class UgreenNasBackupTaskSensor(CoordinatorEntity, SensorEntity):
     """One compact sensor per configured UGOS backup task."""
 
-    _attr_icon = "mdi:backup-restore"
-
     def __init__(
         self,
         hass: HomeAssistant,
         entry_id: str,
         coordinator: DataUpdateCoordinator,
-        task: dict[str, Any],
+        entity: UgreenBackupTaskEntity,
     ) -> None:
         super().__init__(coordinator)
         self.hass = hass
         self._entry_id = entry_id
-        self._task_key = UgreenApiClient.backup_task_key(task)
-        self._fallback_task = task
+        self._entity = entity
+        self._task_key = entity.task_key
 
         entity_prefix = _get_entity_prefix(hass, entry_id)
-        self._attr_name = f"{entity_prefix} {UgreenApiClient.backup_task_name(task)}"
+        self._attr_name = f"{entity_prefix} {entity.description.name or 'Backup Task'}"
         self.entity_id = async_generate_entity_id("sensor.{}", self._attr_name, hass=self.hass)
         self._attr_unique_id = f"{entry_id}_backup_task_{slugify(self._task_key)}"
+        self._attr_icon = entity.description.icon
         self._attr_device_info = build_device_info(hass, entry_id, "backup_task")
 
     def _tasks(self) -> list[dict[str, Any]]:
         """Return current backup tasks from the coordinator."""
-        data = self.coordinator.data or {}
-        tasks = data.get("tasks") or []
-        return [task for task in tasks if isinstance(task, dict)]
+        return UgreenApiClient.backup_tasks_from_data(self.coordinator.data)
 
     def _task(self) -> dict[str, Any]:
-        """Return the current task data or the setup-time fallback."""
-        return _task_by_key(self._tasks(), self._task_key) or self._fallback_task
+        """Return the current task data."""
+        return _task_by_key(self._tasks(), self._task_key) or {}
 
     def _logs(self) -> list[dict[str, Any]]:
         """Return current backup operation logs from the coordinator."""
-        data = self.coordinator.data or {}
-        logs = data.get("logs") or []
-        return [log for log in logs if isinstance(log, dict)]
+        return UgreenApiClient.backup_logs_from_data(self.coordinator.data)
 
     @property
-    def native_value(self) -> StateType:
+    def available(self) -> bool:
+        """Return whether the configured backup task is still available."""
+        return super().available and bool(self._task())
+
+    @property
+    def native_value(self) -> StateType | None:
         task = self._task()
+        if not task:
+            return None
         logs = self._logs()
         runs = _backup_runs_for_task(task, logs, limit=5)
         latest_event = _latest_backup_event(task, logs)
@@ -523,7 +514,7 @@ class UgreenNasBackupTaskSensor(CoordinatorEntity, SensorEntity):
         attrs: dict[str, object] = {
             "UGNAS_global_id": "UGREEN NAS",
             "UGNAS_device_id": _get_entity_prefix_slug(self.hass, self._entry_id),
-            "UGNAS_part_category": BACKUP_ENTITY_CATEGORY,
+            "UGNAS_part_category": self._entity.nas_part_category,
             "task_id": task.get("id"),
             "protocol": task.get("protocol"),
             "raw_status": task.get("status"),
