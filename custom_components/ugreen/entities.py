@@ -242,6 +242,19 @@ def NAS_SPECIFIC_STATUS_REGISTRY() -> list[dict[str, Any]]:
 # Common sensors available in all models - name, serial etc. Updated every 60s.
 ALL_NAS_COMMON_CONFIG_ENTITIES: List[UgreenEntity] = [  # -- common config entities --
 
+    ### Backup
+    UgreenEntity(
+        description=EntityDescription(
+            key="show_backups_of_all_users",
+            name="Show Backups of All Users",
+            icon="mdi:account-multiple-check",
+            unit_of_measurement=None,
+        ),
+        endpoint="/ugreen/v1/web/sync/general/get",
+        path="data.administrator_mode_enable",
+        nas_part_category=BACKUP_ENTITY_CATEGORY,
+    ),
+
     ### Device Info
     UgreenEntity(
         description=EntityDescription(
