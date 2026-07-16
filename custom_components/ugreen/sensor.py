@@ -1,4 +1,4 @@
-import logging, re
+import re
 from typing import Any, List, Tuple
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -31,9 +31,6 @@ from .utils import (
     format_unix_timestamp,
     strip_parent_prefix,
 )
-
-
-_LOGGER = logging.getLogger(__name__)
 
 
 # --------------------------------------------------------------------------------------
@@ -165,56 +162,12 @@ async def async_setup_entry(
     ]
 
     # Backup sensors (one sensor per configured UGOS backup task)
-    # backup_entities = hass.data[DOMAIN][entry.entry_id].get("backup_entities") or []
-    # backup_sensors = [
-    #     UgreenNasBackupTaskSensor(hass, entry.entry_id, config_coordinator, entity)
-    #     for entity in backup_entities
-    #     if isinstance(entity, UgreenBackupTaskEntity)
-    # ]
-
-    ### Remove for release - Debugging only #######################
-
-    # Testing only - Backup sensors (one sensor per configured UGOS backup task)
     backup_entities = hass.data[DOMAIN][entry.entry_id].get("backup_entities") or []
-    valid_backup_entities = [
-        entity
+    backup_sensors = [
+        UgreenNasBackupTaskSensor(hass, entry.entry_id, config_coordinator, entity)
         for entity in backup_entities
         if isinstance(entity, UgreenBackupTaskEntity)
     ]
-    backup_sensors = [
-        UgreenNasBackupTaskSensor(
-            hass,
-            entry.entry_id,
-            config_coordinator,
-            entity,
-        )
-        for entity in valid_backup_entities
-    ]
-
-    backup_task_keys = [entity.task_key for entity in valid_backup_entities]
-    backup_unique_ids = [
-        sensor.unique_id
-        for sensor in backup_sensors
-        if sensor.unique_id
-    ]
-
-    _LOGGER.warning(
-        "[UGREEN NAS] Backup sensor platform setup: descriptions=%s "
-        "valid_descriptions=%s ignored_descriptions=%s sensors=%s "
-        "description_types=%s task_keys=%s duplicate_task_keys=%s "
-        "unique_ids=%s duplicate_unique_ids=%s",
-        len(backup_entities),
-        len(valid_backup_entities),
-        len(backup_entities) - len(valid_backup_entities),
-        len(backup_sensors),
-        sorted({type(entity).__name__ for entity in backup_entities}),
-        backup_task_keys,
-        len(backup_task_keys) - len(set(backup_task_keys)),
-        backup_unique_ids,
-        len(backup_unique_ids) - len(set(backup_unique_ids)),
-    )
-
-    #### end
 
     async_add_entities(config_sensors + state_sensors + backup_sensors)
 
@@ -515,24 +468,6 @@ class UgreenNasBackupTaskSensor(CoordinatorEntity, SensorEntity):
         self._attr_icon = entity.description.icon
         self._attr_device_info = build_device_info(hass, entry_id, "backup_task")
 
-    #### Testing only - remove for release
-
-    async def async_added_to_hass(self) -> None:
-        """Log successful registration of this backup sensor."""
-        await super().async_added_to_hass()
-
-        tasks = self._tasks()
-        _LOGGER.warning(
-            "[UGREEN NAS] Backup sensor added: task_key=%s unique_id=%s "
-            "coordinator_tasks=%s task_found=%s available=%s",
-            self._task_key,
-            self.unique_id,
-            len(tasks),
-            bool(_task_by_key(tasks, self._task_key)),
-            self.available,
-        )
-
-    #####
 
     def _tasks(self) -> list[dict[str, Any]]:
         """Return current backup tasks from the coordinator."""
@@ -628,6 +563,12 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self) -> StateType | date | datetime | Decimal:
         raw = self.coordinator.data.get(self._key)
+
+        if self._key == "show_backups_of_all_users":
+            try:
+                return "On" if int(raw) else "Off"
+            except (TypeError, ValueError):
+                return None
 
         if self._key.endswith("_utilization"):
             return _as_int_measurement(raw)
