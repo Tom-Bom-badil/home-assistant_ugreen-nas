@@ -245,8 +245,8 @@ ALL_NAS_COMMON_CONFIG_ENTITIES: List[UgreenEntity] = [  # -- common config entit
     ### Backup
     UgreenEntity(
         description=EntityDescription(
-            key="show_backups_of_all_users",
-            name="Show Backups of All Users",
+            key="show_connections_of_all_users",
+            name="Show Connections of All Users",
             icon="mdi:account-multiple-check",
             unit_of_measurement=None,
         ),
