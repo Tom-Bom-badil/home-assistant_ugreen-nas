@@ -338,6 +338,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             model=model_display,
             sw_version=version,
             serial_number=serial or None,
+            configuration_url=api.base_url,
         )
 
         # v2026.2+: WOL wasn't working properly
