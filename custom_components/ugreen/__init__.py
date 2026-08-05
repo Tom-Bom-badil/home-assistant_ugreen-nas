@@ -27,6 +27,7 @@ from .const import (
     CONF_UGREEN_PORT,
     CONF_USERNAME,
     CONF_PASSWORD,
+    CONF_CLIENT_ID,
     CONF_USE_HTTPS,
     CONF_CONFIG_INTERVAL,
     CONF_STATE_INTERVAL,
@@ -85,6 +86,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         username=entry.options.get(CONF_USERNAME, entry.data.get(CONF_USERNAME)),
         password=entry.options.get(CONF_PASSWORD, entry.data.get(CONF_PASSWORD)),
         use_https=bool(entry.options.get(CONF_USE_HTTPS, entry.data.get(CONF_USE_HTTPS, False))),
+        client_id=entry.options.get(CONF_CLIENT_ID, entry.data.get(CONF_CLIENT_ID, "")),
         standalone_disks=standalone_disks,
     )
 

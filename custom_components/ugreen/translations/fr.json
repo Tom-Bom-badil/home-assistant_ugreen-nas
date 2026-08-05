@@ -10,7 +10,8 @@
           "username": "Nom d’utilisateur administrateur",
           "password": "Mot de passe administrateur",
           "entity_prefix": "Nom d’appareil unique (par défaut : UGREEN NAS)",
-          "use_https": "Utiliser HTTPS"
+          "use_https": "Utiliser HTTPS",
+          "use_otp": "Le compte utilise l’authentification à deux facteurs (2FA)"
         },
         "data_description": {
           "ugreen_host": "L’adresse IP ou le nom d’hôte de votre UGREEN NAS (par ex. 192.168.1.100).",
@@ -18,12 +19,23 @@
           "username": "Votre nom d’utilisateur administrateur du NAS.",
           "password": "Votre mot de passe administrateur du NAS (pas de caractères spéciaux – bug UGOS !).",
           "entity_prefix": "Doit commencer par une lettre ; ensuite, les lettres, chiffres et espaces sont autorisés.",
-          "use_https": "Utiliser HTTPS pour la connexion."
+          "use_https": "Utiliser HTTPS pour la connexion.",
+          "use_otp": "Cochez cette case uniquement si la 2FA est activée sur le compte NAS ci-dessus. Un code vous sera demandé à l’écran suivant, afin d’enregistrer Home Assistant comme appareil de confiance et de ne plus avoir à saisir de code."
         }
       },
       "zeroconf": {
         "title": "UGREEN NAS détecté",
         "description": "Un UGREEN NAS a été détecté automatiquement sur le réseau. Saisissez vos identifiants pour l’ajouter."
+      },
+      "otp": {
+        "title": "Enregistrer Home Assistant comme appareil de confiance",
+        "description": "Votre compte NAS utilise l’authentification à deux facteurs. Home Assistant ne peut pas répondre à une demande de code à chaque reconnexion ; il s’enregistre donc une seule fois comme appareil de confiance.\n\nSaisissez un code actuel depuis votre application d’authentification. Il est utilisé immédiatement et n’est jamais conservé.\n\nIdentifiant de l’appareil qui sera enregistré : `{client_id}`\n\nCet identifiant est généré et géré automatiquement. Vous n’avez pas besoin de le noter ni de le saisir ailleurs.",
+        "data": {
+          "otp_code": "Code d’authentification"
+        },
+        "data_description": {
+          "otp_code": "Le code à 6 chiffres actuel de votre application d’authentification. Les codes expirent vite, validez rapidement."
+        }
       }
     },
     "error": {
@@ -31,7 +43,8 @@
       "invalid_auth": "Erreur de connexion ou identifiants invalides. Veuillez vérifier les paramètres réseau et utilisateur.",
       "invalid_entity_prefix": "Nom d’appareil invalide. Il doit commencer par une lettre ; ensuite, seuls les lettres, chiffres et espaces sont autorisés.",
       "entity_prefix_in_use": "Ce nom d’appareil est déjà utilisé par un autre UGREEN NAS.",
-      "unknown": "Une erreur inconnue s’est produite."
+      "unknown": "Une erreur inconnue s’est produite.",
+      "invalid_otp": "Échec de l’enregistrement. Le code a peut-être expiré ou été mal saisi, ou la 2FA n’est pas activée sur le compte. Consultez les journaux et réessayez avec un nouveau code."
     },
     "abort": {
       "already_configured": "Ce UGREEN NAS est déjà configuré."
@@ -55,7 +68,8 @@
           "dashboard_disk_columns": "[Dashboard exemple] Nombre max. de colonnes de disques par ligne (5)",
           "dashboard_pool_columns": "[Dashboard exemple] Nombre max. de colonnes de pools par ligne (2)",
           "dashboard_volume_columns": "[Dashboard exemple] Nombre max. de colonnes de volumes par ligne (2)",
-          "dashboard_image_file": "[Dashboard exemple] Nom du fichier image (default_picture.png)"
+          "dashboard_image_file": "[Dashboard exemple] Nom du fichier image (default_picture.png)",
+          "use_otp": "Enregistrer un appareil de confiance pour la 2FA"
         },
         "data_description": {
           "ugreen_host": "L’adresse IP ou le nom d’hôte de votre UGREEN NAS.",
@@ -70,9 +84,23 @@
           "dashboard_disk_columns": "Nombre de tuiles de disques de ce NAS à afficher côte à côte sur le dashboard.",
           "dashboard_pool_columns": "Nombre de tuiles de pools de ce NAS à afficher côte à côte sur le dashboard.",
           "dashboard_volume_columns": "Nombre de tuiles de volumes de ce NAS à afficher côte à côte sur le dashboard.",
-          "dashboard_image_file": "Fichier image individuel du dashboard pour ce NAS dans le dossier www/community/ugreen/."
+          "dashboard_image_file": "Fichier image individuel du dashboard pour ce NAS dans le dossier www/community/ugreen/.",
+          "use_otp": "Laissez décoché pour les modifications habituelles. Cochez puis enregistrez uniquement si le compte NAS utilise la 2FA et que Home Assistant n’est pas encore enregistré, ou si vous devez l’enregistrer à nouveau. Un code vous sera demandé à l’écran suivant."
+        }
+      },
+      "otp": {
+        "title": "Enregistrer un appareil de confiance",
+        "description": "Saisissez un code actuel depuis votre application d’authentification pour enregistrer ce Home Assistant auprès du NAS. Le code est utilisé immédiatement et n’est jamais conservé.\n\nIdentifiant actuel de l’appareil : `{client_id}`\n\nCet identifiant est géré automatiquement et n’est volontairement pas modifiable. Si les connexions échouent après la révocation de la confiance sur le NAS, enregistrez-le à nouveau ici.",
+        "data": {
+          "otp_code": "Code d’authentification"
+        },
+        "data_description": {
+          "otp_code": "Le code à 6 chiffres actuel. Les codes expirent vite, validez rapidement."
         }
       }
+    },
+    "error": {
+      "invalid_otp": "Échec de l’enregistrement. Le code a peut-être expiré ou été mal saisi. Réessayez avec un nouveau code."
     }
   }
 }

@@ -1,5 +1,6 @@
 import logging, aiohttp
 import voluptuous as vol
+from uuid import uuid4
 from typing import Any, Optional
 
 from homeassistant import config_entries
@@ -16,6 +17,9 @@ from .const import (
     CONF_USERNAME,
     CONF_PASSWORD,
     CONF_USE_HTTPS,
+    CONF_USE_OTP,
+    CONF_OTP_CODE,
+    CONF_CLIENT_ID,
     CONF_STATE_INTERVAL,
     CONF_CONFIG_INTERVAL,
     CONF_WS_INTERVAL,
@@ -163,6 +167,10 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._discovered_host = None
         self._discovered_port = None
         self._discovered_hostname = None
+        # Set while walking the optional 2FA registration step
+        self._pending_input: dict[str, Any] | None = None
+        self._trusted_client_id: str = ""
+        self._candidate_client_id: str = ""
 
     async def async_step_zeroconf(
         self, discovery_info: ZeroconfServiceInfo
@@ -257,6 +265,60 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return await self.async_step_user()
 
+    async def async_step_otp(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Enrol Home Assistant as a trusted UGOS device using a one-time code.
+
+        UGOS will not issue a token to a client that cannot answer a 2FA
+        challenge. Answering it once with trust=true binds the trust to our
+        client id, which is then stored and replayed on every later login.
+        """
+        errors: dict[str, str] = {}
+        pending = self._pending_input or {}
+
+        # Generate the id up front so the form can show what will be enrolled.
+        if not self._candidate_client_id:
+            self._candidate_client_id = uuid4().hex
+
+        if user_input is not None:
+            code = str(user_input.get(CONF_OTP_CODE, "")).strip()
+            if not code:
+                errors["base"] = "invalid_otp"
+            else:
+                api = UgreenApiClient(
+                    ugreen_nas_host=pending[CONF_UGREEN_HOST],
+                    ugreen_nas_port=int(pending[CONF_UGREEN_PORT]),
+                    username=pending[CONF_USERNAME],
+                    password=pending[CONF_PASSWORD],
+                    use_https=pending.get(CONF_USE_HTTPS, False),
+                    client_id=self._candidate_client_id,
+                )
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        ok, client_id = await api.enroll_trusted_device(session, code)
+                except Exception as e:
+                    _LOGGER.exception("[UGREEN NAS] 2FA enrolment failed: %s", e)
+                    ok, client_id = False, self._candidate_client_id
+
+                if ok:
+                    self._trusted_client_id = client_id
+                    _LOGGER.info(
+                        "[UGREEN NAS] trusted device enrolled, client id %s",
+                        client_id,
+                    )
+                    # Re-enter the normal path; the flag stops us looping back.
+                    return await self.async_step_user(pending)
+                errors["base"] = "invalid_otp"
+
+        return self.async_show_form(
+            step_id="otp",
+            data_schema=vol.Schema({vol.Required(CONF_OTP_CODE): str}),
+            description_placeholders={"client_id": self._candidate_client_id},
+            errors=errors,
+        )
+
     async def async_step_user(
         self,
         user_input: dict[str, Any] | None = None,
@@ -266,6 +328,12 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             _LOGGER.debug("[UGREEN NAS] Received user input: %s", user_input)
+
+            # Account uses 2FA and we have not registered yet: collect a code
+            # first, since a plain login would be rejected with code 9406.
+            if user_input.get(CONF_USE_OTP) and not self._trusted_client_id:
+                self._pending_input = user_input
+                return await self.async_step_otp()
 
             entity_prefix = _normalize_entity_prefix(
                 user_input.get(CONF_ENTITY_PREFIX, "")
@@ -315,6 +383,7 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         username=user_input[CONF_USERNAME],
                         password=user_input[CONF_PASSWORD],
                         use_https=user_input.get(CONF_USE_HTTPS, False),
+                        client_id=self._trusted_client_id,
                     )
 
                     async with aiohttp.ClientSession() as session:
@@ -358,6 +427,7 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                         CONF_USERNAME: user_input[CONF_USERNAME],
                                         CONF_PASSWORD: user_input[CONF_PASSWORD],
                                         CONF_USE_HTTPS: user_input.get(CONF_USE_HTTPS, False),
+                                        CONF_CLIENT_ID: self._trusted_client_id,
                                         CONF_DISCOVERY_HOSTNAME: self._discovered_hostname or "",
                                         CONF_ENTITY_PREFIX: entity_prefix,
                                         CONF_DASHBOARD_DISK_COLUMNS: disk_columns,
@@ -389,6 +459,7 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         default=DEFAULT_ENTITY_PREFIX,
                     ): str,
                     vol.Optional(CONF_USE_HTTPS, default=False): bool,
+                    vol.Optional(CONF_USE_OTP, default=False): bool,
                 }
             ),
             errors=errors,
@@ -408,6 +479,58 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry):
         self._entry = config_entry
+        # Set while walking the optional 2FA registration step
+        self._pending_options: dict[str, Any] | None = None
+
+    async def async_step_otp(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Register this Home Assistant as a trusted UGOS device.
+
+        UGOS will not hand a token to a client that cannot answer a 2FA prompt.
+        Answering it once with trust=true binds the trust to our client id,
+        which is then replayed on every later login.
+        """
+        errors: dict[str, str] = {}
+        options = self._pending_options or {}
+        current = str(options.get(CONF_CLIENT_ID, "") or "")
+
+        if user_input is not None:
+            code = str(user_input.get(CONF_OTP_CODE, "")).strip()
+            if not code:
+                errors["base"] = "invalid_otp"
+            else:
+                api = UgreenApiClient(
+                    ugreen_nas_host=options[CONF_UGREEN_HOST],
+                    ugreen_nas_port=int(options[CONF_UGREEN_PORT]),
+                    username=options[CONF_USERNAME],
+                    password=options[CONF_PASSWORD],
+                    use_https=options.get(CONF_USE_HTTPS, False),
+                    client_id=current,
+                )
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        ok, client_id = await api.enroll_trusted_device(session, code)
+                except Exception as e:
+                    _LOGGER.exception("[UGREEN NAS] 2FA enrolment failed: %s", e)
+                    ok, client_id = False, ""
+
+                if ok:
+                    options[CONF_CLIENT_ID] = client_id
+                    _LOGGER.info(
+                        "[UGREEN NAS] trusted device registered, client id %s",
+                        client_id,
+                    )
+                    return self.async_create_entry(title="", data=options)
+                errors["base"] = "invalid_otp"
+
+        return self.async_show_form(
+            step_id="otp",
+            data_schema=vol.Schema({vol.Required(CONF_OTP_CODE): str}),
+            description_placeholders={"client_id": current or "(a new one will be generated)"},
+            errors=errors,
+        )
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         """Handle the single-page options form."""
@@ -463,6 +586,18 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
                 user_input[CONF_DASHBOARD_POOL_COLUMNS] = pool_columns
                 user_input[CONF_DASHBOARD_VOLUME_COLUMNS] = volume_columns
                 user_input[CONF_DASHBOARD_IMAGE_FILE] = image_file
+                # The trusted device id is not part of the form, so carry the
+                # stored value across or it would be dropped on every save.
+                user_input[CONF_CLIENT_ID] = self._entry.options.get(
+                    CONF_CLIENT_ID, self._entry.data.get(CONF_CLIENT_ID, "")
+                )
+
+                # Ticking the box means "register a trusted device", which
+                # needs a code, so hand off to the dedicated step.
+                if user_input.pop(CONF_USE_OTP, False):
+                    self._pending_options = user_input
+                    return await self.async_step_otp()
+
                 return self.async_create_entry(title="", data=user_input)
 
         def _get_value(key: str, default: Any = None) -> Any:
@@ -499,6 +634,7 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_USE_HTTPS,
                         default=_get_value(CONF_USE_HTTPS, False),
                     ): bool,
+                    vol.Optional(CONF_USE_OTP, default=False): bool,
                     vol.Required(
                         CONF_STATE_INTERVAL,
                         default=_get_value(
