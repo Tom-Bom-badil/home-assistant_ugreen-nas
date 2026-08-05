@@ -10,7 +10,8 @@
           "username": "Admin felhasználónév",
           "password": "Admin jelszó",
           "entity_prefix": "Egyedi eszköznév (alapértelmezett: UGREEN NAS)",
-          "use_https": "HTTPS használata"
+          "use_https": "HTTPS használata",
+          "use_otp": "A fiók kétfaktoros hitelesítést (2FA) használ"
         },
         "data_description": {
           "ugreen_host": "Az UGREEN NAS IP-címe vagy hosztneve (pl. 192.168.1.100).",
@@ -18,12 +19,23 @@
           "username": "A NAS admin felhasználóneved.",
           "password": "A NAS admin jelszavad (nincsenek speciális karakterek – UGOS hiba!).",
           "entity_prefix": "Betűvel kell kezdődnie; utána betűk, számok és szóközök engedélyezettek.",
-          "use_https": "HTTPS használata a kapcsolathoz."
+          "use_https": "HTTPS használata a kapcsolathoz.",
+          "use_otp": "Csak akkor jelöld be, ha a fenti NAS-fiókon be van kapcsolva a 2FA. A következő képernyőn egy kódot kérünk, amellyel a Home Assistant megbízható eszközként regisztrálódik, így később nem lesz szükség kódra."
         }
       },
       "zeroconf": {
         "title": "UGREEN NAS észlelve",
         "description": "Egy UGREEN NAS automatikusan észlelve lett a hálózaton. Add meg a bejelentkezési adataidat a hozzáadáshoz."
+      },
+      "otp": {
+        "title": "A Home Assistant regisztrálása megbízható eszközként",
+        "description": "A NAS-fiókod kétfaktoros hitelesítést használ. A Home Assistant nem tud minden újracsatlakozáskor kódot megadni, ezért egyszer megbízható eszközként regisztrálja magát.\n\nAdd meg a hitelesítő alkalmazásod aktuális kódját. A rendszer azonnal felhasználja, és soha nem tárolja.\n\nA regisztrálandó eszközazonosító: `{client_id}`\n\nEzt az azonosítót a rendszer automatikusan hozza létre és kezeli. Nem kell feljegyezned, és sehova nem kell beírnod.",
+        "data": {
+          "otp_code": "Hitelesítő kód"
+        },
+        "data_description": {
+          "otp_code": "A hitelesítő alkalmazás aktuális 6 jegyű kódja. A kódok gyorsan lejárnak, ezért küldd be mielőbb."
+        }
       }
     },
     "error": {
@@ -31,7 +43,8 @@
       "invalid_auth": "Kapcsolati hiba vagy érvénytelen hitelesítő adatok. Ellenőrizd a hálózati és a felhasználói beállításokat.",
       "invalid_entity_prefix": "Érvénytelen eszköznév. Betűvel kell kezdődnie; utána csak betűk, számok és szóközök engedélyezettek.",
       "entity_prefix_in_use": "Ezt az eszköznevet már egy másik UGREEN NAS használja.",
-      "unknown": "Ismeretlen hiba történt."
+      "unknown": "Ismeretlen hiba történt.",
+      "invalid_otp": "A regisztráció nem sikerült. Lehet, hogy a kód lejárt vagy elgépelted, vagy a fiókon nincs bekapcsolva a 2FA. Ellenőrizd a naplókat, és próbáld újra friss kóddal."
     },
     "abort": {
       "already_configured": "Ez az UGREEN NAS már be van állítva."
@@ -55,7 +68,8 @@
           "dashboard_disk_columns": "[Példa dashboard] Max. lemezoszlop soronként (5)",
           "dashboard_pool_columns": "[Példa dashboard] Max. pooltípus-oszlop soronként (2)",
           "dashboard_volume_columns": "[Példa dashboard] Max. kötetoszlop soronként (2)",
-          "dashboard_image_file": "[Példa dashboard] Képfájl neve (default_picture.png)"
+          "dashboard_image_file": "[Példa dashboard] Képfájl neve (default_picture.png)",
+          "use_otp": "Megbízható eszköz regisztrálása kétfaktoros hitelesítéshez (2FA)"
         },
         "data_description": {
           "ugreen_host": "Az UGREEN NAS IP-címe vagy hosztneve.",
@@ -70,9 +84,23 @@
           "dashboard_disk_columns": "Hány lemezcsempe jelenjen meg egymás mellett a dashboardon ennél a NAS-nál.",
           "dashboard_pool_columns": "Hány poolcsempe jelenjen meg egymás mellett a dashboardon ennél a NAS-nál.",
           "dashboard_volume_columns": "Hány kötetcsempe jelenjen meg egymás mellett a dashboardon ennél a NAS-nál.",
-          "dashboard_image_file": "Egyéni dashboard képfájl ehhez a NAS-hoz a www/community/ugreen/ mappában."
+          "dashboard_image_file": "Egyéni dashboard képfájl ehhez a NAS-hoz a www/community/ugreen/ mappában.",
+          "use_otp": "A szokásos módosításokhoz hagyd üresen. Csak akkor jelöld be és mentsd, ha a NAS-fiók 2FA-t használ, és a Home Assistant még nincs regisztrálva, vagy újra kell regisztrálni. A következő képernyőn egy kódot kérünk."
+        }
+      },
+      "otp": {
+        "title": "Megbízható eszköz regisztrálása",
+        "description": "Add meg a hitelesítő alkalmazásod aktuális kódját, hogy regisztráld ezt a Home Assistantot a NAS-on. A kódot a rendszer azonnal felhasználja, és soha nem tárolja.\n\nJelenlegi eszközazonosító: `{client_id}`\n\nEzt az azonosítót a rendszer automatikusan kezeli, és szándékosan nem szerkeszthető. Ha a bejelentkezés hibázni kezd, miután a NAS-on visszavontad a megbízhatóságot, egyszerűen regisztráld újra itt.",
+        "data": {
+          "otp_code": "Hitelesítő kód"
+        },
+        "data_description": {
+          "otp_code": "Az aktuális 6 jegyű kód. A kódok gyorsan lejárnak, ezért küldd be mielőbb."
         }
       }
+    },
+    "error": {
+      "invalid_otp": "A regisztráció nem sikerült. Lehet, hogy a kód lejárt vagy elgépelted. Próbáld újra friss kóddal."
     }
   }
 }

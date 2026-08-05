@@ -12,6 +12,11 @@ CONF_UGREEN_PORT = "ugreen_port"
 CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
 CONF_USE_HTTPS = "use_https"
+# UGOS binds 2FA device trust to the UG-Client-Id header. These carry the
+# registered id, plus the one-shot code used to create the registration.
+CONF_USE_OTP = "use_otp"
+CONF_OTP_CODE = "otp_code"
+CONF_CLIENT_ID = "client_id"
 
 CONF_STATE_INTERVAL = "state_interval"
 CONF_CONFIG_INTERVAL = "config_interval"
