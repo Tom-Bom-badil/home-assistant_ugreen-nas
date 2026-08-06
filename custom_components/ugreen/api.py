@@ -69,7 +69,6 @@ class UgreenApiClient:
         password: str = "",
         token: str = "",
         use_https: bool = False,
-        otp: bool = False,
         client_id: str = "",
         standalone_disks: list[dict[str, Any]] | None = None,
     ):
@@ -84,7 +83,6 @@ class UgreenApiClient:
         self.username = username
         self.password = password
         self.token = token
-        self.otp = otp
 
         # UGOS ties 2FA device trust to the UG-Client-Id header. Presenting
         # the id of a device registered with trust=true lets an account with
