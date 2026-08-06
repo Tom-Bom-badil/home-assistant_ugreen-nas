@@ -482,8 +482,13 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry):
         self._entry = config_entry
-        # Set while walking the optional 2FA registration step
         self._pending_options: dict[str, Any] | None = None
+
+    def _get_value(self, key: str, default: Any = None) -> Any:
+        """Return a pending, option, or config-entry value."""
+        if self._pending_options and key in self._pending_options:
+            return self._pending_options[key]
+        return self._entry.options.get(key, self._entry.data.get(key, default))
 
     async def async_step_otp(
         self,
@@ -523,19 +528,25 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
 
                 if ok:
                     options[CONF_CLIENT_ID] = client_id
+                    self._pending_options = options
                     _LOGGER.debug("[UGREEN NAS] Trusted device enrolled")
-                    return self.async_create_entry(title="", data=options)
+                    return await self.async_step_advanced()
                 errors["base"] = error or "invalid_otp"
 
         return self.async_show_form(
             step_id="otp",
             data_schema=vol.Schema({vol.Required(CONF_OTP_CODE): str}),
-            description_placeholders={"client_id": current or "(a new one will be generated)"},
+            description_placeholders={
+                "client_id": current or "(a new one will be generated)"
+            },
             errors=errors,
         )
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None):
-        """Handle the single-page options form."""
+    async def async_step_init(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Handle connection and authentication options."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -546,34 +557,6 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
             )
             entity_prefix_slug = _build_entity_prefix_slug(entity_prefix)
 
-            disk_columns = _normalize_dashboard_columns(
-                user_input.get(
-                    CONF_DASHBOARD_DISK_COLUMNS,
-                    DEFAULT_DASHBOARD_DISK_COLUMNS,
-                ),
-                DEFAULT_DASHBOARD_DISK_COLUMNS,
-            )
-            pool_columns = _normalize_dashboard_columns(
-                user_input.get(
-                    CONF_DASHBOARD_POOL_COLUMNS,
-                    DEFAULT_DASHBOARD_POOL_COLUMNS,
-                ),
-                DEFAULT_DASHBOARD_POOL_COLUMNS,
-            )
-            volume_columns = _normalize_dashboard_columns(
-                user_input.get(
-                    CONF_DASHBOARD_VOLUME_COLUMNS,
-                    DEFAULT_DASHBOARD_VOLUME_COLUMNS,
-                ),
-                DEFAULT_DASHBOARD_VOLUME_COLUMNS,
-            )
-            image_file = _normalize_dashboard_image_file(
-                user_input.get(
-                    CONF_DASHBOARD_IMAGE_FILE,
-                    DEFAULT_DASHBOARD_IMAGE_FILE,
-                )
-            )
-
             if not entity_prefix or not entity_prefix_slug:
                 errors["base"] = "invalid_entity_prefix"
             elif _is_entity_prefix_in_use(
@@ -583,27 +566,18 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
             ):
                 errors["base"] = "entity_prefix_in_use"
             else:
+                register_2fa = user_input.pop(CONF_USE_OTP, False)
                 user_input[CONF_ENTITY_PREFIX] = entity_prefix
-                user_input[CONF_DASHBOARD_DISK_COLUMNS] = disk_columns
-                user_input[CONF_DASHBOARD_POOL_COLUMNS] = pool_columns
-                user_input[CONF_DASHBOARD_VOLUME_COLUMNS] = volume_columns
-                user_input[CONF_DASHBOARD_IMAGE_FILE] = image_file
-                # The trusted device id is not part of the form, so carry the
-                # stored value across or it would be dropped on every save.
-                user_input[CONF_CLIENT_ID] = self._entry.options.get(
-                    CONF_CLIENT_ID, self._entry.data.get(CONF_CLIENT_ID, "")
+                user_input[CONF_CLIENT_ID] = self._get_value(CONF_CLIENT_ID, "")
+                user_input[CONF_WS_INTERVAL] = self._get_value(
+                    CONF_WS_INTERVAL,
+                    DEFAULT_SCAN_INTERVAL_WS,
                 )
+                self._pending_options = user_input
 
-                # Ticking the box means "register a trusted device", which
-                # needs a code, so hand off to the dedicated step.
-                if user_input.pop(CONF_USE_OTP, False):
-                    self._pending_options = user_input
+                if register_2fa:
                     return await self.async_step_otp()
-
-                return self.async_create_entry(title="", data=user_input)
-
-        def _get_value(key: str, default: Any = None) -> Any:
-            return self._entry.options.get(key, self._entry.data.get(key, default))
+                return await self.async_step_advanced()
 
         return self.async_show_form(
             step_id="init",
@@ -611,35 +585,70 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
                 {
                     vol.Required(
                         CONF_UGREEN_HOST,
-                        default=_get_value(CONF_UGREEN_HOST, ""),
+                        default=self._get_value(CONF_UGREEN_HOST, ""),
                     ): str,
                     vol.Required(
                         CONF_UGREEN_PORT,
-                        default=_get_value(CONF_UGREEN_PORT, 9999),
+                        default=self._get_value(CONF_UGREEN_PORT, 9999),
                     ): int,
                     vol.Required(
                         CONF_USERNAME,
-                        default=_get_value(CONF_USERNAME, ""),
+                        default=self._get_value(CONF_USERNAME, ""),
                     ): str,
                     vol.Required(
                         CONF_PASSWORD,
-                        default=_get_value(CONF_PASSWORD, ""),
+                        default=self._get_value(CONF_PASSWORD, ""),
                     ): str,
                     vol.Required(
                         CONF_ENTITY_PREFIX,
-                        default=_get_value(
+                        default=self._get_value(
                             CONF_ENTITY_PREFIX,
                             DEFAULT_ENTITY_PREFIX,
                         ),
                     ): str,
                     vol.Optional(
                         CONF_USE_HTTPS,
-                        default=_get_value(CONF_USE_HTTPS, False),
+                        default=self._get_value(CONF_USE_HTTPS, False),
                     ): bool,
                     vol.Optional(CONF_USE_OTP, default=False): bool,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_advanced(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Handle advanced polling and dashboard options."""
+        options = self._pending_options or {}
+
+        if user_input is not None:
+            options.update(user_input)
+            options[CONF_DASHBOARD_DISK_COLUMNS] = _normalize_dashboard_columns(
+                options.get(CONF_DASHBOARD_DISK_COLUMNS),
+                DEFAULT_DASHBOARD_DISK_COLUMNS,
+            )
+            options[CONF_DASHBOARD_POOL_COLUMNS] = _normalize_dashboard_columns(
+                options.get(CONF_DASHBOARD_POOL_COLUMNS),
+                DEFAULT_DASHBOARD_POOL_COLUMNS,
+            )
+            options[CONF_DASHBOARD_VOLUME_COLUMNS] = _normalize_dashboard_columns(
+                options.get(CONF_DASHBOARD_VOLUME_COLUMNS),
+                DEFAULT_DASHBOARD_VOLUME_COLUMNS,
+            )
+            options[CONF_DASHBOARD_IMAGE_FILE] = _normalize_dashboard_image_file(
+                options.get(CONF_DASHBOARD_IMAGE_FILE)
+            )
+            return self.async_create_entry(title="", data=options)
+
+        return self.async_show_form(
+            step_id="advanced",
+            data_schema=vol.Schema(
+                {
                     vol.Required(
                         CONF_STATE_INTERVAL,
-                        default=_get_value(
+                        default=self._get_value(
                             CONF_STATE_INTERVAL,
                             DEFAULT_SCAN_INTERVAL_STATE,
                         ),
@@ -648,7 +657,7 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
                     ),
                     vol.Required(
                         CONF_CONFIG_INTERVAL,
-                        default=_get_value(
+                        default=self._get_value(
                             CONF_CONFIG_INTERVAL,
                             DEFAULT_SCAN_INTERVAL_CONFIG,
                         ),
@@ -658,11 +667,16 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
                     # Uncomment to show API ping frequency in configuration window
                     # vol.Optional(
                     #     CONF_WS_INTERVAL,
-                    #     default=_get_value(CONF_WS_INTERVAL, DEFAULT_SCAN_INTERVAL_WS),
-                    # ): NumberSelector(NumberSelectorConfig(min=20, max=60, step=1, mode="box")),
+                    #     default=self._get_value(
+                    #         CONF_WS_INTERVAL,
+                    #         DEFAULT_SCAN_INTERVAL_WS,
+                    #     ),
+                    # ): NumberSelector(
+                    #     NumberSelectorConfig(min=20, max=60, step=1, mode="box")
+                    # ),
                     vol.Required(
                         CONF_DASHBOARD_DISK_COLUMNS,
-                        default=_get_value(
+                        default=self._get_value(
                             CONF_DASHBOARD_DISK_COLUMNS,
                             DEFAULT_DASHBOARD_DISK_COLUMNS,
                         ),
@@ -671,7 +685,7 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
                     ),
                     vol.Required(
                         CONF_DASHBOARD_POOL_COLUMNS,
-                        default=_get_value(
+                        default=self._get_value(
                             CONF_DASHBOARD_POOL_COLUMNS,
                             DEFAULT_DASHBOARD_POOL_COLUMNS,
                         ),
@@ -680,7 +694,7 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
                     ),
                     vol.Required(
                         CONF_DASHBOARD_VOLUME_COLUMNS,
-                        default=_get_value(
+                        default=self._get_value(
                             CONF_DASHBOARD_VOLUME_COLUMNS,
                             DEFAULT_DASHBOARD_VOLUME_COLUMNS,
                         ),
@@ -689,12 +703,11 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
                     ),
                     vol.Optional(
                         CONF_DASHBOARD_IMAGE_FILE,
-                        default=_get_value(
+                        default=self._get_value(
                             CONF_DASHBOARD_IMAGE_FILE,
                             DEFAULT_DASHBOARD_IMAGE_FILE,
                         ),
                     ): str,
                 }
             ),
-            errors=errors,
         )

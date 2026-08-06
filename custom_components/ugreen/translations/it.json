@@ -54,7 +54,7 @@
     "step": {
       "init": {
         "title": "Impostazioni UGREEN NAS",
-        "description": "Modifica le impostazioni del tuo UGREEN NAS. L’integrazione verrà ricaricata dopo il salvataggio.",
+        "description": "Modifica le impostazioni di connessione e autenticazione del tuo UGREEN NAS.",
         "data": {
           "ugreen_host": "Indirizzo IP o nome host",
           "ugreen_port": "Porta",
@@ -62,13 +62,6 @@
           "password": "Password amministratore",
           "entity_prefix": "Nome dispositivo univoco (predefinito: UGREEN NAS)",
           "use_https": "Usa HTTPS",
-          "state_interval": "[Avanzato] Intervallo di polling per le entità di stato (5s)",
-          "config_interval": "[Avanzato] Intervallo di polling per le entità di configurazione (60s)",
-          "ws_interval": "[Avanzato] Ping keepalive API (20s)",
-          "dashboard_disk_columns": "[Dashboard di esempio] Max colonne dischi per riga (5)",
-          "dashboard_pool_columns": "[Dashboard di esempio] Max colonne pool per riga (2)",
-          "dashboard_volume_columns": "[Dashboard di esempio] Max colonne volumi per riga (2)",
-          "dashboard_image_file": "[Dashboard di esempio] Nome file immagine (default_picture.png)",
           "use_otp": "Registra un dispositivo attendibile per la 2FA"
         },
         "data_description": {
@@ -78,14 +71,29 @@
           "password": "La tua password amministratore del NAS (senza caratteri speciali – bug di UGOS!).",
           "entity_prefix": "Deve iniziare con una lettera; poi sono consentiti lettere, numeri e spazi.",
           "use_https": "Usa una connessione HTTPS crittografata (richiede una porta HTTPS).",
+          "use_otp": "Lascia deselezionato per le modifiche normali. Selezionalo e salva solo se l’account NAS usa la 2FA e Home Assistant non è ancora registrato, o se devi registrarlo di nuovo. Nella schermata successiva ti verrà chiesto un codice."
+        }
+      },
+      "advanced": {
+        "title": "Impostazioni avanzate",
+        "description": "Impostazioni avanzate e ottimizzazione per l’integrazione e il dashboard di esempio.",
+        "data": {
+          "state_interval": "Intervallo di polling per le entità di stato (5s)",
+          "config_interval": "Intervallo di polling per le entità di configurazione (60s)",
+          "ws_interval": "Ping keepalive API (20s)",
+          "dashboard_disk_columns": "[Dashboard di esempio] Max colonne dischi per riga (5)",
+          "dashboard_pool_columns": "[Dashboard di esempio] Max colonne pool per riga (2)",
+          "dashboard_volume_columns": "[Dashboard di esempio] Max colonne volumi per riga (2)",
+          "dashboard_image_file": "[Dashboard di esempio] Nome file immagine (default_picture.png)"
+        },
+        "data_description": {
           "state_interval": "Con quale frequenza devono essere interrogati i valori che cambiano spesso?",
           "config_interval": "Con quale frequenza devono essere interrogati i valori che cambiano meno spesso?",
           "ws_interval": "Con quale frequenza deve essere inviato un ping keepalive API tramite WebSocket?",
           "dashboard_disk_columns": "Numero di riquadri disco di questo NAS da mostrare affiancati nel dashboard.",
           "dashboard_pool_columns": "Numero di riquadri pool di questo NAS da mostrare affiancati nel dashboard.",
           "dashboard_volume_columns": "Numero di riquadri volume di questo NAS da mostrare affiancati nel dashboard.",
-          "dashboard_image_file": "File immagine dashboard individuale per questo NAS nella cartella www/community/ugreen/.",
-          "use_otp": "Lascia deselezionato per le modifiche normali. Selezionalo e salva solo se l’account NAS usa la 2FA e Home Assistant non è ancora registrato, o se devi registrarlo di nuovo. Nella schermata successiva ti verrà chiesto un codice."
+          "dashboard_image_file": "File immagine dashboard individuale per questo NAS nella cartella www/community/ugreen/."
         }
       },
       "otp": {
@@ -100,6 +108,8 @@
       }
     },
     "error": {
+      "cannot_connect": "Connessione non riuscita. Controlla l’indirizzo IP, la porta e la connessione di rete.",
+      "invalid_auth": "Errore di connessione o credenziali non valide. Controlla le impostazioni di rete e dell’utente.",
       "invalid_otp": "Registrazione non riuscita. Il codice potrebbe essere scaduto o digitato male. Riprova con un codice nuovo."
     }
   }

@@ -54,7 +54,7 @@
     "step": {
       "init": {
         "title": "Ajustes de UGREEN NAS",
-        "description": "Cambia los ajustes de tu UGREEN NAS. La integración se recargará después de guardar.",
+        "description": "Cambia los ajustes de conexión y autenticación de tu UGREEN NAS.",
         "data": {
           "ugreen_host": "Dirección IP o nombre de host",
           "ugreen_port": "Puerto",
@@ -62,13 +62,6 @@
           "password": "Contraseña de administrador",
           "entity_prefix": "Nombre único del dispositivo (predeterminado: UGREEN NAS)",
           "use_https": "Usar HTTPS",
-          "state_interval": "[Avanzado] Intervalo de sondeo para entidades de estado (5s)",
-          "config_interval": "[Avanzado] Intervalo de sondeo para entidades de configuración (60s)",
-          "ws_interval": "[Avanzado] Pings keepalive de la API (20s)",
-          "dashboard_disk_columns": "[Dashboard de ejemplo] Máx. columnas de discos por fila (5)",
-          "dashboard_pool_columns": "[Dashboard de ejemplo] Máx. columnas de pools por fila (2)",
-          "dashboard_volume_columns": "[Dashboard de ejemplo] Máx. columnas de volúmenes por fila (2)",
-          "dashboard_image_file": "[Dashboard de ejemplo] Nombre del archivo de imagen (default_picture.png)",
           "use_otp": "Registrar un dispositivo de confianza para la 2FA"
         },
         "data_description": {
@@ -78,14 +71,29 @@
           "password": "Tu contraseña de administrador del NAS (sin caracteres especiales – ¡error de UGOS!).",
           "entity_prefix": "Debe comenzar con una letra; después se permiten letras, números y espacios.",
           "use_https": "Usar una conexión HTTPS cifrada (requiere puerto HTTPS).",
+          "use_otp": "Déjalo sin marcar para los cambios normales. Márcalo y guarda solo si la cuenta del NAS usa 2FA y Home Assistant aún no está registrado, o si necesitas registrarlo de nuevo. En la siguiente pantalla se te pedirá un código."
+        }
+      },
+      "advanced": {
+        "title": "Ajustes avanzados",
+        "description": "Ajustes avanzados y ajuste fino para la integración y el dashboard de ejemplo.",
+        "data": {
+          "state_interval": "Intervalo de sondeo para entidades de estado (5s)",
+          "config_interval": "Intervalo de sondeo para entidades de configuración (60s)",
+          "ws_interval": "Pings keepalive de la API (20s)",
+          "dashboard_disk_columns": "[Dashboard de ejemplo] Máx. columnas de discos por fila (5)",
+          "dashboard_pool_columns": "[Dashboard de ejemplo] Máx. columnas de pools por fila (2)",
+          "dashboard_volume_columns": "[Dashboard de ejemplo] Máx. columnas de volúmenes por fila (2)",
+          "dashboard_image_file": "[Dashboard de ejemplo] Nombre del archivo de imagen (default_picture.png)"
+        },
+        "data_description": {
           "state_interval": "¿Con qué frecuencia deben sondearse los valores que cambian con frecuencia?",
           "config_interval": "¿Con qué frecuencia deben sondearse los valores que cambian con menos frecuencia?",
           "ws_interval": "¿Con qué frecuencia debe enviarse un ping keepalive de la API mediante WebSocket?",
           "dashboard_disk_columns": "Número de mosaicos de discos de este NAS que se mostrarán uno al lado del otro en el dashboard.",
           "dashboard_pool_columns": "Número de mosaicos de pools de este NAS que se mostrarán uno al lado del otro en el dashboard.",
           "dashboard_volume_columns": "Número de mosaicos de volúmenes de este NAS que se mostrarán uno al lado del otro en el dashboard.",
-          "dashboard_image_file": "Archivo de imagen individual del dashboard para este NAS en la carpeta www/community/ugreen/.",
-          "use_otp": "Déjalo sin marcar para los cambios normales. Márcalo y guarda solo si la cuenta del NAS usa 2FA y Home Assistant aún no está registrado, o si necesitas registrarlo de nuevo. En la siguiente pantalla se te pedirá un código."
+          "dashboard_image_file": "Archivo de imagen individual del dashboard para este NAS en la carpeta www/community/ugreen/."
         }
       },
       "otp": {
@@ -100,6 +108,8 @@
       }
     },
     "error": {
+      "cannot_connect": "La conexión ha fallado. Comprueba la dirección IP, el puerto y la conexión de red.",
+      "invalid_auth": "Error de conexión o credenciales no válidas. Comprueba la configuración de red y del usuario.",
       "invalid_otp": "Error en el registro. Puede que el código haya caducado o se haya escrito mal. Prueba con un código nuevo."
     }
   }

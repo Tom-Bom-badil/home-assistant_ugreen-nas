@@ -54,7 +54,7 @@
     "step": {
       "init": {
         "title": "Paramètres UGREEN NAS",
-        "description": "Modifiez les paramètres de votre UGREEN NAS. L’intégration sera rechargée après l’enregistrement.",
+        "description": "Modifiez les paramètres de connexion et d’authentification de votre UGREEN NAS.",
         "data": {
           "ugreen_host": "Adresse IP ou nom d’hôte",
           "ugreen_port": "Port",
@@ -62,13 +62,6 @@
           "password": "Mot de passe administrateur",
           "entity_prefix": "Nom d’appareil unique (par défaut : UGREEN NAS)",
           "use_https": "Utiliser HTTPS",
-          "state_interval": "[Avancé] Intervalle d’interrogation des entités d’état (5s)",
-          "config_interval": "[Avancé] Intervalle d’interrogation des entités de configuration (60s)",
-          "ws_interval": "[Avancé] Pings API keepalive (20s)",
-          "dashboard_disk_columns": "[Dashboard exemple] Nombre max. de colonnes de disques par ligne (5)",
-          "dashboard_pool_columns": "[Dashboard exemple] Nombre max. de colonnes de pools par ligne (2)",
-          "dashboard_volume_columns": "[Dashboard exemple] Nombre max. de colonnes de volumes par ligne (2)",
-          "dashboard_image_file": "[Dashboard exemple] Nom du fichier image (default_picture.png)",
           "use_otp": "Enregistrer un appareil de confiance pour la 2FA"
         },
         "data_description": {
@@ -78,14 +71,29 @@
           "password": "Votre mot de passe administrateur du NAS (pas de caractères spéciaux – bug UGOS !).",
           "entity_prefix": "Doit commencer par une lettre ; ensuite, les lettres, chiffres et espaces sont autorisés.",
           "use_https": "Utiliser une connexion HTTPS chiffrée (nécessite un port HTTPS).",
+          "use_otp": "Laissez décoché pour les modifications habituelles. Cochez puis enregistrez uniquement si le compte NAS utilise la 2FA et que Home Assistant n’est pas encore enregistré, ou si vous devez l’enregistrer à nouveau. Un code vous sera demandé à l’écran suivant."
+        }
+      },
+      "advanced": {
+        "title": "Paramètres avancés",
+        "description": "Paramètres avancés et réglages fins pour l’intégration et le dashboard d’exemple.",
+        "data": {
+          "state_interval": "Intervalle d’interrogation des entités d’état (5s)",
+          "config_interval": "Intervalle d’interrogation des entités de configuration (60s)",
+          "ws_interval": "Pings API keepalive (20s)",
+          "dashboard_disk_columns": "[Dashboard exemple] Nombre max. de colonnes de disques par ligne (5)",
+          "dashboard_pool_columns": "[Dashboard exemple] Nombre max. de colonnes de pools par ligne (2)",
+          "dashboard_volume_columns": "[Dashboard exemple] Nombre max. de colonnes de volumes par ligne (2)",
+          "dashboard_image_file": "[Dashboard exemple] Nom du fichier image (default_picture.png)"
+        },
+        "data_description": {
           "state_interval": "À quelle fréquence les valeurs qui changent souvent doivent-elles être interrogées ?",
           "config_interval": "À quelle fréquence les valeurs qui changent moins souvent doivent-elles être interrogées ?",
           "ws_interval": "À quelle fréquence un ping API keepalive doit-il être envoyé via WebSocket ?",
           "dashboard_disk_columns": "Nombre de tuiles de disques de ce NAS à afficher côte à côte sur le dashboard.",
           "dashboard_pool_columns": "Nombre de tuiles de pools de ce NAS à afficher côte à côte sur le dashboard.",
           "dashboard_volume_columns": "Nombre de tuiles de volumes de ce NAS à afficher côte à côte sur le dashboard.",
-          "dashboard_image_file": "Fichier image individuel du dashboard pour ce NAS dans le dossier www/community/ugreen/.",
-          "use_otp": "Laissez décoché pour les modifications habituelles. Cochez puis enregistrez uniquement si le compte NAS utilise la 2FA et que Home Assistant n’est pas encore enregistré, ou si vous devez l’enregistrer à nouveau. Un code vous sera demandé à l’écran suivant."
+          "dashboard_image_file": "Fichier image individuel du dashboard pour ce NAS dans le dossier www/community/ugreen/."
         }
       },
       "otp": {
@@ -100,6 +108,8 @@
       }
     },
     "error": {
+      "cannot_connect": "Échec de la connexion. Veuillez vérifier l’adresse IP, le port et la connexion réseau.",
+      "invalid_auth": "Erreur de connexion ou identifiants invalides. Veuillez vérifier les paramètres réseau et utilisateur.",
       "invalid_otp": "Échec de l’enregistrement. Le code a peut-être expiré ou été mal saisi. Réessayez avec un nouveau code."
     }
   }

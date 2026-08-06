@@ -54,7 +54,7 @@
     "step": {
       "init": {
         "title": "UGREEN NAS Einstellungen",
-        "description": "Ändere die Einstellungen für dein UGREEN NAS. Die Integration wird nach dem Speichern neu geladen.",
+        "description": "Ändere die Verbindungs- und Anmeldeeinstellungen für dein UGREEN NAS.",
         "data": {
           "ugreen_host": "IP-Adresse oder Hostname",
           "ugreen_port": "Port",
@@ -62,13 +62,6 @@
           "password": "Admin Passwort",
           "entity_prefix": "Eindeutiger Gerätename (Standard: UGREEN NAS)",
           "use_https": "HTTPS verwenden",
-          "state_interval": "[Erweitert] Auslese-Intervall für Status-Entitäten (5s)",
-          "config_interval": "[Erweitert] Auslese-Intervall für Konfigurations-Entitäten (60s)",
-          "ws_interval": "[Erweitert] Keepalive-API-Pings (20s)",
-          "dashboard_disk_columns": "[Beispiel-Dashboard] Maximale Anzahl Disk-Spalten pro Zeile (5)",
-          "dashboard_pool_columns": "[Beispiel-Dashboard] Maximale Anzahl Pool-Spalten pro Zeile (2)",
-          "dashboard_volume_columns": "[Beispiel-Dashboard] Maximale Anzahl Volume-Spalten pro Zeile (2)",
-          "dashboard_image_file": "[Beispiel-Dashboard] Name der Bilddatei (default_picture.png)",
           "use_otp": "Vertrauenswürdiges Gerät für Zwei-Faktor-Authentifizierung (2FA) registrieren"
         },
         "data_description": {
@@ -78,14 +71,29 @@
           "password": "Dein NAS Admin Passwort (keine Sonderzeichen - UGOS Bug!).",
           "entity_prefix": "Muss mit einem Buchstaben beginnen; danach sind Buchstaben, Zahlen und Leerzeichen erlaubt.",
           "use_https": "Verschlüsselte HTTPS-Verbindung benutzen (erfordert HTTPS-Port).",
+          "use_otp": "Für normale Änderungen deaktiviert lassen. Aktiviere und speichere nur, wenn das NAS-Konto 2FA verwendet und Home Assistant noch nicht registriert ist oder erneut registriert werden muss. Im nächsten Schritt wirst du nach einem Code gefragt."
+        }
+      },
+      "advanced": {
+        "title": "Erweiterte Einstellungen",
+        "description": "Erweiterte Einstellungen und Fine-Tuning für die Integration und das Beispiel-Dashboard.",
+        "data": {
+          "state_interval": "Auslese-Intervall für Status-Entitäten (5s)",
+          "config_interval": "Auslese-Intervall für Konfigurations-Entitäten (60s)",
+          "ws_interval": "Keepalive-API-Pings (20s)",
+          "dashboard_disk_columns": "[Beispiel-Dashboard] Maximale Anzahl Disk-Spalten pro Zeile (5)",
+          "dashboard_pool_columns": "[Beispiel-Dashboard] Maximale Anzahl Pool-Spalten pro Zeile (2)",
+          "dashboard_volume_columns": "[Beispiel-Dashboard] Maximale Anzahl Volume-Spalten pro Zeile (2)",
+          "dashboard_image_file": "[Beispiel-Dashboard] Name der Bilddatei (default_picture.png)"
+        },
+        "data_description": {
           "state_interval": "Wie oft sollen sich häufig ändernde Werte ausgelesen werden?",
           "config_interval": "Wie oft sollen sich seltener ändernde Werte ausgelesen werden?",
           "ws_interval": "Wie oft soll ein API-Keepalive-Ping per WebSocket gesendet werden?",
           "dashboard_disk_columns": "Anzahl der Disk-Kacheln dieses NAS, die auf dem Dashboard nebeneinander angezeigt werden.",
           "dashboard_pool_columns": "Anzahl der Pool-Kacheln dieses NAS, die auf dem Dashboard nebeneinander angezeigt werden.",
           "dashboard_volume_columns": "Anzahl der Volume-Kacheln dieses NAS, die auf dem Dashboard nebeneinander angezeigt werden.",
-          "dashboard_image_file": "Individuelle Dashboard-Bilddatei für dieses NAS im Ordner www/community/ugreen/.",
-          "use_otp": "Für normale Änderungen deaktiviert lassen. Aktiviere und speichere nur, wenn das NAS-Konto 2FA verwendet und Home Assistant noch nicht registriert ist oder erneut registriert werden muss. Im nächsten Schritt wirst du nach einem Code gefragt."
+          "dashboard_image_file": "Individuelle Dashboard-Bilddatei für dieses NAS im Ordner www/community/ugreen/."
         }
       },
       "otp": {
@@ -100,6 +108,8 @@
       }
     },
     "error": {
+      "cannot_connect": "Verbindung fehlgeschlagen. Überprüfe IP-Adresse, Port und Netzwerkverbindung.",
+      "invalid_auth": "Verbindungsfehler oder ungültige Anmeldedaten. Netzwerkeinstellungen und Benutzereinstellungen prüfen.",
       "invalid_otp": "Registrierung fehlgeschlagen. Der Code ist möglicherweise abgelaufen oder falsch eingegeben. Versuche es mit einem neuen Code."
     }
   }
