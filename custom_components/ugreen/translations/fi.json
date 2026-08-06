@@ -1,0 +1,116 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Määritä UGREEN NAS",
+        "description": "Anna UGREEN NAS -laitteen yhteystiedot.",
+        "data": {
+          "ugreen_host": "IP-osoite tai isäntänimi",
+          "ugreen_port": "Portti",
+          "username": "Ylläpitäjän käyttäjänimi",
+          "password": "Ylläpitäjän salasana",
+          "entity_prefix": "Yksilöllinen laitenimi (oletus: UGREEN NAS)",
+          "use_https": "Käytä HTTPS-yhteyttä",
+          "use_otp": "Tili käyttää kaksivaiheista tunnistautumista (2FA)"
+        },
+        "data_description": {
+          "ugreen_host": "UGREEN NAS -laitteen IP-osoite tai isäntänimi (esim. 192.168.1.100).",
+          "ugreen_port": "Yhteyden käyttämä portti (oletus: HTTP 9999, HTTPS 9443).",
+          "username": "NAS-laitteen ylläpitäjän käyttäjänimi.",
+          "password": "NAS-laitteen ylläpitäjän salasana (ei erikoismerkkejä – UGOS-virhe!).",
+          "entity_prefix": "Nimen on alettava kirjaimella; sen jälkeen sallitaan kirjaimet, numerot ja välilyönnit.",
+          "use_https": "Käytä yhteydessä HTTPS:ää.",
+          "use_otp": "Valitse tämä vain, jos yllä olevalla NAS-tilillä on 2FA käytössä. Seuraavassa näkymässä pyydetään yksi koodi, jolla Home Assistant rekisteröidään luotetuksi laitteeksi, minkä jälkeen koodia ei enää tarvita."
+        }
+      },
+      "zeroconf": {
+        "title": "UGREEN NAS löydetty",
+        "description": "Verkosta löytyi automaattisesti UGREEN NAS. Lisää se antamalla kirjautumistietosi."
+      },
+      "otp": {
+        "title": "Rekisteröi Home Assistant luotetuksi laitteeksi",
+        "description": "NAS-tilisi käyttää kaksivaiheista tunnistautumista. Home Assistant ei voi vastata koodipyyntöön jokaisen uudelleenyhdistämisen yhteydessä, joten se rekisteröidään kerran luotetuksi laitteeksi.\n\nAnna todennussovelluksen nykyinen koodi. Koodi käytetään heti eikä sitä tallenneta koskaan.\n\nRekisteröitävä laitetunnus: `{client_id}`\n\nTämä tunnus luodaan ja sitä hallitaan automaattisesti. Sinun ei tarvitse kirjoittaa sitä muistiin tai syöttää sitä mihinkään.",
+        "data": {
+          "otp_code": "Todennussovelluksen koodi"
+        },
+        "data_description": {
+          "otp_code": "Todennussovelluksen nykyinen 6-numeroinen koodi. Koodit vanhenevat nopeasti, joten lähetä se heti."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Yhteyden muodostaminen epäonnistui. Tarkista IP-osoite, portti ja verkkoyhteys.",
+      "invalid_auth": "Yhteysvirhe tai virheelliset kirjautumistiedot. Tarkista verkko- ja käyttäjäasetukset.",
+      "invalid_entity_prefix": "Virheellinen laitenimi. Sen on alettava kirjaimella; sen jälkeen sallitaan vain kirjaimet, numerot ja välilyönnit.",
+      "entity_prefix_in_use": "Tämä laitenimi on jo toisen UGREEN NAS -laitteen käytössä.",
+      "unknown": "Tapahtui tuntematon virhe.",
+      "invalid_otp": "Rekisteröinti epäonnistui. Koodi on voinut vanhentua tai se on voitu kirjoittaa väärin, tai tilillä ei ehkä ole 2FA:ta käytössä. Tarkista lokit ja yritä uudelleen uudella koodilla."
+    },
+    "abort": {
+      "already_configured": "Tämä UGREEN NAS on jo määritetty."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "UGREEN NAS -asetukset",
+        "description": "Muuta UGREEN NAS -laitteen yhteys- ja tunnistautumisasetuksia.",
+        "data": {
+          "ugreen_host": "IP-osoite tai isäntänimi",
+          "ugreen_port": "Portti",
+          "username": "Ylläpitäjän käyttäjänimi",
+          "password": "Ylläpitäjän salasana",
+          "entity_prefix": "Yksilöllinen laitenimi (oletus: UGREEN NAS)",
+          "use_https": "Käytä HTTPS-yhteyttä",
+          "use_otp": "Rekisteröi luotettu laite kaksivaiheista tunnistautumista (2FA) varten"
+        },
+        "data_description": {
+          "ugreen_host": "UGREEN NAS -laitteen IP-osoite tai isäntänimi.",
+          "ugreen_port": "Yhteyden käyttämä portti (oletus: HTTP 9999, HTTPS 9443).",
+          "username": "NAS-laitteen ylläpitäjän käyttäjänimi.",
+          "password": "NAS-laitteen ylläpitäjän salasana (ei erikoismerkkejä – UGOS-virhe!).",
+          "entity_prefix": "Nimen on alettava kirjaimella; sen jälkeen sallitaan kirjaimet, numerot ja välilyönnit.",
+          "use_https": "Käytä salattua HTTPS-yhteyttä (edellyttää HTTPS-porttia).",
+          "use_otp": "Jätä tämä valitsematta tavallisia muutoksia varten. Valitse ja tallenna vain, jos NAS-tili käyttää 2FA:ta eikä Home Assistantia ole vielä rekisteröity, tai jos rekisteröinti on tehtävä uudelleen. Seuraavassa näkymässä pyydetään yksi koodi."
+        }
+      },
+      "advanced": {
+        "title": "Lisäasetukset",
+        "description": "Integraation ja esimerkkikoontinäytön lisäasetukset ja hienosäätö.",
+        "data": {
+          "state_interval": "Tilaentiteettien kyselyväli (5 s)",
+          "config_interval": "Määritysentiteettien kyselyväli (60 s)",
+          "ws_interval": "API:n keepalive-pingit (20 s)",
+          "dashboard_disk_columns": "[Esimerkkikoontinäyttö] Levyjen sarakkeiden enimmäismäärä rivillä (5)",
+          "dashboard_pool_columns": "[Esimerkkikoontinäyttö] Tallennusvarantojen sarakkeiden enimmäismäärä rivillä (2)",
+          "dashboard_volume_columns": "[Esimerkkikoontinäyttö] Taltioiden sarakkeiden enimmäismäärä rivillä (2)",
+          "dashboard_image_file": "[Esimerkkikoontinäyttö] Kuvatiedoston nimi (default_picture.png)"
+        },
+        "data_description": {
+          "state_interval": "Kuinka usein usein muuttuvat arvot kysellään?",
+          "config_interval": "Kuinka usein harvemmin muuttuvat arvot kysellään?",
+          "ws_interval": "Kuinka usein API:n keepalive-ping lähetetään WebSocketin kautta?",
+          "dashboard_disk_columns": "Tämän NAS-laitteen vierekkäin koontinäytössä näytettävien levyruutujen määrä.",
+          "dashboard_pool_columns": "Tämän NAS-laitteen vierekkäin koontinäytössä näytettävien tallennusvarantoruutujen määrä.",
+          "dashboard_volume_columns": "Tämän NAS-laitteen vierekkäin koontinäytössä näytettävien taltioruutujen määrä.",
+          "dashboard_image_file": "Tämän NAS-laitteen yksilöllinen koontinäytön kuvatiedosto kansiossa www/community/ugreen/."
+        }
+      },
+      "otp": {
+        "title": "Rekisteröi luotettu laite",
+        "description": "Anna todennussovelluksen nykyinen koodi rekisteröidäksesi tämän Home Assistantin NAS-laitteeseen. Koodi käytetään heti eikä sitä tallenneta koskaan.\n\nNykyinen laitetunnus: `{client_id}`\n\nTätä tunnusta hallitaan automaattisesti eikä sitä voi tarkoituksellisesti muokata. Jos kirjautuminen alkaa epäonnistua sen jälkeen, kun luottamus on poistettu NAS-laitteessa, rekisteröi laite uudelleen tässä.",
+        "data": {
+          "otp_code": "Todennussovelluksen koodi"
+        },
+        "data_description": {
+          "otp_code": "Nykyinen 6-numeroinen koodi. Koodit vanhenevat nopeasti, joten lähetä se heti."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Yhteyden muodostaminen epäonnistui. Tarkista IP-osoite, portti ja verkkoyhteys.",
+      "invalid_auth": "Yhteysvirhe tai virheelliset kirjautumistiedot. Tarkista verkko- ja käyttäjäasetukset.",
+      "invalid_otp": "Rekisteröinti epäonnistui. Koodi on voinut vanhentua tai se on voitu kirjoittaa väärin. Yritä uudelleen uudella koodilla."
+    }
+  }
+}

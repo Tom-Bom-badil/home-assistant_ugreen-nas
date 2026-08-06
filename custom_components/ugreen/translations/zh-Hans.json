@@ -1,0 +1,116 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "设置 UGREEN NAS",
+        "description": "请输入 UGREEN NAS 的连接信息。",
+        "data": {
+          "ugreen_host": "IP 地址或主机名",
+          "ugreen_port": "端口",
+          "username": "管理员用户名",
+          "password": "管理员密码",
+          "entity_prefix": "唯一设备名称（默认：UGREEN NAS）",
+          "use_https": "使用 HTTPS",
+          "use_otp": "账户使用双重身份验证（2FA）"
+        },
+        "data_description": {
+          "ugreen_host": "UGREEN NAS 的 IP 地址或主机名（例如 192.168.1.100）。",
+          "ugreen_port": "用于连接的端口（默认：HTTP 为 9999，HTTPS 为 9443）。",
+          "username": "NAS 管理员用户名。",
+          "password": "NAS 管理员密码（不能包含特殊字符 — UGOS 缺陷！）。",
+          "entity_prefix": "必须以字母开头；之后可以使用字母、数字和空格。",
+          "use_https": "使用 HTTPS 进行连接。",
+          "use_otp": "仅当上述 NAS 账户已启用 2FA 时才勾选此项。下一页将要求输入一次验证码，用于将 Home Assistant 注册为受信任设备，之后便无需再次输入验证码。"
+        }
+      },
+      "zeroconf": {
+        "title": "已发现 UGREEN NAS",
+        "description": "已在网络中自动发现一台 UGREEN NAS。请输入凭据以添加该设备。"
+      },
+      "otp": {
+        "title": "将 Home Assistant 注册为受信任设备",
+        "description": "您的 NAS 账户使用双重身份验证。Home Assistant 无法在每次重新连接时响应验证码提示，因此会将自身一次性注册为受信任设备。\n\n请输入身份验证器应用中的当前验证码。该验证码会立即使用，且永远不会被保存。\n\n将要注册的设备 ID：`{client_id}`\n\n此 ID 会自动生成和管理。您无需记录或在任何位置输入它。",
+        "data": {
+          "otp_code": "身份验证器验证码"
+        },
+        "data_description": {
+          "otp_code": "身份验证器应用中的当前 6 位验证码。验证码很快会过期，请及时提交。"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "连接失败。请检查 IP 地址、端口和网络连接。",
+      "invalid_auth": "连接错误或凭据无效。请检查网络和用户设置。",
+      "invalid_entity_prefix": "设备名称无效。必须以字母开头；之后只能使用字母、数字和空格。",
+      "entity_prefix_in_use": "此设备名称已被另一台 UGREEN NAS 使用。",
+      "unknown": "发生未知错误。",
+      "invalid_otp": "注册失败。验证码可能已过期或输入错误，或者账户可能未启用 2FA。请检查日志，并使用新的验证码重试。"
+    },
+    "abort": {
+      "already_configured": "此 UGREEN NAS 已配置。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "UGREEN NAS 设置",
+        "description": "更改 UGREEN NAS 的连接和身份验证设置。",
+        "data": {
+          "ugreen_host": "IP 地址或主机名",
+          "ugreen_port": "端口",
+          "username": "管理员用户名",
+          "password": "管理员密码",
+          "entity_prefix": "唯一设备名称（默认：UGREEN NAS）",
+          "use_https": "使用 HTTPS",
+          "use_otp": "注册双重身份验证（2FA）受信任设备"
+        },
+        "data_description": {
+          "ugreen_host": "UGREEN NAS 的 IP 地址或主机名。",
+          "ugreen_port": "用于连接的端口（默认：HTTP 为 9999，HTTPS 为 9443）。",
+          "username": "NAS 管理员用户名。",
+          "password": "NAS 管理员密码（不能包含特殊字符 — UGOS 缺陷！）。",
+          "entity_prefix": "必须以字母开头；之后可以使用字母、数字和空格。",
+          "use_https": "使用加密的 HTTPS 连接（需要 HTTPS 端口）。",
+          "use_otp": "进行普通更改时请不要勾选此项。仅当 NAS 账户使用 2FA 且 Home Assistant 尚未注册，或需要重新注册时才勾选并保存。下一页将要求输入一次验证码。"
+        }
+      },
+      "advanced": {
+        "title": "高级设置",
+        "description": "集成和示例仪表板的高级设置与微调。",
+        "data": {
+          "state_interval": "状态实体轮询间隔（5 秒）",
+          "config_interval": "配置实体轮询间隔（60 秒）",
+          "ws_interval": "API 保活 Ping（20 秒）",
+          "dashboard_disk_columns": "[示例仪表板] 每行最大磁盘列数（5）",
+          "dashboard_pool_columns": "[示例仪表板] 每行最大存储池列数（2）",
+          "dashboard_volume_columns": "[示例仪表板] 每行最大存储卷列数（2）",
+          "dashboard_image_file": "[示例仪表板] 图像文件名（default_picture.png）"
+        },
+        "data_description": {
+          "state_interval": "多久轮询一次频繁变化的值？",
+          "config_interval": "多久轮询一次变化较少的值？",
+          "ws_interval": "多久通过 WebSocket 发送一次 API 保活 Ping？",
+          "dashboard_disk_columns": "在仪表板中并排显示的此 NAS 的磁盘磁贴数量。",
+          "dashboard_pool_columns": "在仪表板中并排显示的此 NAS 的存储池磁贴数量。",
+          "dashboard_volume_columns": "在仪表板中并排显示的此 NAS 的存储卷磁贴数量。",
+          "dashboard_image_file": "此 NAS 在 www/community/ugreen/ 文件夹中的专用仪表板图像文件。"
+        }
+      },
+      "otp": {
+        "title": "注册受信任设备",
+        "description": "请输入身份验证器应用中的当前验证码，以将此 Home Assistant 注册到 NAS。该验证码会立即使用，且永远不会被保存。\n\n当前设备 ID：`{client_id}`\n\n此 ID 会自动管理，并且有意设置为不可编辑。如果在 NAS 上撤销信任后登录开始失败，只需在此处重新注册即可。",
+        "data": {
+          "otp_code": "身份验证器验证码"
+        },
+        "data_description": {
+          "otp_code": "当前 6 位验证码。验证码很快会过期，请及时提交。"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "连接失败。请检查 IP 地址、端口和网络连接。",
+      "invalid_auth": "连接错误或凭据无效。请检查网络和用户设置。",
+      "invalid_otp": "注册失败。验证码可能已过期或输入错误。请使用新的验证码重试。"
+    }
+  }
+}

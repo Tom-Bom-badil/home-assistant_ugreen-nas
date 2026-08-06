@@ -1,0 +1,116 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Konfigurera UGREEN NAS",
+        "description": "Ange anslutningsuppgifterna för din UGREEN NAS.",
+        "data": {
+          "ugreen_host": "IP-adress eller värdnamn",
+          "ugreen_port": "Port",
+          "username": "Administratörens användarnamn",
+          "password": "Administratörens lösenord",
+          "entity_prefix": "Unikt enhetsnamn (standard: UGREEN NAS)",
+          "use_https": "Använd HTTPS",
+          "use_otp": "Kontot använder tvåfaktorsautentisering (2FA)"
+        },
+        "data_description": {
+          "ugreen_host": "IP-adressen eller värdnamnet för din UGREEN NAS (t.ex. 192.168.1.100).",
+          "ugreen_port": "Port som används för anslutningen (standard: 9999 för HTTP, 9443 för HTTPS).",
+          "username": "Administratörens användarnamn för NAS-enheten.",
+          "password": "Administratörens lösenord för NAS-enheten (inga specialtecken – fel i UGOS!).",
+          "entity_prefix": "Måste börja med en bokstav; därefter är bokstäver, siffror och mellanslag tillåtna.",
+          "use_https": "Använd HTTPS för anslutningen.",
+          "use_otp": "Markera endast detta om NAS-kontot ovan har 2FA aktiverat. På nästa sida ombeds du ange en kod som används för att registrera Home Assistant som en betrodd enhet, så att ingen kod behövs igen."
+        }
+      },
+      "zeroconf": {
+        "title": "UGREEN NAS upptäckt",
+        "description": "En UGREEN NAS upptäcktes automatiskt i nätverket. Ange dina inloggningsuppgifter för att lägga till den."
+      },
+      "otp": {
+        "title": "Registrera Home Assistant som en betrodd enhet",
+        "description": "Ditt NAS-konto använder tvåfaktorsautentisering. Home Assistant kan inte svara på en kodbegäran varje gång den återansluter och registrerar sig därför en gång som en betrodd enhet.\n\nAnge en aktuell kod från din autentiseringsapp. Koden används omedelbart och sparas aldrig.\n\nEnhets-ID som registreras: `{client_id}`\n\nDetta ID skapas och hanteras automatiskt. Du behöver inte skriva ned det eller ange det någonstans.",
+        "data": {
+          "otp_code": "Kod från autentiseringsapp"
+        },
+        "data_description": {
+          "otp_code": "Den aktuella 6-siffriga koden från din autentiseringsapp. Koder upphör snabbt att gälla, så skicka den direkt."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Anslutningen misslyckades. Kontrollera IP-adressen, porten och nätverksanslutningen.",
+      "invalid_auth": "Anslutningsfel eller ogiltiga inloggningsuppgifter. Kontrollera nätverks- och användarinställningarna.",
+      "invalid_entity_prefix": "Ogiltigt enhetsnamn. Det måste börja med en bokstav; därefter är endast bokstäver, siffror och mellanslag tillåtna.",
+      "entity_prefix_in_use": "Detta enhetsnamn används redan av en annan UGREEN NAS.",
+      "unknown": "Ett okänt fel inträffade.",
+      "invalid_otp": "Registreringen misslyckades. Koden kan ha gått ut eller skrivits fel, eller så kanske kontot inte har 2FA aktiverat. Kontrollera loggarna och försök igen med en ny kod."
+    },
+    "abort": {
+      "already_configured": "Denna UGREEN NAS är redan konfigurerad."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Inställningar för UGREEN NAS",
+        "description": "Ändra anslutnings- och autentiseringsinställningarna för din UGREEN NAS.",
+        "data": {
+          "ugreen_host": "IP-adress eller värdnamn",
+          "ugreen_port": "Port",
+          "username": "Administratörens användarnamn",
+          "password": "Administratörens lösenord",
+          "entity_prefix": "Unikt enhetsnamn (standard: UGREEN NAS)",
+          "use_https": "Använd HTTPS",
+          "use_otp": "Registrera en betrodd enhet för tvåfaktorsautentisering (2FA)"
+        },
+        "data_description": {
+          "ugreen_host": "IP-adressen eller värdnamnet för din UGREEN NAS.",
+          "ugreen_port": "Port som används för anslutningen (standard: 9999 för HTTP, 9443 för HTTPS).",
+          "username": "Administratörens användarnamn för NAS-enheten.",
+          "password": "Administratörens lösenord för NAS-enheten (inga specialtecken – fel i UGOS!).",
+          "entity_prefix": "Måste börja med en bokstav; därefter är bokstäver, siffror och mellanslag tillåtna.",
+          "use_https": "Använd en krypterad HTTPS-anslutning (kräver HTTPS-port).",
+          "use_otp": "Lämna detta omarkerat vid vanliga ändringar. Markera och spara endast om NAS-kontot använder 2FA och Home Assistant ännu inte är registrerat, eller om du behöver registrera igen. På nästa sida ombeds du ange en kod."
+        }
+      },
+      "advanced": {
+        "title": "Avancerade inställningar",
+        "description": "Avancerade inställningar och finjustering för integrationen och exempelinstrumentpanelen.",
+        "data": {
+          "state_interval": "Avläsningsintervall för statusentiteter (5 s)",
+          "config_interval": "Avläsningsintervall för konfigurationsentiteter (60 s)",
+          "ws_interval": "Keepalive-ping till API (20 s)",
+          "dashboard_disk_columns": "[Exempelinstrumentpanel] Maximalt antal diskkolumner per rad (5)",
+          "dashboard_pool_columns": "[Exempelinstrumentpanel] Maximalt antal lagringspoolkolumner per rad (2)",
+          "dashboard_volume_columns": "[Exempelinstrumentpanel] Maximalt antal volymkolumner per rad (2)",
+          "dashboard_image_file": "[Exempelinstrumentpanel] Bildfilens namn (default_picture.png)"
+        },
+        "data_description": {
+          "state_interval": "Hur ofta ska värden som ändras ofta läsas av?",
+          "config_interval": "Hur ofta ska värden som ändras mer sällan läsas av?",
+          "ws_interval": "Hur ofta ska en keepalive-ping skickas till API:t via WebSocket?",
+          "dashboard_disk_columns": "Antal diskpaneler för denna NAS som visas bredvid varandra på instrumentpanelen.",
+          "dashboard_pool_columns": "Antal lagringspoolpaneler för denna NAS som visas bredvid varandra på instrumentpanelen.",
+          "dashboard_volume_columns": "Antal volympaneler för denna NAS som visas bredvid varandra på instrumentpanelen.",
+          "dashboard_image_file": "Individuell bildfil för denna NAS-instrumentpanel i mappen www/community/ugreen/."
+        }
+      },
+      "otp": {
+        "title": "Registrera en betrodd enhet",
+        "description": "Ange en aktuell kod från din autentiseringsapp för att registrera denna Home Assistant hos NAS-enheten. Koden används omedelbart och sparas aldrig.\n\nAktuellt enhets-ID: `{client_id}`\n\nDetta ID hanteras automatiskt och kan avsiktligt inte redigeras. Om inloggningen börjar misslyckas efter att förtroendet återkallats på NAS-enheten registrerar du bara igen här.",
+        "data": {
+          "otp_code": "Kod från autentiseringsapp"
+        },
+        "data_description": {
+          "otp_code": "Den aktuella 6-siffriga koden. Koder upphör snabbt att gälla, så skicka den direkt."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Anslutningen misslyckades. Kontrollera IP-adressen, porten och nätverksanslutningen.",
+      "invalid_auth": "Anslutningsfel eller ogiltiga inloggningsuppgifter. Kontrollera nätverks- och användarinställningarna.",
+      "invalid_otp": "Registreringen misslyckades. Koden kan ha gått ut eller skrivits fel. Försök igen med en ny kod."
+    }
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "設定 UGREEN NAS",
+        "description": "請輸入 UGREEN NAS 的連線資訊。",
+        "data": {
+          "ugreen_host": "IP 位址或主機名稱",
+          "ugreen_port": "連接埠",
+          "username": "管理員使用者名稱",
+          "password": "管理員密碼",
+          "entity_prefix": "唯一裝置名稱（預設：UGREEN NAS）",
+          "use_https": "使用 HTTPS",
+          "use_otp": "帳戶使用雙重驗證（2FA）"
+        },
+        "data_description": {
+          "ugreen_host": "UGREEN NAS 的 IP 位址或主機名稱（例如 192.168.1.100）。",
+          "ugreen_port": "用於連線的連接埠（預設：HTTP 為 9999，HTTPS 為 9443）。",
+          "username": "NAS 管理員使用者名稱。",
+          "password": "NAS 管理員密碼（不能包含特殊字元 — UGOS 錯誤！）。",
+          "entity_prefix": "必須以字母開頭；之後可使用字母、數字和空格。",
+          "use_https": "使用 HTTPS 進行連線。",
+          "use_otp": "僅在上述 NAS 帳戶已啟用 2FA 時勾選此項。下一個畫面會要求輸入一次驗證碼，用於將 Home Assistant 註冊為受信任裝置，之後便不再需要驗證碼。"
+        }
+      },
+      "zeroconf": {
+        "title": "已發現 UGREEN NAS",
+        "description": "已在網路中自動發現一台 UGREEN NAS。請輸入認證資訊以新增裝置。"
+      },
+      "otp": {
+        "title": "將 Home Assistant 註冊為受信任裝置",
+        "description": "您的 NAS 帳戶使用雙重驗證。Home Assistant 無法在每次重新連線時回應驗證碼提示，因此會將自己一次性註冊為受信任裝置。\n\n請輸入驗證器應用程式中的目前驗證碼。驗證碼會立即使用，且永遠不會儲存。\n\n將註冊的裝置 ID：`{client_id}`\n\n此 ID 會自動產生和管理。您不需要記錄或在任何地方輸入它。",
+        "data": {
+          "otp_code": "驗證器驗證碼"
+        },
+        "data_description": {
+          "otp_code": "驗證器應用程式中的目前 6 位數驗證碼。驗證碼很快會到期，請立即提交。"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "連線失敗。請檢查 IP 位址、連接埠和網路連線。",
+      "invalid_auth": "連線錯誤或認證資訊無效。請檢查網路和使用者設定。",
+      "invalid_entity_prefix": "裝置名稱無效。必須以字母開頭；之後只能使用字母、數字和空格。",
+      "entity_prefix_in_use": "此裝置名稱已被另一台 UGREEN NAS 使用。",
+      "unknown": "發生未知錯誤。",
+      "invalid_otp": "註冊失敗。驗證碼可能已到期或輸入錯誤，或者帳戶可能未啟用 2FA。請檢查記錄，並使用新的驗證碼重試。"
+    },
+    "abort": {
+      "already_configured": "此 UGREEN NAS 已設定。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "UGREEN NAS 設定",
+        "description": "變更 UGREEN NAS 的連線和驗證設定。",
+        "data": {
+          "ugreen_host": "IP 位址或主機名稱",
+          "ugreen_port": "連接埠",
+          "username": "管理員使用者名稱",
+          "password": "管理員密碼",
+          "entity_prefix": "唯一裝置名稱（預設：UGREEN NAS）",
+          "use_https": "使用 HTTPS",
+          "use_otp": "註冊雙重驗證（2FA）受信任裝置"
+        },
+        "data_description": {
+          "ugreen_host": "UGREEN NAS 的 IP 位址或主機名稱。",
+          "ugreen_port": "用於連線的連接埠（預設：HTTP 為 9999，HTTPS 為 9443）。",
+          "username": "NAS 管理員使用者名稱。",
+          "password": "NAS 管理員密碼（不能包含特殊字元 — UGOS 錯誤！）。",
+          "entity_prefix": "必須以字母開頭；之後可使用字母、數字和空格。",
+          "use_https": "使用加密的 HTTPS 連線（需要 HTTPS 連接埠）。",
+          "use_otp": "進行一般變更時請不要勾選此項。僅在 NAS 帳戶使用 2FA 且 Home Assistant 尚未註冊，或需要重新註冊時才勾選並儲存。下一個畫面會要求輸入一次驗證碼。"
+        }
+      },
+      "advanced": {
+        "title": "進階設定",
+        "description": "整合和範例儀表板的進階設定與微調。",
+        "data": {
+          "state_interval": "狀態實體輪詢間隔（5 秒）",
+          "config_interval": "設定實體輪詢間隔（60 秒）",
+          "ws_interval": "API 保持連線 Ping（20 秒）",
+          "dashboard_disk_columns": "[範例儀表板] 每列最大磁碟欄數（5）",
+          "dashboard_pool_columns": "[範例儀表板] 每列最大儲存池欄數（2）",
+          "dashboard_volume_columns": "[範例儀表板] 每列最大儲存空間欄數（2）",
+          "dashboard_image_file": "[範例儀表板] 圖片檔案名稱（default_picture.png）"
+        },
+        "data_description": {
+          "state_interval": "多久輪詢一次經常變動的值？",
+          "config_interval": "多久輪詢一次較少變動的值？",
+          "ws_interval": "多久透過 WebSocket 傳送一次 API 保持連線 Ping？",
+          "dashboard_disk_columns": "此 NAS 在儀表板中並排顯示的磁碟磚數量。",
+          "dashboard_pool_columns": "此 NAS 在儀表板中並排顯示的儲存池磚數量。",
+          "dashboard_volume_columns": "此 NAS 在儀表板中並排顯示的儲存空間磚數量。",
+          "dashboard_image_file": "此 NAS 在 www/community/ugreen/ 資料夾中的專用儀表板圖片檔案。"
+        }
+      },
+      "otp": {
+        "title": "註冊受信任裝置",
+        "description": "請輸入驗證器應用程式中的目前驗證碼，將此 Home Assistant 註冊到 NAS。驗證碼會立即使用，且永遠不會儲存。\n\n目前裝置 ID：`{client_id}`\n\n此 ID 會自動管理，並且刻意設定為不可編輯。如果在 NAS 上撤銷信任後登入開始失敗，只要在此處重新註冊即可。",
+        "data": {
+          "otp_code": "驗證器驗證碼"
+        },
+        "data_description": {
+          "otp_code": "目前 6 位數驗證碼。驗證碼很快會到期，請立即提交。"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "連線失敗。請檢查 IP 位址、連接埠和網路連線。",
+      "invalid_auth": "連線錯誤或認證資訊無效。請檢查網路和使用者設定。",
+      "invalid_otp": "註冊失敗。驗證碼可能已到期或輸入錯誤。請使用新的驗證碼重試。"
+    }
+  }
+}

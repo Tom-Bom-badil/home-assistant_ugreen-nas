@@ -1,0 +1,116 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Konfigurer UGREEN NAS",
+        "description": "Angi tilkoblingsinformasjonen for din UGREEN NAS.",
+        "data": {
+          "ugreen_host": "IP-adresse eller vertsnavn",
+          "ugreen_port": "Port",
+          "username": "Administratorens brukernavn",
+          "password": "Administratorens passord",
+          "entity_prefix": "Unikt enhetsnavn (standard: UGREEN NAS)",
+          "use_https": "Bruk HTTPS",
+          "use_otp": "Kontoen bruker tofaktorautentisering (2FA)"
+        },
+        "data_description": {
+          "ugreen_host": "IP-adressen eller vertsnavnet til din UGREEN NAS (f.eks. 192.168.1.100).",
+          "ugreen_port": "Port som brukes for tilkoblingen (standard: 9999 for HTTP, 9443 for HTTPS).",
+          "username": "Administratorens brukernavn for NAS-enheten.",
+          "password": "Administratorens passord for NAS-enheten (ingen spesialtegn – UGOS-feil!).",
+          "entity_prefix": "Må begynne med en bokstav; deretter er bokstaver, tall og mellomrom tillatt.",
+          "use_https": "Bruk HTTPS for tilkoblingen.",
+          "use_otp": "Merk av bare hvis NAS-kontoen ovenfor har 2FA aktivert. På neste skjerm blir du bedt om én kode som brukes til å registrere Home Assistant som en klarert enhet, slik at en kode aldri trengs igjen."
+        }
+      },
+      "zeroconf": {
+        "title": "UGREEN NAS oppdaget",
+        "description": "En UGREEN NAS ble automatisk oppdaget på nettverket. Angi påloggingsinformasjonen din for å legge den til."
+      },
+      "otp": {
+        "title": "Registrer Home Assistant som en klarert enhet",
+        "description": "NAS-kontoen din bruker tofaktorautentisering. Home Assistant kan ikke svare på en kodeforespørsel hver gang den kobler til på nytt, og registrerer seg derfor én gang som en klarert enhet.\n\nAngi en gjeldende kode fra autentiseringsappen. Koden brukes umiddelbart og lagres aldri.\n\nEnhets-ID som blir registrert: `{client_id}`\n\nDenne ID-en opprettes og administreres automatisk. Du trenger ikke å notere den eller angi den noe sted.",
+        "data": {
+          "otp_code": "Kode fra autentiseringsapp"
+        },
+        "data_description": {
+          "otp_code": "Den gjeldende 6-sifrede koden fra autentiseringsappen. Koder utløper raskt, så send den inn med en gang."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Tilkoblingen mislyktes. Kontroller IP-adressen, porten og nettverkstilkoblingen.",
+      "invalid_auth": "Tilkoblingsfeil eller ugyldig påloggingsinformasjon. Kontroller nettverks- og brukerinnstillingene.",
+      "invalid_entity_prefix": "Ugyldig enhetsnavn. Det må begynne med en bokstav; deretter er bare bokstaver, tall og mellomrom tillatt.",
+      "entity_prefix_in_use": "Dette enhetsnavnet brukes allerede av en annen UGREEN NAS.",
+      "unknown": "Det oppsto en ukjent feil.",
+      "invalid_otp": "Registreringen mislyktes. Koden kan ha utløpt eller blitt skrevet feil, eller kontoen har kanskje ikke 2FA aktivert. Kontroller loggene og prøv igjen med en ny kode."
+    },
+    "abort": {
+      "already_configured": "Denne UGREEN NAS-enheten er allerede konfigurert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Innstillinger for UGREEN NAS",
+        "description": "Endre tilkoblings- og autentiseringsinnstillingene for din UGREEN NAS.",
+        "data": {
+          "ugreen_host": "IP-adresse eller vertsnavn",
+          "ugreen_port": "Port",
+          "username": "Administratorens brukernavn",
+          "password": "Administratorens passord",
+          "entity_prefix": "Unikt enhetsnavn (standard: UGREEN NAS)",
+          "use_https": "Bruk HTTPS",
+          "use_otp": "Registrer en klarert enhet for tofaktorautentisering (2FA)"
+        },
+        "data_description": {
+          "ugreen_host": "IP-adressen eller vertsnavnet til din UGREEN NAS.",
+          "ugreen_port": "Port som brukes for tilkoblingen (standard: 9999 for HTTP, 9443 for HTTPS).",
+          "username": "Administratorens brukernavn for NAS-enheten.",
+          "password": "Administratorens passord for NAS-enheten (ingen spesialtegn – UGOS-feil!).",
+          "entity_prefix": "Må begynne med en bokstav; deretter er bokstaver, tall og mellomrom tillatt.",
+          "use_https": "Bruk en kryptert HTTPS-tilkobling (krever HTTPS-port).",
+          "use_otp": "La dette være avmerket av ved vanlige endringer. Merk av og lagre bare hvis NAS-kontoen bruker 2FA og Home Assistant ennå ikke er registrert, eller hvis du må registrere på nytt. På neste skjerm blir du bedt om én kode."
+        }
+      },
+      "advanced": {
+        "title": "Avanserte innstillinger",
+        "description": "Avanserte innstillinger og finjustering for integrasjonen og eksempelinstrumentbordet.",
+        "data": {
+          "state_interval": "Avlesingsintervall for statusentiteter (5 s)",
+          "config_interval": "Avlesingsintervall for konfigurasjonsentiteter (60 s)",
+          "ws_interval": "Keepalive-ping til API-et (20 s)",
+          "dashboard_disk_columns": "[Eksempelinstrumentbord] Maks. antall diskkolonner per rad (5)",
+          "dashboard_pool_columns": "[Eksempelinstrumentbord] Maks. antall lagringspuljekolonner per rad (2)",
+          "dashboard_volume_columns": "[Eksempelinstrumentbord] Maks. antall volumkolonner per rad (2)",
+          "dashboard_image_file": "[Eksempelinstrumentbord] Navn på bildefil (default_picture.png)"
+        },
+        "data_description": {
+          "state_interval": "Hvor ofte skal verdier som endres ofte, leses av?",
+          "config_interval": "Hvor ofte skal verdier som endres sjeldnere, leses av?",
+          "ws_interval": "Hvor ofte skal en keepalive-ping sendes til API-et via WebSocket?",
+          "dashboard_disk_columns": "Antall diskfliser for denne NAS-enheten som vises ved siden av hverandre på instrumentbordet.",
+          "dashboard_pool_columns": "Antall lagringspuljefliser for denne NAS-enheten som vises ved siden av hverandre på instrumentbordet.",
+          "dashboard_volume_columns": "Antall volumfliser for denne NAS-enheten som vises ved siden av hverandre på instrumentbordet.",
+          "dashboard_image_file": "Individuell bildefil for instrumentbordet til denne NAS-enheten i mappen www/community/ugreen/."
+        }
+      },
+      "otp": {
+        "title": "Registrer en klarert enhet",
+        "description": "Angi en gjeldende kode fra autentiseringsappen for å registrere denne Home Assistant-installasjonen hos NAS-enheten. Koden brukes umiddelbart og lagres aldri.\n\nGjeldende enhets-ID: `{client_id}`\n\nDenne ID-en administreres automatisk og kan med hensikt ikke redigeres. Hvis pålogging begynner å mislykkes etter at klareringen er tilbakekalt på NAS-enheten, registrerer du bare på nytt her.",
+        "data": {
+          "otp_code": "Kode fra autentiseringsapp"
+        },
+        "data_description": {
+          "otp_code": "Den gjeldende 6-sifrede koden. Koder utløper raskt, så send den inn med en gang."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Tilkoblingen mislyktes. Kontroller IP-adressen, porten og nettverkstilkoblingen.",
+      "invalid_auth": "Tilkoblingsfeil eller ugyldig påloggingsinformasjon. Kontroller nettverks- og brukerinnstillingene.",
+      "invalid_otp": "Registreringen mislyktes. Koden kan ha utløpt eller blitt skrevet feil. Prøv igjen med en ny kode."
+    }
+  }
+}

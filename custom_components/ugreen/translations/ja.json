@@ -1,0 +1,116 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "UGREEN NAS をセットアップ",
+        "description": "UGREEN NAS の接続情報を入力してください。",
+        "data": {
+          "ugreen_host": "IP アドレスまたはホスト名",
+          "ugreen_port": "ポート",
+          "username": "管理者ユーザー名",
+          "password": "管理者パスワード",
+          "entity_prefix": "一意のデバイス名（既定: UGREEN NAS）",
+          "use_https": "HTTPS を使用",
+          "use_otp": "アカウントで二要素認証（2FA）を使用"
+        },
+        "data_description": {
+          "ugreen_host": "UGREEN NAS の IP アドレスまたはホスト名（例: 192.168.1.100）。",
+          "ugreen_port": "接続に使用するポート（既定: HTTP は 9999、HTTPS は 9443）。",
+          "username": "NAS の管理者ユーザー名。",
+          "password": "NAS の管理者パスワード（特殊文字は使用できません – UGOS の不具合）。",
+          "entity_prefix": "先頭は文字にしてください。以降は文字、数字、スペースを使用できます。",
+          "use_https": "接続に HTTPS を使用します。",
+          "use_otp": "上記の NAS アカウントで 2FA が有効な場合のみ選択してください。次の画面でコードを 1 回入力し、Home Assistant を信頼済みデバイスとして登録します。以後、コードは不要になります。"
+        }
+      },
+      "zeroconf": {
+        "title": "UGREEN NAS を検出しました",
+        "description": "ネットワーク上で UGREEN NAS が自動的に検出されました。追加するには認証情報を入力してください。"
+      },
+      "otp": {
+        "title": "Home Assistant を信頼済みデバイスとして登録",
+        "description": "NAS アカウントで二要素認証が使用されています。Home Assistant は再接続のたびにコード入力へ応答できないため、一度だけ信頼済みデバイスとして登録します。\n\n認証アプリに表示されている現在のコードを入力してください。コードは直ちに使用され、保存されません。\n\n登録されるデバイス ID: `{client_id}`\n\nこの ID は自動的に生成および管理されます。控えたり、別の場所に入力したりする必要はありません。",
+        "data": {
+          "otp_code": "認証アプリのコード"
+        },
+        "data_description": {
+          "otp_code": "認証アプリに表示されている現在の 6 桁のコード。コードは短時間で期限切れになるため、すぐに送信してください。"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "接続に失敗しました。IP アドレス、ポート、ネットワーク接続を確認してください。",
+      "invalid_auth": "接続エラーまたは認証情報が無効です。ネットワークとユーザー設定を確認してください。",
+      "invalid_entity_prefix": "デバイス名が無効です。先頭は文字にし、以降は文字、数字、スペースのみを使用してください。",
+      "entity_prefix_in_use": "このデバイス名は、別の UGREEN NAS ですでに使用されています。",
+      "unknown": "不明なエラーが発生しました。",
+      "invalid_otp": "登録に失敗しました。コードの期限切れ、入力ミス、またはアカウントで 2FA が有効になっていない可能性があります。ログを確認し、新しいコードで再試行してください。"
+    },
+    "abort": {
+      "already_configured": "この UGREEN NAS はすでに設定されています。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "UGREEN NAS の設定",
+        "description": "UGREEN NAS の接続設定と認証設定を変更します。",
+        "data": {
+          "ugreen_host": "IP アドレスまたはホスト名",
+          "ugreen_port": "ポート",
+          "username": "管理者ユーザー名",
+          "password": "管理者パスワード",
+          "entity_prefix": "一意のデバイス名（既定: UGREEN NAS）",
+          "use_https": "HTTPS を使用",
+          "use_otp": "二要素認証（2FA）の信頼済みデバイスを登録"
+        },
+        "data_description": {
+          "ugreen_host": "UGREEN NAS の IP アドレスまたはホスト名。",
+          "ugreen_port": "接続に使用するポート（既定: HTTP は 9999、HTTPS は 9443）。",
+          "username": "NAS の管理者ユーザー名。",
+          "password": "NAS の管理者パスワード（特殊文字は使用できません – UGOS の不具合）。",
+          "entity_prefix": "先頭は文字にしてください。以降は文字、数字、スペースを使用できます。",
+          "use_https": "暗号化された HTTPS 接続を使用します（HTTPS ポートが必要です）。",
+          "use_otp": "通常の変更では選択しないでください。NAS アカウントで 2FA が有効で、Home Assistant がまだ登録されていない場合、または再登録が必要な場合のみ選択して保存してください。次の画面でコードを 1 回入力します。"
+        }
+      },
+      "advanced": {
+        "title": "詳細設定",
+        "description": "インテグレーションとサンプルダッシュボードの詳細設定および微調整。",
+        "data": {
+          "state_interval": "状態エンティティのポーリング間隔（5 秒）",
+          "config_interval": "構成エンティティのポーリング間隔（60 秒）",
+          "ws_interval": "キープアライブ API Ping（20 秒）",
+          "dashboard_disk_columns": "[サンプルダッシュボード] 1 行あたりのディスク列の最大数（5）",
+          "dashboard_pool_columns": "[サンプルダッシュボード] 1 行あたりのプール列の最大数（2）",
+          "dashboard_volume_columns": "[サンプルダッシュボード] 1 行あたりのボリューム列の最大数（2）",
+          "dashboard_image_file": "[サンプルダッシュボード] 画像ファイル名（default_picture.png）"
+        },
+        "data_description": {
+          "state_interval": "頻繁に変化する値を取得する間隔。",
+          "config_interval": "変化の少ない値を取得する間隔。",
+          "ws_interval": "WebSocket 経由で API キープアライブ Ping を送信する間隔。",
+          "dashboard_disk_columns": "この NAS のディスクタイルをダッシュボード上に横並びで表示する数。",
+          "dashboard_pool_columns": "この NAS のプールタイルをダッシュボード上に横並びで表示する数。",
+          "dashboard_volume_columns": "この NAS のボリュームタイルをダッシュボード上に横並びで表示する数。",
+          "dashboard_image_file": "www/community/ugreen/ フォルダー内にある、この NAS 用の個別ダッシュボード画像ファイル。"
+        }
+      },
+      "otp": {
+        "title": "信頼済みデバイスを登録",
+        "description": "認証アプリに表示されている現在のコードを入力して、この Home Assistant を NAS に登録してください。コードは直ちに使用され、保存されません。\n\n現在のデバイス ID: `{client_id}`\n\nこの ID は自動的に管理され、意図的に編集できないようになっています。NAS 側で信頼を取り消した後にログインできなくなった場合は、ここで再登録してください。",
+        "data": {
+          "otp_code": "認証アプリのコード"
+        },
+        "data_description": {
+          "otp_code": "現在の 6 桁のコード。コードは短時間で期限切れになるため、すぐに送信してください。"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "接続に失敗しました。IP アドレス、ポート、ネットワーク接続を確認してください。",
+      "invalid_auth": "接続エラーまたは認証情報が無効です。ネットワークとユーザー設定を確認してください。",
+      "invalid_otp": "登録に失敗しました。コードの期限切れまたは入力ミスの可能性があります。新しいコードで再試行してください。"
+    }
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "UGREEN NAS instellen",
+        "description": "Voer de verbindingsgegevens van je UGREEN NAS in.",
+        "data": {
+          "ugreen_host": "IP-adres of hostnaam",
+          "ugreen_port": "Poort",
+          "username": "Gebruikersnaam van beheerder",
+          "password": "Wachtwoord van beheerder",
+          "entity_prefix": "Unieke apparaatnaam (standaard: UGREEN NAS)",
+          "use_https": "HTTPS gebruiken",
+          "use_otp": "Account gebruikt tweestapsverificatie (2FA)"
+        },
+        "data_description": {
+          "ugreen_host": "Het IP-adres of de hostnaam van je UGREEN NAS (bijv. 192.168.1.100).",
+          "ugreen_port": "Poort voor de verbinding (standaard: 9999 voor HTTP, 9443 voor HTTPS).",
+          "username": "De gebruikersnaam van de NAS-beheerder.",
+          "password": "Het wachtwoord van de NAS-beheerder (geen speciale tekens – UGOS-bug!).",
+          "entity_prefix": "Moet met een letter beginnen; daarna zijn letters, cijfers en spaties toegestaan.",
+          "use_https": "HTTPS gebruiken voor de verbinding.",
+          "use_otp": "Vink dit alleen aan als voor het bovenstaande NAS-account 2FA is ingeschakeld. Op het volgende scherm wordt één code gevraagd om Home Assistant als vertrouwd apparaat te registreren, zodat daarna geen code meer nodig is."
+        }
+      },
+      "zeroconf": {
+        "title": "UGREEN NAS gevonden",
+        "description": "Er is automatisch een UGREEN NAS op het netwerk gevonden. Voer je aanmeldgegevens in om deze toe te voegen."
+      },
+      "otp": {
+        "title": "Home Assistant als vertrouwd apparaat registreren",
+        "description": "Je NAS-account gebruikt tweestapsverificatie. Home Assistant kan niet bij elke herverbinding een code invoeren en registreert zich daarom één keer als vertrouwd apparaat.\n\nVoer een actuele code uit je authenticator-app in. De code wordt direct gebruikt en nooit opgeslagen.\n\nApparaat-ID dat wordt geregistreerd: `{client_id}`\n\nDeze ID wordt automatisch aangemaakt en beheerd. Je hoeft deze niet te noteren of ergens in te voeren.",
+        "data": {
+          "otp_code": "Authenticatorcode"
+        },
+        "data_description": {
+          "otp_code": "De actuele 6-cijferige code uit je authenticator-app. Codes verlopen snel, dus verzend deze direct."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbinding mislukt. Controleer het IP-adres, de poort en de netwerkverbinding.",
+      "invalid_auth": "Verbindingsfout of ongeldige aanmeldgegevens. Controleer de netwerk- en gebruikersinstellingen.",
+      "invalid_entity_prefix": "Ongeldige apparaatnaam. Deze moet met een letter beginnen; daarna zijn alleen letters, cijfers en spaties toegestaan.",
+      "entity_prefix_in_use": "Deze apparaatnaam wordt al door een andere UGREEN NAS gebruikt.",
+      "unknown": "Er is een onbekende fout opgetreden.",
+      "invalid_otp": "Registratie mislukt. De code kan verlopen of verkeerd ingevoerd zijn, of 2FA is mogelijk niet ingeschakeld voor het account. Controleer de logboeken en probeer het opnieuw met een nieuwe code."
+    },
+    "abort": {
+      "already_configured": "Deze UGREEN NAS is al geconfigureerd."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "UGREEN NAS-instellingen",
+        "description": "Wijzig de verbindings- en verificatie-instellingen van je UGREEN NAS.",
+        "data": {
+          "ugreen_host": "IP-adres of hostnaam",
+          "ugreen_port": "Poort",
+          "username": "Gebruikersnaam van beheerder",
+          "password": "Wachtwoord van beheerder",
+          "entity_prefix": "Unieke apparaatnaam (standaard: UGREEN NAS)",
+          "use_https": "HTTPS gebruiken",
+          "use_otp": "Vertrouwd apparaat voor tweestapsverificatie (2FA) registreren"
+        },
+        "data_description": {
+          "ugreen_host": "Het IP-adres of de hostnaam van je UGREEN NAS.",
+          "ugreen_port": "Poort voor de verbinding (standaard: 9999 voor HTTP, 9443 voor HTTPS).",
+          "username": "De gebruikersnaam van de NAS-beheerder.",
+          "password": "Het wachtwoord van de NAS-beheerder (geen speciale tekens – UGOS-bug!).",
+          "entity_prefix": "Moet met een letter beginnen; daarna zijn letters, cijfers en spaties toegestaan.",
+          "use_https": "Een versleutelde HTTPS-verbinding gebruiken (HTTPS-poort vereist).",
+          "use_otp": "Laat dit uitgevinkt bij normale wijzigingen. Vink het alleen aan en sla op als het NAS-account 2FA gebruikt en Home Assistant nog niet is geregistreerd, of als opnieuw registreren nodig is. Op het volgende scherm wordt één code gevraagd."
+        }
+      },
+      "advanced": {
+        "title": "Geavanceerde instellingen",
+        "description": "Geavanceerde instellingen en fijnafstelling voor de integratie en het voorbeelddashboard.",
+        "data": {
+          "state_interval": "Pollinginterval voor statusentiteiten (5 s)",
+          "config_interval": "Pollinginterval voor configuratie-entiteiten (60 s)",
+          "ws_interval": "Keepalive-API-pings (20 s)",
+          "dashboard_disk_columns": "[Voorbeelddashboard] Maximaal aantal schijfkolommen per rij (5)",
+          "dashboard_pool_columns": "[Voorbeelddashboard] Maximaal aantal poolkolommen per rij (2)",
+          "dashboard_volume_columns": "[Voorbeelddashboard] Maximaal aantal volumekolommen per rij (2)",
+          "dashboard_image_file": "[Voorbeelddashboard] Naam van afbeeldingsbestand (default_picture.png)"
+        },
+        "data_description": {
+          "state_interval": "Hoe vaak moeten vaak veranderende waarden worden uitgelezen?",
+          "config_interval": "Hoe vaak moeten minder vaak veranderende waarden worden uitgelezen?",
+          "ws_interval": "Hoe vaak moet via WebSocket een API-keepalive-ping worden verzonden?",
+          "dashboard_disk_columns": "Aantal schijftegels voor deze NAS dat naast elkaar op het dashboard wordt weergegeven.",
+          "dashboard_pool_columns": "Aantal pooltegels voor deze NAS dat naast elkaar op het dashboard wordt weergegeven.",
+          "dashboard_volume_columns": "Aantal volumetegels voor deze NAS dat naast elkaar op het dashboard wordt weergegeven.",
+          "dashboard_image_file": "Individueel dashboardafbeeldingsbestand voor deze NAS in de map www/community/ugreen/."
+        }
+      },
+      "otp": {
+        "title": "Vertrouwd apparaat registreren",
+        "description": "Voer een actuele code uit je authenticator-app in om deze Home Assistant bij de NAS te registreren. De code wordt direct gebruikt en nooit opgeslagen.\n\nHuidige apparaat-ID: `{client_id}`\n\nDeze ID wordt automatisch beheerd en kan bewust niet worden bewerkt. Als aanmelden niet meer lukt nadat het vertrouwen op de NAS is ingetrokken, registreer dan hier opnieuw.",
+        "data": {
+          "otp_code": "Authenticatorcode"
+        },
+        "data_description": {
+          "otp_code": "De actuele 6-cijferige code. Codes verlopen snel, dus verzend deze direct."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbinding mislukt. Controleer het IP-adres, de poort en de netwerkverbinding.",
+      "invalid_auth": "Verbindingsfout of ongeldige aanmeldgegevens. Controleer de netwerk- en gebruikersinstellingen.",
+      "invalid_otp": "Registratie mislukt. De code kan verlopen of verkeerd ingevoerd zijn. Probeer het opnieuw met een nieuwe code."
+    }
+  }
+}

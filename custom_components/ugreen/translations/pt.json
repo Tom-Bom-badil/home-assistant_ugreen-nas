@@ -1,0 +1,116 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurar o UGREEN NAS",
+        "description": "Introduza os dados de ligação do seu UGREEN NAS.",
+        "data": {
+          "ugreen_host": "Endereço IP ou nome do anfitrião",
+          "ugreen_port": "Porta",
+          "username": "Nome de utilizador administrador",
+          "password": "Palavra-passe de administrador",
+          "entity_prefix": "Nome exclusivo do dispositivo (predefinição: UGREEN NAS)",
+          "use_https": "Utilizar HTTPS",
+          "use_otp": "A conta utiliza autenticação de dois fatores (2FA)"
+        },
+        "data_description": {
+          "ugreen_host": "O endereço IP ou nome do anfitrião do seu UGREEN NAS (por exemplo, 192.168.1.100).",
+          "ugreen_port": "Porta utilizada para a ligação (predefinição: 9999 para HTTP, 9443 para HTTPS).",
+          "username": "O nome de utilizador administrador do NAS.",
+          "password": "A palavra-passe de administrador do NAS (sem carateres especiais – erro do UGOS!).",
+          "entity_prefix": "Tem de começar por uma letra; depois são permitidas letras, números e espaços.",
+          "use_https": "Utilizar HTTPS para a ligação.",
+          "use_otp": "Assinale esta opção apenas se a conta do NAS acima tiver a 2FA ativada. No ecrã seguinte será solicitado um único código, utilizado para registar o Home Assistant como dispositivo fidedigno, para que nunca mais necessite de um código."
+        }
+      },
+      "zeroconf": {
+        "title": "UGREEN NAS detetado",
+        "description": "Foi detetado automaticamente um UGREEN NAS na rede. Introduza as suas credenciais para o adicionar."
+      },
+      "otp": {
+        "title": "Registar o Home Assistant como dispositivo fidedigno",
+        "description": "A sua conta do NAS utiliza autenticação de dois fatores. O Home Assistant não consegue responder a um pedido de código sempre que volta a ligar-se, por isso regista-se uma única vez como dispositivo fidedigno.\n\nIntroduza um código atual da sua aplicação de autenticação. O código é utilizado imediatamente e nunca é guardado.\n\nID do dispositivo que será registado: `{client_id}`\n\nEste ID é gerado e gerido automaticamente. Não precisa de o anotar nem de o introduzir em nenhum local.",
+        "data": {
+          "otp_code": "Código da aplicação de autenticação"
+        },
+        "data_description": {
+          "otp_code": "O código atual de 6 dígitos da sua aplicação de autenticação. Os códigos expiram rapidamente, por isso submeta-o de imediato."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Falha na ligação. Verifique o endereço IP, a porta e a ligação de rede.",
+      "invalid_auth": "Erro de ligação ou credenciais inválidas. Verifique as definições de rede e do utilizador.",
+      "invalid_entity_prefix": "Nome de dispositivo inválido. Tem de começar por uma letra; depois só são permitidas letras, números e espaços.",
+      "entity_prefix_in_use": "Este nome de dispositivo já é utilizado por outro UGREEN NAS.",
+      "unknown": "Ocorreu um erro desconhecido.",
+      "invalid_otp": "O registo falhou. O código pode ter expirado ou sido introduzido incorretamente, ou a conta pode não ter a 2FA ativada. Verifique os registos e tente novamente com um código novo."
+    },
+    "abort": {
+      "already_configured": "Este UGREEN NAS já está configurado."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Definições do UGREEN NAS",
+        "description": "Altere as definições de ligação e autenticação do seu UGREEN NAS.",
+        "data": {
+          "ugreen_host": "Endereço IP ou nome do anfitrião",
+          "ugreen_port": "Porta",
+          "username": "Nome de utilizador administrador",
+          "password": "Palavra-passe de administrador",
+          "entity_prefix": "Nome exclusivo do dispositivo (predefinição: UGREEN NAS)",
+          "use_https": "Utilizar HTTPS",
+          "use_otp": "Registar um dispositivo fidedigno para autenticação de dois fatores (2FA)"
+        },
+        "data_description": {
+          "ugreen_host": "O endereço IP ou nome do anfitrião do seu UGREEN NAS.",
+          "ugreen_port": "Porta utilizada para a ligação (predefinição: 9999 para HTTP, 9443 para HTTPS).",
+          "username": "O nome de utilizador administrador do NAS.",
+          "password": "A palavra-passe de administrador do NAS (sem carateres especiais – erro do UGOS!).",
+          "entity_prefix": "Tem de começar por uma letra; depois são permitidas letras, números e espaços.",
+          "use_https": "Utilizar uma ligação HTTPS encriptada (requer a porta HTTPS).",
+          "use_otp": "Deixe esta opção desmarcada para alterações normais. Assinale-a e guarde apenas se a conta do NAS utilizar 2FA e o Home Assistant ainda não estiver registado, ou se necessitar de o registar novamente. No ecrã seguinte será solicitado um único código."
+        }
+      },
+      "advanced": {
+        "title": "Definições avançadas",
+        "description": "Definições avançadas e ajuste fino para a integração e o painel de exemplo.",
+        "data": {
+          "state_interval": "Intervalo de consulta das entidades de estado (5 s)",
+          "config_interval": "Intervalo de consulta das entidades de configuração (60 s)",
+          "ws_interval": "Pings de manutenção da API (20 s)",
+          "dashboard_disk_columns": "[Painel de exemplo] Máximo de colunas de discos por linha (5)",
+          "dashboard_pool_columns": "[Painel de exemplo] Máximo de colunas de conjuntos de armazenamento por linha (2)",
+          "dashboard_volume_columns": "[Painel de exemplo] Máximo de colunas de volumes por linha (2)",
+          "dashboard_image_file": "[Painel de exemplo] Nome do ficheiro de imagem (default_picture.png)"
+        },
+        "data_description": {
+          "state_interval": "Com que frequência devem ser consultados os valores que mudam frequentemente?",
+          "config_interval": "Com que frequência devem ser consultados os valores que mudam com menor frequência?",
+          "ws_interval": "Com que frequência deve ser enviado um ping de manutenção da API através do WebSocket?",
+          "dashboard_disk_columns": "Número de mosaicos de discos deste NAS apresentados lado a lado no painel.",
+          "dashboard_pool_columns": "Número de mosaicos de conjuntos de armazenamento deste NAS apresentados lado a lado no painel.",
+          "dashboard_volume_columns": "Número de mosaicos de volumes deste NAS apresentados lado a lado no painel.",
+          "dashboard_image_file": "Ficheiro de imagem individual do painel para este NAS na pasta www/community/ugreen/."
+        }
+      },
+      "otp": {
+        "title": "Registar um dispositivo fidedigno",
+        "description": "Introduza um código atual da sua aplicação de autenticação para registar este Home Assistant no NAS. O código é utilizado imediatamente e nunca é guardado.\n\nID atual do dispositivo: `{client_id}`\n\nEste ID é gerido automaticamente e não pode ser editado de propósito. Se os inícios de sessão começarem a falhar depois de revogar a confiança no NAS, basta voltar a registar aqui.",
+        "data": {
+          "otp_code": "Código da aplicação de autenticação"
+        },
+        "data_description": {
+          "otp_code": "O código atual de 6 dígitos. Os códigos expiram rapidamente, por isso submeta-o de imediato."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Falha na ligação. Verifique o endereço IP, a porta e a ligação de rede.",
+      "invalid_auth": "Erro de ligação ou credenciais inválidas. Verifique as definições de rede e do utilizador.",
+      "invalid_otp": "O registo falhou. O código pode ter expirado ou sido introduzido incorretamente. Tente novamente com um código novo."
+    }
+  }
+}
