@@ -795,7 +795,13 @@ class UgreenApiClient:
             if token:
                 self.token = token
                 self._authed = True
-            _LOGGER.info("[UGREEN] enrolled as a trusted device")
+            elif not await self._login(session):
+                _LOGGER.error(
+                    "[UGREEN] 2FA verification succeeded, but authentication failed"
+                )
+                return False, self.client_id
+
+            _LOGGER.debug("[UGREEN] enrolled as a trusted device")
             return True, self.client_id
 
         except Exception as e:
