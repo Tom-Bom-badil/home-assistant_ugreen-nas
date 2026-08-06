@@ -304,10 +304,7 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 if ok:
                     self._trusted_client_id = client_id
-                    _LOGGER.info(
-                        "[UGREEN NAS] trusted device enrolled, client id %s",
-                        client_id,
-                    )
+                    _LOGGER.debug("[UGREEN NAS] Trusted device enrolled")
                     # Re-enter the normal path; the flag stops us looping back.
                     return await self.async_step_user(pending)
                 errors["base"] = "invalid_otp"
@@ -518,10 +515,7 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
 
                 if ok:
                     options[CONF_CLIENT_ID] = client_id
-                    _LOGGER.info(
-                        "[UGREEN NAS] trusted device registered, client id %s",
-                        client_id,
-                    )
+                    _LOGGER.debug("[UGREEN NAS] Trusted device enrolled")
                     return self.async_create_entry(title="", data=options)
                 errors["base"] = "invalid_otp"
 
