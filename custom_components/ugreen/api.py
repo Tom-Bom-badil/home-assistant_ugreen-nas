@@ -683,12 +683,12 @@ class UgreenApiClient:
         self,
         session: aiohttp.ClientSession,
         otp_code: str,
-    ) -> tuple[bool, str]:
+    ) -> tuple[bool, str, str | None]:
         """Complete the UGOS 2FA handshake once and register as trusted.
 
         UGOS binds trust to the UG-Client-Id header sent during the OTP step, so
         the caller must persist the returned id and send it on every later login.
-        Returns (success, client_id).
+        Returns (success, client_id, error).
         """
         if not self.client_id:
             self.client_id = uuid4().hex
@@ -708,7 +708,7 @@ class UgreenApiClient:
                     hdr = resp.headers.get("x-rsa-token", "")
             if not hdr:
                 _LOGGER.error("[UGREEN] enrolment: missing x-rsa-token header")
-                return False, self.client_id
+                return False, self.client_id, "invalid_auth"
 
             try:
                 pub_bytes = base64.b64decode(hdr)
@@ -745,7 +745,7 @@ class UgreenApiClient:
                     data.get("code"),
                     data.get("msg") or data.get("debug") or "",
                 )
-                return False, self.client_id
+                return False, self.client_id, "invalid_auth"
 
             result = data.get("data") or {}
             if result.get("token"):
@@ -753,12 +753,12 @@ class UgreenApiClient:
                 self.token = result["token"]
                 self._authed = True
                 _LOGGER.debug("[UGREEN] already trusted, no code needed")
-                return True, self.client_id
+                return True, self.client_id, None
 
             token_id = result.get("token_id")
             if not token_id:
                 _LOGGER.error("[UGREEN] enrolment: no token_id in login response")
-                return False, self.client_id
+                return False, self.client_id, "invalid_auth"
 
             # 3) answer the challenge and ask UGOS to remember this device
             async with async_timeout.timeout(10):
@@ -787,7 +787,7 @@ class UgreenApiClient:
                     verify.get("code"),
                     verify.get("msg") or verify.get("debug") or "",
                 )
-                return False, self.client_id
+                return False, self.client_id, "invalid_otp"
 
             token = (verify.get("data") or {}).get("token")
             if token:
@@ -797,14 +797,14 @@ class UgreenApiClient:
                 _LOGGER.error(
                     "[UGREEN] 2FA verification succeeded, but authentication failed"
                 )
-                return False, self.client_id
+                return False, self.client_id, "invalid_auth"
 
             _LOGGER.debug("[UGREEN] enrolled as a trusted device")
-            return True, self.client_id
+            return True, self.client_id, None
 
         except Exception as e:
             _LOGGER.error("[UGREEN] enrolment error: %s", e)
-            return False, self.client_id
+            return False, self.client_id, "cannot_connect"
 
     async def _request(self, session: aiohttp.ClientSession, method: str, endpoint: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         """Single request helper with 1024-refresh; keeps noise low"""

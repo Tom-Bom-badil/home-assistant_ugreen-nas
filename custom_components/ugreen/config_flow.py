@@ -297,17 +297,23 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
                 try:
                     async with aiohttp.ClientSession() as session:
-                        ok, client_id = await api.enroll_trusted_device(session, code)
+                        ok, client_id, error = await api.enroll_trusted_device(
+                            session, code
+                        )
                 except Exception as e:
                     _LOGGER.exception("[UGREEN NAS] 2FA enrolment failed: %s", e)
-                    ok, client_id = False, self._candidate_client_id
+                    ok, client_id, error = (
+                        False,
+                        self._candidate_client_id,
+                        "cannot_connect",
+                    )
 
                 if ok:
                     self._trusted_client_id = client_id
                     _LOGGER.debug("[UGREEN NAS] Trusted device enrolled")
                     # Re-enter the normal path; the flag stops us looping back.
                     return await self.async_step_user(pending)
-                errors["base"] = "invalid_otp"
+                errors["base"] = error or "invalid_otp"
 
         return self.async_show_form(
             step_id="otp",
@@ -508,16 +514,18 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
                 )
                 try:
                     async with aiohttp.ClientSession() as session:
-                        ok, client_id = await api.enroll_trusted_device(session, code)
+                        ok, client_id, error = await api.enroll_trusted_device(
+                            session, code
+                        )
                 except Exception as e:
                     _LOGGER.exception("[UGREEN NAS] 2FA enrolment failed: %s", e)
-                    ok, client_id = False, ""
+                    ok, client_id, error = False, "", "cannot_connect"
 
                 if ok:
                     options[CONF_CLIENT_ID] = client_id
                     _LOGGER.debug("[UGREEN NAS] Trusted device enrolled")
                     return self.async_create_entry(title="", data=options)
-                errors["base"] = "invalid_otp"
+                errors["base"] = error or "invalid_otp"
 
         return self.async_show_form(
             step_id="otp",
