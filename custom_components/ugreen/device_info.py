@@ -61,12 +61,10 @@ def build_device_info(
         )
 
     # Cache Disks (keys like "cache_disk1_pool2_*").
-    if key.startswith("cache_disk") and "_pool" in key:
-        part0, part1, *_ = key.split("_", 2)
-        d_tail = part0[len("cache_disk"):]
-        p_tail = part1[4:]
-        d = int(d_tail) if d_tail.isdigit() else 1
-        p = int(p_tail) if p_tail.isdigit() else 1
+    match = _RE_CACHE_DISK.match(key)
+    if match:
+        d = int(match.group("d"))
+        p = int(match.group("p"))
         brand, model_raw = (ctx.get("cache_disk_meta") or {}).get(
             (p, d), (None, None)
         )
@@ -83,10 +81,9 @@ def build_device_info(
         )
 
     # Cache device per pool (keys like "cache_pool2_*").
-    if key.startswith("cache_pool"):
-        part0, *_ = key.split("_", 1)
-        p_tail = part0[len("cache_pool"):]
-        p = int(p_tail) if p_tail.isdigit() else 1
+    match = _RE_CACHE.match(key)
+    if match:
+        p = int(match.group("p"))
         mfg, lvl = (ctx.get("cache_meta") or {}).get(p, ("UGREEN", None))
         model_display = (lvl or "").upper() or mfg
         return DeviceInfo(
