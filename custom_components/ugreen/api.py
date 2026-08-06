@@ -598,81 +598,104 @@ class UgreenApiClient:
 
         return sorted(active, key=lambda item: item[0])
 
-    async def _login(self, session: aiohttp.ClientSession) -> bool:
-        """Fetch RSA pubkey from header, encrypt password, request token"""
-        async with self._login_lock:
+    async def _request_login(
+        self,
+        session: aiohttp.ClientSession,
+    ) -> tuple[dict[str, Any] | None, str | None]:
+        """Run the shared UGOS password login and return its response data."""
+        try:
+            _LOGGER.debug("[UGREEN] login: fetch public key")
+            async with async_timeout.timeout(10):
+                async with session.post(
+                    f"{self.base_url}/ugreen/v1/verify/check?token=",
+                    json={"username": self.username},
+                    headers=self.client_headers,
+                    ssl=self._ssl,
+                ) as resp:
+                    resp.raise_for_status()
+                    rsa_token = resp.headers.get("x-rsa-token", "")
+
+            if not rsa_token:
+                _LOGGER.error("[UGREEN] login: missing x-rsa-token header")
+                return None, "invalid_auth"
+
             try:
-                # 1) public key
-                url_pk = f"{self.base_url}/ugreen/v1/verify/check?token="
-                payload_pk = {"username": self.username}
-                _LOGGER.debug("[UGREEN] login: fetch public key")
-                async with async_timeout.timeout(10):
-                    async with session.post(url_pk, json=payload_pk, headers=self.client_headers, ssl=self._ssl) as resp:
-                        resp.raise_for_status()
-                        hdr = resp.headers.get("x-rsa-token", "")
-                if not hdr:
-                    _LOGGER.debug("[UGREEN] login: missing x-rsa-token header")
-                    return False
-                try:
-                    pub_bytes = base64.b64decode(hdr)
-                except Exception:
-                    pub_bytes = hdr.encode("utf-8")
+                public_key_data = base64.b64decode(rsa_token)
+            except Exception:
+                public_key_data = rsa_token.encode("utf-8")
 
-                # 2) encrypt password (PKCS#1 v1.5) and login
-                try:
-                    pub = serialization.load_der_public_key(pub_bytes)
-                except Exception:
-                    pub = serialization.load_pem_public_key(pub_bytes)
-                enc = base64.b64encode(pub.encrypt(self.password.encode("utf-8"), padding.PKCS1v15())).decode("ascii")
+            try:
+                public_key = serialization.load_der_public_key(public_key_data)
+            except Exception:
+                public_key = serialization.load_pem_public_key(public_key_data)
 
-                url_login = f"{self.base_url}/ugreen/v1/verify/login"
-                payload = {
-                    "is_simple": True,
-                    "keepalive": True,
-                    # Declares that this client understands the 2FA
-                    # handshake. Sending False makes UGOS reject accounts
-                    # that have 2FA enabled with a misleading 'client is not
-                    # compatible with the firmware' error (code 9406).
-                    "otp": True,
-                    "username": self.username,
-                    "password": enc,
-                }
-                _LOGGER.debug("[UGREEN] login POST (registered=%s)", bool(self.client_id))
-                async with async_timeout.timeout(10):
-                    async with session.post(url_login, json=payload, headers=self.client_headers, ssl=self._ssl) as resp:
-                        resp.raise_for_status()
-                        data = await resp.json()
+            encrypted_password = base64.b64encode(
+                public_key.encrypt(
+                    self.password.encode("utf-8"),
+                    padding.PKCS1v15(),
+                )
+            ).decode("ascii")
 
-                if data.get("code") != 200:
-                    msg = data.get("msg") or data.get("debug") or ""
-                    _LOGGER.error("[UGREEN] login failed code=%s msg=%s", data.get("code"), msg)
-                    return False
+            _LOGGER.debug(
+                "[UGREEN] login POST (registered=%s)",
+                bool(self.client_id),
+            )
+            async with async_timeout.timeout(10):
+                async with session.post(
+                    f"{self.base_url}/ugreen/v1/verify/login",
+                    json={
+                        "is_simple": True,
+                        "keepalive": True,
+                        # Enables the 2FA handshake without requiring 2FA.
+                        "otp": True,
+                        "username": self.username,
+                        "password": encrypted_password,
+                    },
+                    headers=self.client_headers,
+                    ssl=self._ssl,
+                ) as resp:
+                    resp.raise_for_status()
+                    response = await resp.json()
 
-                result = data.get("data") or {}
-                token = result.get("token")
+        except Exception as e:
+            _LOGGER.error("[UGREEN] login request error: %s", e)
+            return None, "cannot_connect"
 
-                if not token:
-                    # Password accepted, but UGOS wants the second factor.
-                    if result.get("enable_otp"):
-                        _LOGGER.error(
-                            "[UGREEN] account '%s' has 2FA enabled but Home "
-                            "Assistant is not registered as a trusted device. "
-                            "Reconfigure the integration, tick the 2FA box "
-                            "and enter a current code.",
-                            self.username,
-                        )
-                    else:
-                        _LOGGER.error("[UGREEN] login ok but token missing")
-                    return False
+        if response.get("code") != 200:
+            _LOGGER.error(
+                "[UGREEN] login failed code=%s msg=%s",
+                response.get("code"),
+                response.get("msg") or response.get("debug") or "",
+            )
+            return None, "invalid_auth"
 
-                self.token = token
-                self._authed = True
-                _LOGGER.debug("[UGREEN] token stored")
-                return True
+        return response.get("data") or {}, None
 
-            except Exception as e:
-                _LOGGER.error("[UGREEN] login error: %s", e)
+    async def _login(self, session: aiohttp.ClientSession) -> bool:
+        """Authenticate with UGOS and store the returned API token."""
+        async with self._login_lock:
+            result, _ = await self._request_login(session)
+            if result is None:
                 return False
+
+            token = result.get("token")
+            if not token:
+                if result.get("enable_otp"):
+                    _LOGGER.error(
+                        "[UGREEN] account '%s' has 2FA enabled but Home "
+                        "Assistant is not registered as a trusted device. "
+                        "Reconfigure the integration, tick the 2FA box "
+                        "and enter a current code.",
+                        self.username,
+                    )
+                else:
+                    _LOGGER.error("[UGREEN] login ok but token missing")
+                return False
+
+            self.token = token
+            self._authed = True
+            _LOGGER.debug("[UGREEN] token stored")
+            return True
 
     @property
     def client_headers(self) -> dict[str, str]:
@@ -684,89 +707,34 @@ class UgreenApiClient:
         session: aiohttp.ClientSession,
         otp_code: str,
     ) -> tuple[bool, str, str | None]:
-        """Complete the UGOS 2FA handshake once and register as trusted.
-
-        UGOS binds trust to the UG-Client-Id header sent during the OTP step, so
-        the caller must persist the returned id and send it on every later login.
-        Returns (success, client_id, error).
-        """
+        """Complete the UGOS 2FA handshake and register as trusted."""
         if not self.client_id:
             self.client_id = uuid4().hex
             _LOGGER.debug("[UGREEN] generated client id for 2FA enrolment")
 
+        result, error = await self._request_login(session)
+        if result is None:
+            return False, self.client_id, error or "invalid_auth"
+
+        token = result.get("token")
+        if token:
+            self.token = token
+            self._authed = True
+            _LOGGER.debug("[UGREEN] already trusted, no code needed")
+            return True, self.client_id, None
+
+        token_id = result.get("token_id")
+        if not token_id:
+            _LOGGER.error("[UGREEN] enrolment: no token_id in login response")
+            return False, self.client_id, "invalid_auth"
+
         try:
-            # 1) public key, stamped with the id we are about to enrol
-            url_pk = f"{self.base_url}/ugreen/v1/verify/check?token="
-            async with async_timeout.timeout(10):
-                async with session.post(
-                    url_pk,
-                    json={"username": self.username},
-                    headers=self.client_headers,
-                    ssl=self._ssl,
-                ) as resp:
-                    resp.raise_for_status()
-                    hdr = resp.headers.get("x-rsa-token", "")
-            if not hdr:
-                _LOGGER.error("[UGREEN] enrolment: missing x-rsa-token header")
-                return False, self.client_id, "invalid_auth"
-
-            try:
-                pub_bytes = base64.b64decode(hdr)
-            except Exception:
-                pub_bytes = hdr.encode("utf-8")
-            try:
-                pub = serialization.load_der_public_key(pub_bytes)
-            except Exception:
-                pub = serialization.load_pem_public_key(pub_bytes)
-            enc = base64.b64encode(
-                pub.encrypt(self.password.encode("utf-8"), padding.PKCS1v15())
-            ).decode("ascii")
-
-            # 2) login, declaring 2FA support
-            async with async_timeout.timeout(10):
-                async with session.post(
-                    f"{self.base_url}/ugreen/v1/verify/login",
-                    json={
-                        "is_simple": True,
-                        "keepalive": True,
-                        "otp": True,
-                        "username": self.username,
-                        "password": enc,
-                    },
-                    headers=self.client_headers,
-                    ssl=self._ssl,
-                ) as resp:
-                    resp.raise_for_status()
-                    data = await resp.json()
-
-            if data.get("code") != 200:
-                _LOGGER.error(
-                    "[UGREEN] enrolment login failed code=%s msg=%s",
-                    data.get("code"),
-                    data.get("msg") or data.get("debug") or "",
-                )
-                return False, self.client_id, "invalid_auth"
-
-            result = data.get("data") or {}
-            if result.get("token"):
-                # Already trusted, nothing to enrol.
-                self.token = result["token"]
-                self._authed = True
-                _LOGGER.debug("[UGREEN] already trusted, no code needed")
-                return True, self.client_id, None
-
-            token_id = result.get("token_id")
-            if not token_id:
-                _LOGGER.error("[UGREEN] enrolment: no token_id in login response")
-                return False, self.client_id, "invalid_auth"
-
-            # 3) answer the challenge and ask UGOS to remember this device
             async with async_timeout.timeout(10):
                 async with session.post(
                     f"{self.base_url}/ugreen/v1/verify/code/login",
                     json={
                         "code": otp_code,
-                        "type": 1,  # 1 = authenticator app, 2 = email
+                        "type": 1,
                         "token_id": token_id,
                         "trust_info": {
                             "client_type": "pc",
@@ -779,32 +747,33 @@ class UgreenApiClient:
                     ssl=self._ssl,
                 ) as resp:
                     resp.raise_for_status()
-                    verify = await resp.json()
-
-            if verify.get("code") != 200:
-                _LOGGER.error(
-                    "[UGREEN] 2FA verification failed code=%s msg=%s",
-                    verify.get("code"),
-                    verify.get("msg") or verify.get("debug") or "",
-                )
-                return False, self.client_id, "invalid_otp"
-
-            token = (verify.get("data") or {}).get("token")
-            if token:
-                self.token = token
-                self._authed = True
-            elif not await self._login(session):
-                _LOGGER.error(
-                    "[UGREEN] 2FA verification succeeded, but authentication failed"
-                )
-                return False, self.client_id, "invalid_auth"
-
-            _LOGGER.debug("[UGREEN] enrolled as a trusted device")
-            return True, self.client_id, None
-
+                    verification = await resp.json()
         except Exception as e:
             _LOGGER.error("[UGREEN] enrolment error: %s", e)
             return False, self.client_id, "cannot_connect"
+
+        if verification.get("code") != 200:
+            _LOGGER.error(
+                "[UGREEN] 2FA verification failed code=%s msg=%s",
+                verification.get("code"),
+                verification.get("msg")
+                or verification.get("debug")
+                or "",
+            )
+            return False, self.client_id, "invalid_otp"
+
+        token = (verification.get("data") or {}).get("token")
+        if token:
+            self.token = token
+            self._authed = True
+        elif not await self._login(session):
+            _LOGGER.error(
+                "[UGREEN] 2FA verification succeeded, but authentication failed"
+            )
+            return False, self.client_id, "invalid_auth"
+
+        _LOGGER.debug("[UGREEN] enrolled as a trusted device")
+        return True, self.client_id, None
 
     async def _request(self, session: aiohttp.ClientSession, method: str, endpoint: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         """Single request helper with 1024-refresh; keeps noise low"""

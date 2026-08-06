@@ -459,8 +459,10 @@ class UgreenPowerModeSelect(CoordinatorEntity, SelectEntity):
         self.hass = hass
         self._entry = entry
         self._current: str | None = None
-
         self._attr_name = f"{_get_entry_label(entry)} Power Mode"
+        self.entity_id = async_generate_entity_id(
+            "select.{}", self._attr_name, hass=self.hass
+        )
         self._attr_unique_id = f"{entry.entry_id}_power_mode_select"
         self._attr_icon = "mdi:speedometer"
         self._attr_device_info = build_device_info(hass, entry.entry_id, "power_mode_select")
@@ -521,6 +523,9 @@ class UgreenFanModeSelect(CoordinatorEntity, SelectEntity):
         self._current: str | None = None
 
         self._attr_name = f"{_get_entry_label(entry)} Fan Mode"
+        self.entity_id = async_generate_entity_id(
+            "select.{}", self._attr_name, hass=self.hass
+        )
         self._attr_unique_id = f"{entry.entry_id}_fan_mode_select"
         self._attr_icon = "mdi:fan"
         self._attr_device_info = build_device_info(hass, entry.entry_id, "fan_mode_select")
