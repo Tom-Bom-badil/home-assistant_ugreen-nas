@@ -803,7 +803,13 @@ class UgreenApiClient:
                     return {}
             return data
         except Exception as e:
-            _LOGGER.error("[UGREEN] %s error on %s: %s", method, endpoint, e)
+            _LOGGER.error(
+                "[UGREEN] %s error on %s: %s: %s",
+                method,
+                endpoint,
+                type(e).__name__,
+                e,
+            )
             return {}
 
     async def _count_dynamic_entities(self, session: aiohttp.ClientSession) -> dict[str, Any]:
