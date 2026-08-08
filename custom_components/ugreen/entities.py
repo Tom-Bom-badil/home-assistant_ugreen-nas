@@ -1673,39 +1673,45 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_STORAGE_DISK_DETAILS: List[UgreenEntity] = [
         path="data.power_on_count",
         nas_part_category="Disks",
     ),
-    UgreenEntity(
-        description=EntityDescription(
-            key="{prefix_key}_smart_last_result",
-            name="{prefix_name} SMART Last Result",
-            icon="mdi:check-circle-outline",
-            unit_of_measurement=None,
-        ),
-        endpoint="{detection_endpoint}",
-        path="calculated:last_smart_detection:status",
-        nas_part_category="Disks",
-    ),
-    UgreenEntity(
-        description=EntityDescription(
-            key="{prefix_key}_smart_last_test",
-            name="{prefix_name} SMART Last Date",
-            icon="mdi:calendar-clock",
-            unit_of_measurement=None,
-        ),
-        endpoint="{detection_endpoint}",
-        path="calculated:last_smart_detection:time",
-        nas_part_category="Disks",
-    ),
-    UgreenEntity(
-        description=EntityDescription(
-            key="{prefix_key}_smart_next_test",
-            name="{prefix_name} SMART Next Date",
-            icon="mdi:calendar-clock",
-            unit_of_measurement=None,
-        ),
-        endpoint="{smart_endpoint}",
-        path="data.last.next_time",
-        nas_part_category="Disks",
-    ),
+
+    # It turned out that each of below S.M.A.R.T. sensors are triggering a
+    # `smartctl -j -a` without `-n standby,0` options. This will wake up disks
+    # when called every 60s - disk sleep is impossible, as it is prevented by
+    # those smartctl calls. Removed entities again in v2026.09.1
+
+    # UgreenEntity(
+    #     description=EntityDescription(
+    #         key="{prefix_key}_smart_last_result",
+    #         name="{prefix_name} SMART Last Result",
+    #         icon="mdi:check-circle-outline",
+    #         unit_of_measurement=None,
+    #     ),
+    #     endpoint="{detection_endpoint}",
+    #     path="calculated:last_smart_detection:status",
+    #     nas_part_category="Disks",
+    # ),
+    # UgreenEntity(
+    #     description=EntityDescription(
+    #         key="{prefix_key}_smart_last_test",
+    #         name="{prefix_name} SMART Last Date",
+    #         icon="mdi:calendar-clock",
+    #         unit_of_measurement=None,
+    #     ),
+    #     endpoint="{detection_endpoint}",
+    #     path="calculated:last_smart_detection:time",
+    #     nas_part_category="Disks",
+    # ),
+    # UgreenEntity(
+    #     description=EntityDescription(
+    #         key="{prefix_key}_smart_next_test",
+    #         name="{prefix_name} SMART Next Date",
+    #         icon="mdi:calendar-clock",
+    #         unit_of_measurement=None,
+    #     ),
+    #     endpoint="{smart_endpoint}",
+    #     path="data.last.next_time",
+    #     nas_part_category="Disks",
+    # ),
 ]
 
 NAS_SPECIFIC_STATUS_TEMPLATES_STORAGE_DISK: List[UgreenEntity] = [
