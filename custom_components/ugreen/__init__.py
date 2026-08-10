@@ -7,6 +7,7 @@ from typing import Any
 from collections import defaultdict
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.device_registry import (
@@ -107,10 +108,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     config_entities =  list(ALL_NAS_COMMON_CONFIG_ENTITIES)
     config_entities += await api.get_nas_specific_config_entities(session)
     backup_entities = await api.get_dynamic_backup_entities(session)
-    #   Group entities by endpoint to reduce number of API calls
+    # check for disabled entities
+    disabled_unique_ids = {
+        reg_entry.unique_id
+        for reg_entry in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+        if reg_entry.disabled_by is not None
+    }
+    #   Group entities by endpoint to reduce number of API calls, exclude disabled entities
     config_entities_grouped_by_endpoint = defaultdict(list)
     for entity in config_entities:
-        config_entities_grouped_by_endpoint[entity.endpoint].append(entity)
+        if f"{entry.entry_id}_{entity.description.key}" not in disabled_unique_ids:
+            config_entities_grouped_by_endpoint[entity.endpoint].append(entity)
     #   Create the update function for the corresponding coordinator
     async def update_configuration_data() -> dict[str, Any]:
         if not api.nas_online:
@@ -141,10 +149,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     #   Build the entity list
     state_entities =  list(ALL_NAS_COMMON_STATE_ENTITIES)
     state_entities += await api.get_nas_specific_status_entities(session)
-    #   Group entities by endpoint to reduce number of API calls
+    #   Group entities by endpoint to reduce number of API calls, exclude disabled entities
     state_entities_grouped_by_endpoint = defaultdict(list)
     for entity in state_entities: # reduce number of API calls
-        state_entities_grouped_by_endpoint[entity.endpoint].append(entity)
+        if f"{entry.entry_id}_{entity.description.key}" not in disabled_unique_ids:
+            state_entities_grouped_by_endpoint[entity.endpoint].append(entity)
     _LOGGER.debug("[UGREEN NAS] List of state entities prepared.")
     #   Create the update function for the corresponding coordinator
     async def update_state_data() -> dict[str, Any]: # update for coordinator
