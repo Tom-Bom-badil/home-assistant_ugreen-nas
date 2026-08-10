@@ -110,6 +110,7 @@ class UgreenApiClient:
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._ws_connected: bool = False
         self._nas_online: bool = True
+        self._unavailable_endpoints: set[tuple[str, str]] = set()
 
 
     ### "The API" - public entrypoints (e.g. used by __init__.py) ##############
@@ -775,9 +776,13 @@ class UgreenApiClient:
         _LOGGER.debug("[UGREEN] enrolled as a trusted device")
         return True, self.client_id, None
 
+
     async def _request(self, session: aiohttp.ClientSession, method: str, endpoint: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         """Single request helper with 1024-refresh; keeps noise low"""
         payload = payload or {}
+        endpoint_key = (method, endpoint.partition("?")[0])
+        if endpoint_key in self._unavailable_endpoints:
+            return {}
 
         async def _do() -> dict[str, Any]:
             url = f"{self.base_url}{endpoint}"
@@ -792,7 +797,6 @@ class UgreenApiClient:
             if not self.token and not await self._login(session):
                 _LOGGER.error("[UGREEN] %s: no token and login failed", method)
                 return {}
-
             data = await _do()
             if data.get("code") == 1024:
                 _LOGGER.error("[UGREEN] token expired (1024) -> relogin")
@@ -803,14 +807,22 @@ class UgreenApiClient:
                     return {}
             return data
         except Exception as e:
-            _LOGGER.error(
-                "[UGREEN] %s error on %s: %s: %s",
-                method,
-                endpoint,
-                type(e).__name__,
-                e,
-            )
+            if isinstance(e, ClientResponseError) and e.status == 404:
+                self._unavailable_endpoints.add(endpoint_key)
+                _LOGGER.warning(
+                    "[UGREEN] %s endpoint unavailable (404), skipping until reload: %s",
+                    *endpoint_key,
+                )
+            else:
+                _LOGGER.error(
+                    "[UGREEN] %s error on %s: %s: %s",
+                    method,
+                    endpoint,
+                    type(e).__name__,
+                    e,
+                )
             return {}
+
 
     async def _count_dynamic_entities(self, session: aiohttp.ClientSession) -> dict[str, Any]:
         """Counts number of dynamic entities for central accessibility"""
