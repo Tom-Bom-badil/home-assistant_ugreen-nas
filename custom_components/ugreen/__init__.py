@@ -127,7 +127,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.debug("[UGREEN NAS] Updating configuration data...")
             endpoint_to_entities = hass.data[DOMAIN][entry.entry_id]["config_entities_grouped_by_endpoint"]
             data = await get_entity_data_from_api(api, session, endpoint_to_entities)
-            data["backup"] = await api.get_backup_runtime_data(session)
+            if backup_entities:
+                data["backup"] = await api.get_backup_runtime_data(session)
             return data
         except Exception as err:
             raise UpdateFailed(f"[UGREEN NAS] Configuration entities update error: {err}") from err
