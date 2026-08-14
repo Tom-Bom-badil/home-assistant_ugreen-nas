@@ -84,7 +84,7 @@
           "dashboard_disk_columns": "[Примерно табло] Максимален брой колони за дискове на ред (5)",
           "dashboard_pool_columns": "[Примерно табло] Максимален брой колони за pool на ред (2)",
           "dashboard_volume_columns": "[Примерно табло] Максимален брой колони за volume на ред (2)",
-          "dashboard_image_file": "[Примерно таблою] Име на файла с изображение (default_picture.png)"
+          "dashboard_image_file": "[Примерно табло] Име на файла с изображение (default_picture.png)"
         },
         "data_description": {
           "state_interval": "Колко често трябва да се проверяват често променящите се стойности?",
