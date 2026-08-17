@@ -564,7 +564,7 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
     def native_value(self) -> StateType | date | datetime | Decimal:
         raw = self.coordinator.data.get(self._key)
 
-        if self._key == "show_backups_of_all_users":
+        if self._key == "show_connections_of_all_users":
             try:
                 return "On" if int(raw) else "Off"
             except (TypeError, ValueError):

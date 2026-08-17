@@ -105,9 +105,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     ### Setup configuration entities (never or slowly changing data, 60s polling)
     #   Build the entity list
-    config_entities =  list(ALL_NAS_COMMON_CONFIG_ENTITIES)
-    config_entities += await api.get_nas_specific_config_entities(session)
     backup_entities = await api.get_dynamic_backup_entities(session)
+    config_entities = list(ALL_NAS_COMMON_CONFIG_ENTITIES)
+    if not backup_entities:
+        config_entities = [
+            entity
+            for entity in config_entities
+            if entity.description.key != "show_connections_of_all_users"
+        ]
+    config_entities += await api.get_nas_specific_config_entities(session)
+
     # check for disabled entities
     disabled_unique_ids = {
         reg_entry.unique_id
