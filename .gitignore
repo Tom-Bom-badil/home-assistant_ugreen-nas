@@ -1,2 +1,5 @@
 __pycache__/
 .vscode/
+
+# ignore local-only files (eg developer mode switch)
+**/_local_dev_overrides/

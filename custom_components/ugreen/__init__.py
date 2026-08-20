@@ -41,6 +41,19 @@ from .const import (
     MANUFACTURER,
 )
 
+try:
+    from ._local_dev_overrides import (
+        DEVELOPER_MODE,
+        apply_local_function_overrides,
+        apply_local_log_overrides,
+    )
+except ModuleNotFoundError:
+    DEVELOPER_MODE = False
+else:
+    if DEVELOPER_MODE:
+        apply_local_function_overrides()
+        apply_local_log_overrides()
+
 
 async def async_install_frontend_files(hass: HomeAssistant) -> None:
     """Copy frontend files to /www/community/ugreen (if needed)."""
