@@ -1,10 +1,10 @@
 import re
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 
 from .const import DOMAIN
-
 
 _RE_STANDALONE_DISK = re.compile(r"^standalone_disk(?P<d>\d+)(?:_|$)")
 _RE_DISK = re.compile(r"^disk(?P<d>\d+)_pool(?P<p>\d+)(?:_|$)")
@@ -12,7 +12,6 @@ _RE_CACHE_DISK = re.compile(r"^cache_disk(?P<d>\d+)_pool(?P<p>\d+)(?:_|$)")
 _RE_CACHE = re.compile(r"^cache_pool(?P<p>\d+)(?:_|$)")
 _RE_VOLUME = re.compile(r"^volume(?P<v>\d+)_pool(?P<p>\d+)(?:_|$)")
 _RE_POOL = re.compile(r"^pool(?P<p>\d+)(?:_|$)")
-
 
 def build_device_info(
     hass: HomeAssistant,
@@ -24,12 +23,46 @@ def build_device_info(
     root_id = f"entry:{entry_id}"
     ctx = hass.data.get(DOMAIN, {}).get(entry_id, {})
     root_name = ctx.get("root_device_name") or "UGREEN NAS"
-
     def sub_id(kind: str, p: int, n: int | None = None) -> str:
         if n is None:
             return f"entry:{entry_id}:{kind}:{p}"
         return f"entry:{entry_id}:{kind}:{p}:{n}"
-
+    def _via_device_id(identifier: str) -> str:
+        try:
+            return dr.async_get_device_id_by_identifier(
+                hass,
+                (DOMAIN, identifier),
+                config_entry_id=entry_id,
+            )
+        except ValueError:
+            match = re.fullmatch(
+                rf"entry:{re.escape(entry_id)}:pool:(?P<p>\d+)", identifier
+            )
+            if not match:
+                raise
+            p = int(match.group("p"))
+            mfg, raid = (ctx.get("pool_meta") or {}).get(
+                p, ("Linux mdadm", None)
+            )
+            mfg = mfg or "Linux mdadm"
+            raid_upper = (raid or "").upper()
+            model_display = (
+                raid_upper
+                if raid_upper and raid_upper.lower().startswith(mfg.lower())
+                else f"{mfg} {raid_upper}" if raid_upper else mfg
+            )
+            return dr.async_get(hass).async_get_or_create(
+                config_entry_id=entry_id,
+                identifiers={(DOMAIN, identifier)},
+                name=f"{root_name} (Pool {p})",
+                manufacturer=mfg,
+                model=f"{model_display} pool",
+                via_device_id=dr.async_get_device_id_by_identifier(
+                    hass,
+                    (DOMAIN, root_id),
+                    config_entry_id=entry_id,
+                ),
+            ).id
     # Explicitly detected stand-alone disks.
     match = _RE_STANDALONE_DISK.match(key)
     if match:
@@ -57,9 +90,8 @@ def build_device_info(
             manufacturer=brand or "UGREEN",
             model=model_display,
             serial_number=serial or None,
-            via_device=(DOMAIN, root_id),
+            via_device_id=_via_device_id(root_id),
         )
-
     # Cache Disks (keys like "cache_disk1_pool2_*").
     match = _RE_CACHE_DISK.match(key)
     if match:
@@ -77,9 +109,8 @@ def build_device_info(
             name=f"{root_name} (Pool {p} | Cache Disk {d})",
             manufacturer=brand or "UGREEN",
             model=model_display,
-            via_device=(DOMAIN, root_id),
+            via_device_id=_via_device_id(root_id),
         )
-
     # Cache device per pool (keys like "cache_pool2_*").
     match = _RE_CACHE.match(key)
     if match:
@@ -91,9 +122,8 @@ def build_device_info(
             name=f"{root_name} (Pool {p} | Cache)",
             manufacturer=mfg,
             model=model_display,
-            via_device=(DOMAIN, root_id),
+            via_device_id=_via_device_id(root_id),
         )
-
     # Disks.
     match = _RE_DISK.match(key)
     if match:
@@ -109,9 +139,8 @@ def build_device_info(
             name=f"{root_name} (Pool {p} | Disk {d})",
             manufacturer=brand or "UGREEN",
             model=model_display,
-            via_device=(DOMAIN, sub_id("pool", p)),
+            via_device_id=_via_device_id(sub_id("pool", p)),
         )
-
     # Volumes.
     match = _RE_VOLUME.match(key)
     if match:
@@ -130,9 +159,8 @@ def build_device_info(
             name=f"{root_name} (Pool {p} | Volume {v})",
             manufacturer=mfg,
             model=f"{model_display} volume",
-            via_device=(DOMAIN, sub_id("pool", p)),
+            via_device_id=_via_device_id(sub_id("pool", p)),
         )
-
     # Pools.
     match = _RE_POOL.match(key)
     if match:
@@ -152,7 +180,6 @@ def build_device_info(
             name=f"{root_name} (Pool {p})",
             manufacturer=mfg,
             model=f"{model_display} pool",
-            via_device=(DOMAIN, root_id),
+            via_device_id=_via_device_id(root_id),
         )
-
     return DeviceInfo(identifiers={(DOMAIN, root_id)})
