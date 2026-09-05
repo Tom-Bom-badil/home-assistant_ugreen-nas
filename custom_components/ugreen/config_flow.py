@@ -330,7 +330,10 @@ class UgreenNasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            _LOGGER.debug("[UGREEN NAS] Received user input: %s", user_input)
+            _LOGGER.debug(
+                "[UGREEN NAS] Received user input: %s",
+                {**user_input, CONF_PASSWORD: "{password}"},
+            )
 
             # Account uses 2FA and we have not registered yet: collect a code
             # first, since a plain login would be rejected with code 9406.
@@ -550,7 +553,10 @@ class UgreenNasOptionsFlowHandler(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            _LOGGER.debug("[UGREEN NAS] Options updated: %s", user_input)
+            _LOGGER.debug(
+                "[UGREEN NAS] Options updated: %s",
+                {**user_input, CONF_PASSWORD: "{password}"},
+            )
 
             entity_prefix = _normalize_entity_prefix(
                 user_input.get(CONF_ENTITY_PREFIX, "")

@@ -787,7 +787,8 @@ class UgreenApiClient:
         async def _do() -> dict[str, Any]:
             url = f"{self.base_url}{endpoint}"
             url = f"{url}{'&' if '?' in url else '?'}token={self.token}"
-            _LOGGER.debug("[UGREEN] %s %s payload=%s", method, url, payload if method == "POST" else None)
+            log_url = url.replace(self.token, "{token}") if self.token else url
+            _LOGGER.debug("[UGREEN] %s %s payload=%s", method, log_url, payload if method == "POST" else None)
             async with async_timeout.timeout(10):
                 async with session.request(method, url, json=payload if method == "POST" else None, ssl=self._ssl) as resp:
                     resp.raise_for_status()
@@ -814,12 +815,13 @@ class UgreenApiClient:
                     *endpoint_key,
                 )
             else:
+                error = str(e).replace(self.token, "{token}") if self.token else str(e)
                 _LOGGER.error(
                     "[UGREEN] %s error on %s: %s: %s",
                     method,
                     endpoint,
                     type(e).__name__,
-                    e,
+                    error,
                 )
             return {}
 
@@ -1047,7 +1049,8 @@ class UgreenApiClient:
                 # Exponential backoff (container style)
                 delay = backoff[0]
                 backoff = backoff[1:] or [60]
-                _LOGGER.error("WS loop error: %s — reconnect in %ds", e, delay) if self._nas_online else _LOGGER.debug("WS loop error while offline: %s — reconnect in %ds", e, delay)
+                error = str(e).replace(self.token, "{token}") if self.token else str(e)
+                _LOGGER.error("WS loop error: %s — reconnect in %ds", error, delay) if self._nas_online else _LOGGER.debug("WS loop error while offline: %s — reconnect in %ds", error, delay)
                 await asyncio.sleep(delay)
 
         # Cleanup
