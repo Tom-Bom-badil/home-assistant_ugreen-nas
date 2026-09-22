@@ -5,12 +5,16 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 
 from .const import DOMAIN
+
+
 _RE_STANDALONE_DISK = re.compile(r"^standalone_disk(?P<d>\d+)(?:_|$)")
 _RE_DISK = re.compile(r"^disk(?P<d>\d+)_pool(?P<p>\d+)(?:_|$)")
 _RE_CACHE_DISK = re.compile(r"^cache_disk(?P<d>\d+)_pool(?P<p>\d+)(?:_|$)")
 _RE_CACHE = re.compile(r"^cache_pool(?P<p>\d+)(?:_|$)")
 _RE_VOLUME = re.compile(r"^volume(?P<v>\d+)_pool(?P<p>\d+)(?:_|$)")
 _RE_POOL = re.compile(r"^pool(?P<p>\d+)(?:_|$)")
+
+
 def build_device_info(
     hass: HomeAssistant,
     entry_id: str,
@@ -18,13 +22,16 @@ def build_device_info(
     model: str | None = None,
 ) -> DeviceInfo:
     """Build DeviceInfo anchored to the config entry root device."""
+
     root_id = f"entry:{entry_id}"
     ctx = hass.data.get(DOMAIN, {}).get(entry_id, {})
     root_name = ctx.get("root_device_name") or "UGREEN NAS"
+
     def sub_id(kind: str, p: int, n: int | None = None) -> str:
         if n is None:
             return f"entry:{entry_id}:{kind}:{p}"
         return f"entry:{entry_id}:{kind}:{p}:{n}"
+
     def _via_device_id(identifier: str) -> str:
         try:
             return dr.async_get_device_id_by_identifier(
@@ -61,6 +68,7 @@ def build_device_info(
                     config_entry_id=entry_id,
                 ),
             ).id
+
     def _via_device(identifier: str) -> dict:
         if hasattr(dr, "async_get_device_id_by_identifier"):
             return {"via_device_id": _via_device_id(identifier)}
@@ -94,6 +102,7 @@ def build_device_info(
             serial_number=serial or None,
             **_via_device(root_id),
         )
+
     # Cache Disks (keys like "cache_disk1_pool2_*").
     match = _RE_CACHE_DISK.match(key)
     if match:
@@ -113,6 +122,7 @@ def build_device_info(
             model=model_display,
             **_via_device(root_id),
         )
+
     # Cache device per pool (keys like "cache_pool2_*").
     match = _RE_CACHE.match(key)
     if match:
@@ -126,6 +136,7 @@ def build_device_info(
             model=model_display,
             **_via_device(root_id),
         )
+
     # Disks.
     match = _RE_DISK.match(key)
     if match:
@@ -143,6 +154,7 @@ def build_device_info(
             model=model_display,
             **_via_device(sub_id("pool", p)),
         )
+
     # Volumes.
     match = _RE_VOLUME.match(key)
     if match:
@@ -163,6 +175,7 @@ def build_device_info(
             model=f"{model_display} volume",
             **_via_device(sub_id("pool", p)),
         )
+
     # Pools.
     match = _RE_POOL.match(key)
     if match:
