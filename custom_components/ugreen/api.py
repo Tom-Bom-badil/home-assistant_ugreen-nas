@@ -49,6 +49,11 @@ class UgreenApiClient:
     _BACKUP_TASK_START_ENDPOINT = "/ugreen/v2/web/syncbackup/task/action/start"
     _BACKUP_TASK_STOP_ENDPOINT = "/ugreen/v2/web/syncbackup/task/action/stop"
 
+    _QUIET_404_ENDPOINTS = {
+        "/ugreen/v2/web/syncbackup/task/list",
+        "/ugreen/v1/web/sync/general/get",
+    }
+
     _STANDALONE_DISK_FIELDS = (
         "serial",
         "slot",
@@ -447,13 +452,16 @@ class UgreenApiClient:
         """Return configured UGOS backup tasks."""
         resp = await self.get(session, self._BACKUP_TASK_LIST_ENDPOINT)
         if (resp or {}).get("code") != 200:
-            _LOGGER.warning(
-                "[UGREEN NAS] Backup task list unavailable: code=%s msg=%s",
-                (resp or {}).get("code"),
-                (resp or {}).get("msg"),
-            )
+            if (
+                "GET",
+                self._BACKUP_TASK_LIST_ENDPOINT.partition("?")[0],
+            ) not in self._unavailable_endpoints:
+                _LOGGER.warning(
+                    "[UGREEN NAS] Backup task list unavailable: code=%s msg=%s",
+                    (resp or {}).get("code"),
+                    (resp or {}).get("msg"),
+                )
             return []
-
         keys = ("list", "result", "tasks", "items", "rows")
         tasks = self._extract_response_items(resp, *keys)
         data = resp.get("data")
@@ -783,7 +791,6 @@ class UgreenApiClient:
         endpoint_key = (method, endpoint.partition("?")[0])
         if endpoint_key in self._unavailable_endpoints:
             return {}
-
         async def _do() -> dict[str, Any]:
             url = f"{self.base_url}{endpoint}"
             url = f"{url}{'&' if '?' in url else '?'}token={self.token}"
@@ -793,7 +800,6 @@ class UgreenApiClient:
                 async with session.request(method, url, json=payload if method == "POST" else None, ssl=self._ssl) as resp:
                     resp.raise_for_status()
                     return await resp.json()
-
         try:
             if not self.token and not await self._login(session):
                 _LOGGER.error("[UGREEN] %s: no token and login failed", method)
@@ -810,7 +816,12 @@ class UgreenApiClient:
         except Exception as e:
             if isinstance(e, ClientResponseError) and e.status == 404:
                 self._unavailable_endpoints.add(endpoint_key)
-                _LOGGER.warning(
+                log = (
+                    _LOGGER.debug
+                    if endpoint_key[1] in self._QUIET_404_ENDPOINTS
+                    else _LOGGER.warning
+                )
+                log(
                     "[UGREEN] %s endpoint unavailable (404), skipping until reload: %s",
                     *endpoint_key,
                 )
