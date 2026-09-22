@@ -5,14 +5,12 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 
 from .const import DOMAIN
-
 _RE_STANDALONE_DISK = re.compile(r"^standalone_disk(?P<d>\d+)(?:_|$)")
 _RE_DISK = re.compile(r"^disk(?P<d>\d+)_pool(?P<p>\d+)(?:_|$)")
 _RE_CACHE_DISK = re.compile(r"^cache_disk(?P<d>\d+)_pool(?P<p>\d+)(?:_|$)")
 _RE_CACHE = re.compile(r"^cache_pool(?P<p>\d+)(?:_|$)")
 _RE_VOLUME = re.compile(r"^volume(?P<v>\d+)_pool(?P<p>\d+)(?:_|$)")
 _RE_POOL = re.compile(r"^pool(?P<p>\d+)(?:_|$)")
-
 def build_device_info(
     hass: HomeAssistant,
     entry_id: str,
@@ -63,6 +61,10 @@ def build_device_info(
                     config_entry_id=entry_id,
                 ),
             ).id
+    def _via_device(identifier: str) -> dict:
+        if hasattr(dr, "async_get_device_id_by_identifier"):
+            return {"via_device_id": _via_device_id(identifier)}
+        return {"via_device": (DOMAIN, identifier)}
     # Explicitly detected stand-alone disks.
     match = _RE_STANDALONE_DISK.match(key)
     if match:
@@ -90,7 +92,7 @@ def build_device_info(
             manufacturer=brand or "UGREEN",
             model=model_display,
             serial_number=serial or None,
-            via_device_id=_via_device_id(root_id),
+            **_via_device(root_id),
         )
     # Cache Disks (keys like "cache_disk1_pool2_*").
     match = _RE_CACHE_DISK.match(key)
@@ -109,7 +111,7 @@ def build_device_info(
             name=f"{root_name} (Pool {p} | Cache Disk {d})",
             manufacturer=brand or "UGREEN",
             model=model_display,
-            via_device_id=_via_device_id(root_id),
+            **_via_device(root_id),
         )
     # Cache device per pool (keys like "cache_pool2_*").
     match = _RE_CACHE.match(key)
@@ -122,7 +124,7 @@ def build_device_info(
             name=f"{root_name} (Pool {p} | Cache)",
             manufacturer=mfg,
             model=model_display,
-            via_device_id=_via_device_id(root_id),
+            **_via_device(root_id),
         )
     # Disks.
     match = _RE_DISK.match(key)
@@ -139,7 +141,7 @@ def build_device_info(
             name=f"{root_name} (Pool {p} | Disk {d})",
             manufacturer=brand or "UGREEN",
             model=model_display,
-            via_device_id=_via_device_id(sub_id("pool", p)),
+            **_via_device(sub_id("pool", p)),
         )
     # Volumes.
     match = _RE_VOLUME.match(key)
@@ -159,7 +161,7 @@ def build_device_info(
             name=f"{root_name} (Pool {p} | Volume {v})",
             manufacturer=mfg,
             model=f"{model_display} volume",
-            via_device_id=_via_device_id(sub_id("pool", p)),
+            **_via_device(sub_id("pool", p)),
         )
     # Pools.
     match = _RE_POOL.match(key)
@@ -180,6 +182,6 @@ def build_device_info(
             name=f"{root_name} (Pool {p})",
             manufacturer=mfg,
             model=f"{model_display} pool",
-            via_device_id=_via_device_id(root_id),
+            **_via_device(root_id),
         )
     return DeviceInfo(identifiers={(DOMAIN, root_id)})
