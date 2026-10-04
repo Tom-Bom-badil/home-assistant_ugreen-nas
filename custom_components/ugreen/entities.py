@@ -292,12 +292,24 @@ ALL_NAS_COMMON_CONFIG_ENTITIES: List[UgreenEntity] = [  # -- common config entit
     UgreenEntity(
         description=EntityDescription(
             key="ugos_version",
-            name="NAS UGOS Version",
+            # name="NAS UGOS Version",
+            name="UGOS Version",
             icon="mdi:information-outline",
             unit_of_measurement=None,
         ),
         endpoint="/ugreen/v1/sysinfo/machine/common",
         path="data.common.system_version",
+        nas_part_category="Device",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="ugos_update_available",
+            name="Update Available",
+            icon="mdi:update",
+            unit_of_measurement=None,
+        ),
+        endpoint="/ugreen/v1/firmware/status",
+        path="data",
         nas_part_category="Device",
     ),
     UgreenEntity(

@@ -22,7 +22,7 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .api import UgreenApiClient
-from .const import DOMAIN, DEFAULT_ENTITY_PREFIX
+from .const import DOMAIN, DEFAULT_ENTITY_PREFIX, UGOS_FIRMWARE_LANGUAGES
 from .device_info import build_device_info
 from .entities import UgreenBackupTaskEntity, UgreenEntity
 from .utils import (
@@ -536,6 +536,73 @@ class UgreenNasBackupTaskSensor(CoordinatorEntity, SensorEntity):
         super()._handle_coordinator_update()
 
 
+def _firmware_update_state(data: object) -> str | None:
+    """Return whether a newer UGOS version is available."""
+    if not isinstance(data, dict):
+        return None
+
+    if data.get("request_failed_reason") not in (None, 0):
+        return None
+
+    current = str(data.get("current_version") or "").strip()
+    remote = data.get("remote_base") or {}
+    available = str(remote.get("versionName") or "").strip() if isinstance(remote, dict) else ""
+
+    if not current or not available:
+        return None
+
+    return str(current != available)
+
+
+def _firmware_update_attributes(data: object, language: str) -> dict[str, str]:
+    """Return firmware update attributes."""
+    if not isinstance(data, dict):
+        return {}
+
+    current = str(data.get("current_version") or "").strip() or "Unknown"
+    remote = data.get("remote_base") or {}
+    if not isinstance(remote, dict):
+        remote = {}
+
+    available = str(remote.get("versionName") or "").strip() or "Unknown"
+    release_date = _unix_to_iso(remote.get("pubtime"))
+    release_date = release_date[:10] if release_date else "Unknown"
+
+    ugos_language = UGOS_FIRMWARE_LANGUAGES.get(
+        language,
+        UGOS_FIRMWARE_LANGUAGES.get(language.split("-", 1)[0], "en-US"),
+    )
+
+    relations = remote.get("firmwareRelationList") or []
+    notes = next(
+        (
+            str(item.get("desc") or "").strip()
+            for item in relations
+            if isinstance(item, dict) and item.get("language") == ugos_language
+        ),
+        "",
+    )
+
+    if not notes and ugos_language != "en-US":
+        notes = next(
+            (
+                str(item.get("desc") or "").strip()
+                for item in relations
+                if isinstance(item, dict) and item.get("language") == "en-US"
+            ),
+            "",
+        )
+
+    notes = notes or str(remote.get("desc") or "").strip() or "Unavailable"
+
+    return {
+        "installed_version": current,
+        "available_version": available,
+        "release_date": release_date,
+        "release_notes": notes,
+    }
+
+
 # --------------------------------------------------------------------------------------
 # Regular sensors
 # --------------------------------------------------------------------------------------
@@ -570,6 +637,9 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
             except (TypeError, ValueError):
                 return None
 
+        if self._key == "ugos_update_available":
+            return _firmware_update_state(raw)
+
         if self._key.endswith("_utilization"):
             return _as_int_measurement(raw)
 
@@ -586,6 +656,13 @@ class UgreenNasSensor(CoordinatorEntity, SensorEntity):
             "UGNAS_device_id": _get_entity_prefix_slug(self.hass, self._entry_id),
             "UGNAS_part_category": self._endpoint.nas_part_category,
         })
+
+        if self._key == "ugos_update_available":
+            base_attrs.update(_firmware_update_attributes(
+                self.coordinator.data.get(self._key),
+                self.hass.config.language,
+            ))
+
         return base_attrs
 
 

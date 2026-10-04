@@ -45,3 +45,18 @@ DEFAULT_DASHBOARD_DISK_COLUMNS = 5
 DEFAULT_DASHBOARD_POOL_COLUMNS = 2
 DEFAULT_DASHBOARD_VOLUME_COLUMNS = 2
 DEFAULT_DASHBOARD_IMAGE_FILE = "default_picture.png"
+
+UGOS_FIRMWARE_LANGUAGES = {
+    "de": "de-DE",
+    "en": "en-US",
+    "es": "es-ES",
+    "fr": "fr-FR",
+    "it": "it-IT",
+    "ja": "ja-JP",
+    "ko": "ko-KR",
+    "nl": "nl-NL",
+    "pt": "pt-PT",
+    "zh-Hans": "zh-CN",
+    "zh-Hant": "zh-TW",
+    "zh": "zh-CN",
+}
