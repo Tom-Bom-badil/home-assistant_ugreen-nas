@@ -252,12 +252,26 @@ def format_sensor_value(raw: Any, endpoint: UgreenEntity) -> Any:
             })
 
         if "pool" in endpoint.description.key and "status" in endpoint.description.key:
-        # Web GUI .js states: "0":"Normal","1":"Warnung","2":"Gefährlich","3":"Schwerwiegend"
+        # Codes 0-14, taken from the UGOS web UI (Storage Manager app):
+        #   poolStatus(code) -> i18n key `overview.poolStatus.status{code}` (valid 0..14),
+        #   resolved to text via the shipped en-US locale file. Code 5 ("Data organizing")
+        #   also observed live on a DH4300 Plus.
             return format_status_code(raw, {
                 0: "Normal",
-                1: "Rebuilding",
-                2: "Degraded",
-                3: "Faulty",
+                1: "Syncing",
+                2: "Warning",
+                3: "Degraded",
+                4: "Corrupted",
+                5: "Data organizing",
+                6: "Creating",
+                7: "Deleting",
+                8: "Repairing",
+                9: "Rebuilding",
+                10: "Replacing hard drive",
+                11: "Adding hard drive",
+                12: "RAID upgrading",
+                13: "Upgrade",
+                14: "Waiting for sync",
             })
 
         if endpoint.description.unit_of_measurement is not None and endpoint.description.unit_of_measurement == "%":
