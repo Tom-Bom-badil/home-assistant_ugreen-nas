@@ -83,14 +83,12 @@ def format_duration(seconds: float) -> str:
     except Exception:
         return str(seconds)
 
-def format_temperature(raw: Any) -> Union[int, Decimal]:
-    """Format a raw temperature value to a Decimal representation."""
-    if raw is None:
-        return Decimal(0)
+def format_temperature(raw: Any) -> int:
+    """Format a raw temperature value as an integer."""
     try:
         return int(round(float(raw)))
-    except Exception:
-        return Decimal(0)
+    except (TypeError, ValueError, OverflowError):
+        return 0
 
 def format_percentage(raw: Any) -> Decimal:
     """Format a raw percentage value to a Decimal representation."""
