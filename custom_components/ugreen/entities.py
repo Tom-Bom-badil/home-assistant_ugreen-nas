@@ -1146,7 +1146,8 @@ NAS_SPECIFIC_CONFIG_TEMPLATES_UPS: List[UgreenEntity] = [ # -- UPS --
             key="{prefix_key}_power_free",
             name="{prefix_name} Power Remaining",
             icon="mdi:power-plug-battery",
-            unit_of_measurement=None,  # incoming string is like '100%'
+            # unit_of_measurement=None,       # incoming data is like '100%',
+            unit_of_measurement=PERCENTAGE,   # the '%' needs to be stripped
         ),
         endpoint="{endpoint}",
         path="data.hardware.ups[0].power_free",

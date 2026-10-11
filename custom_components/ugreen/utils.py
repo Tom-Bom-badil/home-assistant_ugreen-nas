@@ -97,7 +97,9 @@ def format_percentage(raw: Any) -> Decimal:
     if raw is None:
         return Decimal(0)
     try:
-        return Decimal(str(round(float(raw), 1)))
+        # special treatment needed for 'UPS Power Remaining' (reported as '100%'):
+        # return Decimal(str(round(float(raw), 1)))
+        return int(round(float(str(raw).strip().removesuffix("%"))))
     except Exception:
         return Decimal(0)
     
