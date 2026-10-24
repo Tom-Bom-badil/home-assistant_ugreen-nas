@@ -518,6 +518,71 @@ ALL_NAS_COMMON_STATE_ENTITIES = [ # -- common status entities --
         nas_part_category="Status",
     ),
 
+    ### GPU / NPU / VPU (SoC accelerators - RK3588 etc.)
+    # The taskmgr endpoint exposes these blocks even where UGOS does not
+    # populate them (e.g. the integrated Mali GPU reads a flat 0). Kept as
+    # explicit sensors so NPU/VPU load (AI indexing, HW transcode) is visible.
+    UgreenEntity(
+        description=EntityDescription(
+            key="gpu_usage",
+            name="GPU Usage",
+            icon="mdi:expansion-card-variant",
+            unit_of_measurement=PERCENTAGE,
+        ),
+        decimal_places=0,
+        endpoint="/ugreen/v1/taskmgr/stat/get_all",
+        path="data.overview.gpu[0].used_percent",
+        nas_part_category="Status",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="gpu_temperature",
+            name="GPU Temperature",
+            icon="mdi:thermometer",
+            unit_of_measurement=UnitOfTemperature.CELSIUS,
+        ),
+        decimal_places=0,
+        endpoint="/ugreen/v1/taskmgr/stat/get_all",
+        path="data.overview.gpu[0].temp",
+        nas_part_category="Status",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="npu_usage",
+            name="NPU Usage",
+            icon="mdi:brain",
+            unit_of_measurement=PERCENTAGE,
+        ),
+        decimal_places=0,
+        endpoint="/ugreen/v1/taskmgr/stat/get_all",
+        path="data.overview.npu[0].used_percent",
+        nas_part_category="Status",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="vpu_encode",
+            name="VPU Encode",
+            icon="mdi:movie-open-play",
+            unit_of_measurement=PERCENTAGE,
+        ),
+        decimal_places=0,
+        endpoint="/ugreen/v1/taskmgr/stat/get_all",
+        path="data.overview.vpu[0].encode_used_percent",
+        nas_part_category="Status",
+    ),
+    UgreenEntity(
+        description=EntityDescription(
+            key="vpu_decode",
+            name="VPU Decode",
+            icon="mdi:play-box",
+            unit_of_measurement=PERCENTAGE,
+        ),
+        decimal_places=0,
+        endpoint="/ugreen/v1/taskmgr/stat/get_all",
+        path="data.overview.vpu[0].decode_used_percent",
+        nas_part_category="Status",
+    ),
+
     ### RAM
     UgreenEntity(
         description=EntityDescription(
