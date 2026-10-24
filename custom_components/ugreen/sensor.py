@@ -83,6 +83,10 @@ def _get_statistics_meta(
     if key.endswith(("_smart_last_test", "_smart_next_test")):
         return None, SensorDeviceClass.TIMESTAMP
 
+    # Percentage: UPS battery
+    if key.endswith("_power_free"):
+        return SensorStateClass.MEASUREMENT, SensorDeviceClass.BATTERY
+
     # Percentages: CPU / RAM / SoC-accelerator usage.
     if key in {"cpu_usage", "mem_usage", "gpu_usage", "npu_usage", "vpu_encode", "vpu_decode"}:
         return SensorStateClass.MEASUREMENT, None

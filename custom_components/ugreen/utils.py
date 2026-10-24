@@ -83,21 +83,21 @@ def format_duration(seconds: float) -> str:
     except Exception:
         return str(seconds)
 
-def format_temperature(raw: Any) -> Union[int, Decimal]:
-    """Format a raw temperature value to a Decimal representation."""
-    if raw is None:
-        return Decimal(0)
+def format_temperature(raw: Any) -> int:
+    """Format a raw temperature value as an integer."""
     try:
         return int(round(float(raw)))
-    except Exception:
-        return Decimal(0)
+    except (TypeError, ValueError, OverflowError):
+        return 0
 
 def format_percentage(raw: Any) -> Decimal:
     """Format a raw percentage value to a Decimal representation."""
     if raw is None:
         return Decimal(0)
     try:
-        return Decimal(str(round(float(raw), 1)))
+        # special treatment needed for 'UPS Power Remaining' (reported as '100%'):
+        # return Decimal(str(round(float(raw), 1)))
+        return int(round(float(str(raw).strip().removesuffix("%"))))
     except Exception:
         return Decimal(0)
     
@@ -252,12 +252,26 @@ def format_sensor_value(raw: Any, endpoint: UgreenEntity) -> Any:
             })
 
         if "pool" in endpoint.description.key and "status" in endpoint.description.key:
-        # Web GUI .js states: "0":"Normal","1":"Warnung","2":"Gefährlich","3":"Schwerwiegend"
+        # Codes 0-14, taken from the UGOS web UI (Storage Manager app):
+        #   poolStatus(code) -> i18n key `overview.poolStatus.status{code}` (valid 0..14),
+        #   resolved to text via the shipped en-US locale file. Code 5 ("Data organizing")
+        #   also observed live on a DH4300 Plus.
             return format_status_code(raw, {
                 0: "Normal",
-                1: "Rebuilding",
-                2: "Degraded",
-                3: "Faulty",
+                1: "Syncing",
+                2: "Warning",
+                3: "Degraded",
+                4: "Corrupted",
+                5: "Data organizing",
+                6: "Creating",
+                7: "Deleting",
+                8: "Repairing",
+                9: "Rebuilding",
+                10: "Replacing hard drive",
+                11: "Adding hard drive",
+                12: "RAID upgrading",
+                13: "Upgrade",
+                14: "Waiting for sync",
             })
 
         if endpoint.description.unit_of_measurement is not None and endpoint.description.unit_of_measurement == "%":
