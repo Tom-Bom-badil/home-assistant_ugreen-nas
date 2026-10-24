@@ -4,9 +4,9 @@
 [![Custom integration](https://img.shields.io/badge/Custom%20Integration-%2341BDF5.svg)](https://www.home-assistant.io/getting-started/concepts-terminology)
 [![HACS Listing](https://img.shields.io/badge/HACS%20Listing-default-green.svg)](https://github.com/hacs)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/Tom-Bom-badil/home-assistant_ugreen-nas/graphs/commit-activity)
-[![HA Analytics](https://img.shields.io/badge/dynamic/json?url=https://analytics.home-assistant.io/custom_integrations.json&query=$.ugreen.total&label=HA%20Analytics%20&suffix=%20installations%20%2A&color=green)](https://analytics.home-assistant.io/)
+[![HA Analytics](https://img.shields.io/badge/dynamic/json?url=https://analytics.home-assistant.io/custom_integrations.json&query=$.ugreen.total&label=HA%20Analytics%20&suffix=%20active%20installations%20%2A&color=green)](https://analytics.home-assistant.io/)
 
-<sup><sub>* It is estimated that less than ¼ of all HA users have opted in to HA Analytics to share their usage data, so the actual number of installations is likely way higher.</sub></sup>
+<sup><sub>* Less than ¼ of all HA users have opted in to HA Analytics to share their usage data, so the actual number of installations is likely way higher.</sub></sup>
 
 ---
 
@@ -43,7 +43,9 @@ A pre-made copy/paste example dashboard dynamically adapts to your specific NAS 
 **Contributions welcome!**
 
 💬 [Start a discussion](https://github.com/Tom-Bom-badil/ugreen_nas/discussions) if you run into issues.  
-✅ If it works for you, please let us know - it's great to hear success stories.  
+✅ If it works for you, please let us know - it's great to hear success stories.
 📬 Pull requests and improvements are always appreciated!
 
-*😊 Thanks for using this integration, and for your feedback! 😊*
+<p align="center">
+  <strong><em>♥️ Thank you for using this integration, and for your feedback! ♥️</em></strong>
+</p>
