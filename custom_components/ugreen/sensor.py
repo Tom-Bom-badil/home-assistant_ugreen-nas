@@ -83,16 +83,16 @@ def _get_statistics_meta(
     if key.endswith(("_smart_last_test", "_smart_next_test")):
         return None, SensorDeviceClass.TIMESTAMP
 
-    # Percentages: CPU / RAM usage.
-    if key in {"cpu_usage", "mem_usage"}:
+    # Percentages: CPU / RAM / SoC-accelerator usage.
+    if key in {"cpu_usage", "mem_usage", "gpu_usage", "npu_usage", "vpu_encode", "vpu_decode"}:
         return SensorStateClass.MEASUREMENT, None
 
     # RAM byte values.
     if key in _RAM_SIZE_KEYS:
         return SensorStateClass.MEASUREMENT, SensorDeviceClass.DATA_SIZE
 
-    # Temperatures: CPU, disks, cache disks.
-    if key == "cpu_temperature" or (
+    # Temperatures: CPU, GPU, disks, cache disks.
+    if key in {"cpu_temperature", "gpu_temperature"} or (
         key.endswith("_temperature") and "disk" in key
     ):
         return SensorStateClass.MEASUREMENT, SensorDeviceClass.TEMPERATURE
