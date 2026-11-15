@@ -24,6 +24,7 @@ from .entities import (
 from .const import (
     DOMAIN,
     PLATFORMS,
+    UGOS_FIRMWARE_LANGUAGES,
     CONF_UGREEN_HOST,
     CONF_UGREEN_PORT,
     CONF_USERNAME,
@@ -102,6 +103,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         use_https=bool(entry.options.get(CONF_USE_HTTPS, entry.data.get(CONF_USE_HTTPS, False))),
         client_id=entry.options.get(CONF_CLIENT_ID, entry.data.get(CONF_CLIENT_ID, "")),
         standalone_disks=standalone_disks,
+        language=UGOS_FIRMWARE_LANGUAGES.get(hass.config.language, "en-US"),
     )
 
     ### Initial authentication

@@ -76,6 +76,7 @@ class UgreenApiClient:
         use_https: bool = False,
         client_id: str = "",
         standalone_disks: list[dict[str, Any]] | None = None,
+        language: str = "en-US",
     ):
 
         # Derived connection attributes for HTTP/WS usage
@@ -88,6 +89,7 @@ class UgreenApiClient:
         self.username = username
         self.password = password
         self.token = token
+        self.language = language
 
         # UGOS ties 2FA device trust to the UG-Client-Id header. Presenting
         # the id of a device registered with trust=true lets an account with
@@ -797,7 +799,12 @@ class UgreenApiClient:
             log_url = url.replace(self.token, "{token}") if self.token else url
             _LOGGER.debug("[UGREEN] %s %s payload=%s", method, log_url, payload if method == "POST" else None)
             async with async_timeout.timeout(10):
-                async with session.request(method, url, json=payload if method == "POST" else None, ssl=self._ssl) as resp:
+                async with session.request(
+                    method, url,
+                    json=payload if method == "POST" else None,
+                    headers={"Accept-Language": self.language, "X-Specify-Language": self.language},
+                    ssl=self._ssl,
+                ) as resp:
                     resp.raise_for_status()
                     return await resp.json()
         try:
