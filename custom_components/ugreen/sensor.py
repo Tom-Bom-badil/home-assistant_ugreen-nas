@@ -95,6 +95,10 @@ def _get_statistics_meta(
     if key in _RAM_SIZE_KEYS:
         return SensorStateClass.MEASUREMENT, SensorDeviceClass.DATA_SIZE
 
+    # Raw volume sizes in bytes.
+    if "volumes[" in path and key.endswith(("_total_raw", "_used_raw", "_available_raw")):
+        return SensorStateClass.MEASUREMENT, SensorDeviceClass.DATA_SIZE
+
     # Temperatures: CPU, GPU, disks, cache disks.
     if key in {"cpu_temperature", "gpu_temperature"} or (
         key.endswith("_temperature") and "disk" in key
